@@ -22,9 +22,13 @@ export function initUpdater(send: Send): void {
   autoUpdater.on('error', (e) => send('update:error', e == null ? 'okänt fel' : String(e)))
 
   checkNow()
-  // Kolla regelbundet medan appen är öppen
-  setInterval(checkNow, 30 * 60 * 1000)
+  // Kolla regelbundet medan appen är öppen.
+  // OBS: 5 min under utveckling för snabb test – höj till 30 min inför release.
+  setInterval(checkNow, CHECK_INTERVAL_MS)
 }
+
+// Hur ofta appen letar efter uppdateringar (dev: 5 min, produktion: 30 min)
+const CHECK_INTERVAL_MS = 5 * 60 * 1000
 
 export function quitAndInstall(): void {
   autoUpdater.quitAndInstall()
@@ -34,8 +38,8 @@ let lastCheck = 0
 export function checkNow(): void {
   if (!app.isPackaged) return
   const now = Date.now()
-  // Strypning: minst 5 min mellan kontroller (t.ex. vid upprepad fönsterfokus)
-  if (now - lastCheck < 5 * 60 * 1000) return
+  // Strypning: minst 1 min mellan kontroller (t.ex. vid upprepad fönsterfokus)
+  if (now - lastCheck < 60 * 1000) return
   lastCheck = now
   autoUpdater.checkForUpdates().catch(() => {
     /* nätverksfel m.m. – ignoreras tyst */
