@@ -25,9 +25,15 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+  // Visa fönstret så fort något av flera event inträffar – garanterar att
+  // det alltid dyker upp, även om ready-to-show dröjer eller renderern fallerar.
+  const reveal = (): void => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show()
+  }
+  mainWindow.once('ready-to-show', reveal)
+  mainWindow.webContents.once('did-finish-load', reveal)
+  mainWindow.webContents.on('did-fail-load', reveal)
+  setTimeout(reveal, 2500) // sista utväg
 
   // Öppna externa länkar i systemets webbläsare, inte i appen
   mainWindow.webContents.setWindowOpenHandler((details) => {
