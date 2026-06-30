@@ -25,9 +25,11 @@ export function EditorPane(): JSX.Element {
     pinTab,
     closeTab,
     closeTabs,
+    reorderTabs,
     refresh,
     resolveSide
   } = useRepo()
+  const dragTabRef = useRef<string | null>(null)
   const { settings } = useSettings()
   const { notify } = useToast()
   const monaco = useMonaco()
@@ -47,6 +49,9 @@ export function EditorPane(): JSX.Element {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef<() => void>(() => {})
   const formatDocRef = useRef<() => void>(() => {})
+  const autoSaveRef = useRef(settings.autoSave)
+  autoSaveRef.current = settings.autoSave
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Osparat innehåll per flik, så ändringar överlever flikbyten
   const buffers = useRef<Map<string, string>>(new Map())
   // Gutter-markeringar + inline blame
@@ -214,6 +219,11 @@ export function EditorPane(): JSX.Element {
     if (isDirty) buffers.current.set(activePath, val)
     else buffers.current.delete(activePath)
     markDirty(activePath, isDirty)
+    // Auto-spara efter en kort paus
+    if (autoSaveRef.current === 'afterDelay' && isDirty) {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+      autoSaveTimer.current = setTimeout(() => saveRef.current(), 800)
+    }
   }
 
   // Sparar en valfri flik (aktiv → live-innehåll, annars dess buffert).
@@ -328,6 +338,14 @@ export function EditorPane(): JSX.Element {
             onContextMenu={(e) => openTabMenu(path, e)}
             title={path}
             onAuxClick={(e) => e.button === 1 && handleClose(path, e)}
+            draggable
+            onDragStart={() => (dragTabRef.current = path)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragTabRef.current && dragTabRef.current !== path)
+                reorderTabs(dragTabRef.current, path)
+              dragTabRef.current = null
+            }}
           >
             <span className="tab-name">{path.split('/').pop()}</span>
             {dirtyTabs.has(path) && <span className="tab-dirty">•</span>}
@@ -418,6 +436,10 @@ export function EditorPane(): JSX.Element {
               monacoApi.KeyMod.Shift | monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyF,
               () => formatDocRef.current()
             )
+            // Auto-spara vid fokusbyte
+            ed.onDidBlurEditorText(() => {
+              if (autoSaveRef.current === 'onFocusChange') saveRef.current()
+            })
             setEditorReady((n) => n + 1)
           }}
           onChange={onEdit}

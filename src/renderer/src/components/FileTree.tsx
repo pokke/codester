@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
@@ -47,6 +47,8 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const [draft, setDraft] = useState('')
   const [creating, setCreating] = useState<Creating>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
+  const [clipboard, setClipboard] = useState<{ path: string; op: 'cut' | 'copy' } | null>(null)
+  const dragRef = useRef<string | null>(null)
 
   const tree = useMemo(() => buildTree(files), [files])
 
@@ -147,6 +149,37 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     setDraft(name)
   }
 
+  // Flytta src in i mappen destFolder ('' = roten)
+  const moveInto = async (src: string, destFolder: string): Promise<void> => {
+    const name = src.split('/').pop()!
+    const dest = destFolder ? `${destFolder}/${name}` : name
+    if (dest === src) return
+    // Hindra att flytta en mapp in i sig själv
+    if (destFolder === src || destFolder.startsWith(`${src}/`)) {
+      notify('Kan inte flytta en mapp in i sig själv', 'error')
+      return
+    }
+    const res = await window.api.fs.rename(src, dest)
+    if (res.ok) await refresh()
+    else notify(res.error, 'error')
+  }
+
+  const pasteInto = async (destFolder: string): Promise<void> => {
+    if (!clipboard) return
+    const name = clipboard.path.split('/').pop()!
+    const dest = destFolder ? `${destFolder}/${name}` : name
+    const res =
+      clipboard.op === 'cut'
+        ? await window.api.fs.rename(clipboard.path, dest)
+        : await window.api.fs.copy(clipboard.path, dest)
+    if (res.ok) {
+      if (clipboard.op === 'cut') setClipboard(null)
+      await refresh()
+    } else {
+      notify(res.error, 'error')
+    }
+  }
+
   // Högerklicksmenyer
   const openMenu = (e: React.MouseEvent, items: MenuState['items']): void => {
     e.preventDefault()
@@ -157,6 +190,9 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     openMenu(e, [
       { label: 'Öppna', onClick: () => { selectPath(node.path); onOpenEditor() } },
       { separator: true },
+      { label: 'Klipp ut', onClick: () => setClipboard({ path: node.path, op: 'cut' }) },
+      { label: 'Kopiera', onClick: () => setClipboard({ path: node.path, op: 'copy' }) },
+      { separator: true },
       { label: 'Byt namn', onClick: () => startRename(node.path, node.name) },
       { label: 'Radera', danger: true, onClick: () => del(node.path) }
     ])
@@ -165,13 +201,18 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       { label: 'Ny fil', onClick: () => startCreate(node.path, 'file') },
       { label: 'Ny mapp', onClick: () => startCreate(node.path, 'folder') },
       { separator: true },
+      { label: 'Klipp ut', onClick: () => setClipboard({ path: node.path, op: 'cut' }) },
+      { label: 'Kopiera', onClick: () => setClipboard({ path: node.path, op: 'copy' }) },
+      ...(clipboard ? [{ label: 'Klistra in', onClick: () => pasteInto(node.path) }] : []),
+      { separator: true },
       { label: 'Byt namn', onClick: () => startRename(node.path, node.name) },
       { label: 'Radera', danger: true, onClick: () => del(node.path) }
     ])
   const rootMenu = (e: React.MouseEvent): void =>
     openMenu(e, [
       { label: 'Ny fil', onClick: () => startCreate('', 'file') },
-      { label: 'Ny mapp', onClick: () => startCreate('', 'folder') }
+      { label: 'Ny mapp', onClick: () => startCreate('', 'folder') },
+      ...(clipboard ? [{ separator: true }, { label: 'Klistra in', onClick: () => pasteInto('') }] : [])
     ])
 
   const renderNode = (node: TreeNode, depth: number): JSX.Element => {
@@ -212,6 +253,8 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
             onOpenEditor()
           }}
           onContextMenu={fileMenu(node)}
+          draggable
+          onDragStart={() => (dragRef.current = node.path)}
         >
           <span className="icon">📄</span>
           <span className={`fname ${gs ? `git-${gs}` : ''}`}>{node.name}</span>
@@ -228,6 +271,18 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
           style={pad}
           onClick={() => toggle(node.path)}
           onContextMenu={folderMenu(node)}
+          draggable
+          onDragStart={(e) => {
+            e.stopPropagation()
+            dragRef.current = node.path
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (dragRef.current) moveInto(dragRef.current, node.path)
+            dragRef.current = null
+          }}
         >
           <span className="icon">{isOpen ? '▾' : '▸'}</span>
           <span className={`fname ${dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>
@@ -264,7 +319,15 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   )
 
   return (
-    <div className="file-tree" onContextMenu={rootMenu}>
+    <div
+      className="file-tree"
+      onContextMenu={rootMenu}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={() => {
+        if (dragRef.current) moveInto(dragRef.current, '')
+        dragRef.current = null
+      }}
+    >
       {creating?.parent === '' && createInput(0)}
       {files.length === 0 && !creating && <div className="hint">Högerklicka för att skapa filer</div>}
       {sortedChildren(tree).map((c) => renderNode(c, 0))}

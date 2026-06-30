@@ -1,5 +1,5 @@
 import { join, dirname } from 'path'
-import { mkdir, rename, rm, writeFile, access } from 'fs/promises'
+import { mkdir, rename, rm, writeFile, access, cp } from 'fs/promises'
 import { getRepoPath } from './git'
 
 // Fil-/mappoperationer relativt det öppnade repot. Används av filträdet.
@@ -44,4 +44,11 @@ export async function renamePath(oldRel: string, newRel: string): Promise<void> 
 
 export async function deletePath(rel: string): Promise<void> {
   await rm(abs(rel), { recursive: true, force: true })
+}
+
+export async function copyPath(srcRel: string, destRel: string): Promise<void> {
+  const to = abs(destRel)
+  if (await exists(to)) throw new Error('Målet finns redan')
+  await mkdir(dirname(to), { recursive: true })
+  await cp(abs(srcRel), to, { recursive: true })
 }

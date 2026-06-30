@@ -57,6 +57,7 @@ interface RepoContextValue extends RepoState {
   pinTab: (path: string) => void
   closeTab: (path: string) => void
   closeTabs: (paths: string[]) => void
+  reorderTabs: (from: string, to: string) => void
   checkout: (name: string) => Promise<void>
   createBranch: (name: string) => Promise<void>
   stage: (file: string) => Promise<void>
@@ -248,6 +249,18 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     })
   }, [])
 
+  const reorderTabs = useCallback((from: string, to: string) => {
+    setState((s) => {
+      const arr = [...s.openTabs]
+      const fi = arr.indexOf(from)
+      const ti = arr.indexOf(to)
+      if (fi < 0 || ti < 0 || fi === ti) return s
+      arr.splice(fi, 1)
+      arr.splice(ti, 0, from)
+      return { ...s, openTabs: arr }
+    })
+  }, [])
+
   const closeTabs = useCallback((paths: string[]) => {
     const drop = new Set(paths)
     setState((s) => {
@@ -396,6 +409,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         pinTab,
         closeTab,
         closeTabs,
+        reorderTabs,
         checkout,
         createBranch,
         stage,

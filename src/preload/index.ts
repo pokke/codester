@@ -93,7 +93,8 @@ const api = {
     createFile: (rel: string) => invoke<void>('fs:createFile', rel),
     createFolder: (rel: string) => invoke<void>('fs:createFolder', rel),
     rename: (oldRel: string, newRel: string) => invoke<void>('fs:rename', oldRel, newRel),
-    delete: (rel: string) => invoke<void>('fs:delete', rel)
+    delete: (rel: string) => invoke<void>('fs:delete', rel),
+    copy: (srcRel: string, destRel: string) => invoke<void>('fs:copy', srcRel, destRel)
   },
 
   onRepoChanged: (cb: () => void): (() => void) => {

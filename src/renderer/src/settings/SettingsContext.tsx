@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { defaultThemeId, getTheme } from '../themes/themes'
 
 export type Density = 'compact' | 'comfortable' | 'spacious'
+export type AutoSave = 'off' | 'afterDelay' | 'onFocusChange'
 
 export interface Settings {
   themeId: string
@@ -12,6 +13,7 @@ export interface Settings {
   sidebarWidth: number // px
   inspectorWidth: number // px
   formatOnSave: boolean
+  autoSave: AutoSave
 }
 
 const DEFAULTS: Settings = {
@@ -22,7 +24,8 @@ const DEFAULTS: Settings = {
   density: 'comfortable',
   sidebarWidth: 250,
   inspectorWidth: 280,
-  formatOnSave: false
+  formatOnSave: false,
+  autoSave: 'off'
 }
 
 const STORAGE_KEY = 'codester.settings'

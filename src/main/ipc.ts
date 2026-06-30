@@ -95,6 +95,7 @@ export function registerIpc(): void {
   handle('fs:createFolder', (rel: string) => files.createFolder(rel))
   handle('fs:rename', (oldRel: string, newRel: string) => files.renamePath(oldRel, newRel))
   handle('fs:delete', (rel: string) => files.deletePath(rel))
+  handle('fs:copy', (srcRel: string, destRel: string) => files.copyPath(srcRel, destRel))
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
   ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))

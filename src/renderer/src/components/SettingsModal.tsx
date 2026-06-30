@@ -113,7 +113,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             </div>
           </div>
 
-          {/* Formatera vid spara */}
+          {/* Redigering */}
           <div className="field">
             <label>Redigering</label>
             <label className="checkbox-row">
@@ -124,6 +124,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               />
               Formatera vid spara (Prettier)
             </label>
+          </div>
+
+          {/* Auto-spara */}
+          <div className="field">
+            <label>Spara automatiskt</label>
+            <div className="seg-toggle">
+              {(
+                [
+                  ['off', 'Av'],
+                  ['afterDelay', 'Efter paus'],
+                  ['onFocusChange', 'Vid fokusbyte']
+                ] as const
+              ).map(([val, label]) => (
+                <button
+                  key={val}
+                  className={settings.autoSave === val ? 'active' : ''}
+                  onClick={() => update({ autoSave: val })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button className="btn full" onClick={reset}>
