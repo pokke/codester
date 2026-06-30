@@ -69,7 +69,8 @@
       {
         "provider": "github",
         "owner": "pokke",
-        "repo": "codester"
+        "repo": "codester",
+        "releaseType": "release"
       }
     ],
     "forceCodeSigning": false
