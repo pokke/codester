@@ -36,6 +36,7 @@ export function EditorPane(): JSX.Element {
   const editedRef = useRef('')
   const diskRef = useRef('')
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
+  const saveRef = useRef<() => void>(() => {})
   // Osparat innehåll per flik, så ändringar överlever flikbyten
   const buffers = useRef<Map<string, string>>(new Map())
 
@@ -128,6 +129,7 @@ export function EditorPane(): JSX.Element {
   }
 
   const save = async (): Promise<void> => {
+    if (!dirty) return
     const res = await window.api.git.saveFile(activePath, editedRef.current)
     if (res.ok) {
       diskRef.current = editedRef.current
@@ -135,12 +137,12 @@ export function EditorPane(): JSX.Element {
       buffers.current.delete(activePath)
       setDirty(false)
       markDirty(activePath, false)
-      notify('Sparad', 'success')
       await refresh()
     } else {
       notify(`Kunde inte spara: ${res.error}`, 'error')
     }
   }
+  saveRef.current = save
 
   const handleClose = (path: string, e?: React.MouseEvent): void => {
     e?.stopPropagation()
@@ -200,9 +202,7 @@ export function EditorPane(): JSX.Element {
               </div>
             )}
             {mode === 'edit' && (
-              <button className="btn primary" disabled={!dirty} onClick={save}>
-                Spara{dirty ? ' •' : ''}
-              </button>
+              <span className="muted small">{dirty ? 'Osparat · Ctrl+S' : 'Sparat'}</span>
             )}
           </>
         )}
@@ -234,8 +234,12 @@ export function EditorPane(): JSX.Element {
           language={lang}
           path={activePath}
           value={working}
-          onMount={(ed) => {
+          onMount={(ed, monacoApi) => {
             editorRef.current = ed
+            // Ctrl+S sparar (som i VS Code) – ingen synlig spara-knapp
+            ed.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () =>
+              saveRef.current()
+            )
           }}
           onChange={onEdit}
           options={{

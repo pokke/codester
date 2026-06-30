@@ -1009,3 +1009,15 @@ code {
   background: color-mix(in srgb, var(--text) 15%, transparent);
   color: var(--text);
 }
+
+/* ── Filträd: verktygsrad ── */
+.tree-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px var(--space);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  margin-bottom: 4px;
+}
+.tree-toolbar .btn {
+  font-size: 12px;
+}

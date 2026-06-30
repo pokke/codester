@@ -77,6 +77,13 @@ const api = {
     }
   },
 
+  fs: {
+    createFile: (rel: string) => invoke<void>('fs:createFile', rel),
+    createFolder: (rel: string) => invoke<void>('fs:createFolder', rel),
+    rename: (oldRel: string, newRel: string) => invoke<void>('fs:rename', oldRel, newRel),
+    delete: (rel: string) => invoke<void>('fs:delete', rel)
+  },
+
   onRepoChanged: (cb: () => void): (() => void) => {
     const listener = (): void => cb()
     ipcRenderer.on('repo:changed', listener)

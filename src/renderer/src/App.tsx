@@ -10,6 +10,7 @@ import { Resizer } from './components/Resizer'
 import { StatusBar } from './components/StatusBar'
 import { SettingsModal } from './components/SettingsModal'
 import { CommandPalette } from './components/CommandPalette'
+import { QuickOpen } from './components/QuickOpen'
 import { AboutModal } from './components/AboutModal'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useRepo } from './state/RepoContext'
@@ -21,6 +22,7 @@ export function App(): JSX.Element {
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
+  const [showQuickOpen, setShowQuickOpen] = useState(false)
   const [showInspector, setShowInspector] = useState(true)
   const [version, setVersion] = useState('0.1.0')
 
@@ -33,7 +35,8 @@ export function App(): JSX.Element {
     const onKey = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault()
-        setShowPalette((v) => !v)
+        if (e.shiftKey) setShowPalette((v) => !v) // Ctrl+Shift+P → kommandopalett
+        else setShowQuickOpen((v) => !v) // Ctrl+P → hoppa till fil
       }
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault()
@@ -109,6 +112,12 @@ export function App(): JSX.Element {
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showAbout && <AboutModal version={version} onClose={() => setShowAbout(false)} />}
+      {showQuickOpen && (
+        <QuickOpen
+          onClose={() => setShowQuickOpen(false)}
+          onPick={() => setView('editor')}
+        />
+      )}
       {showPalette && (
         <CommandPalette
           onClose={() => setShowPalette(false)}

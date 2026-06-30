@@ -4,6 +4,7 @@ import * as git from './services/git'
 import * as github from './services/github'
 import * as terminal from './services/terminal'
 import * as watcher from './services/watcher'
+import * as files from './services/files'
 
 function watchRepo(path: string): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -84,6 +85,12 @@ export function registerIpc(): void {
   handle('git:stashList', () => git.stashList())
   handle('git:stashApply', (index: number, pop: boolean) => git.stashApply(index, pop))
   handle('git:stashDrop', (index: number) => git.stashDrop(index))
+
+  // --- Filoperationer ---
+  handle('fs:createFile', (rel: string) => files.createFile(rel))
+  handle('fs:createFolder', (rel: string) => files.createFolder(rel))
+  handle('fs:rename', (oldRel: string, newRel: string) => files.renamePath(oldRel, newRel))
+  handle('fs:delete', (rel: string) => files.deletePath(rel))
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
   ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))

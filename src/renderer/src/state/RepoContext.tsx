@@ -115,9 +115,32 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     async (repo: RepoInfo) => {
       setState((s) => ({ ...s, repo, activePath: null, openTabs: [] }))
       await loadRepoData()
+      // Återställ tidigare öppna flikar för detta repo (om filerna finns kvar)
+      try {
+        const raw = localStorage.getItem(`codester.tabs.${repo.path}`)
+        const saved = raw ? JSON.parse(raw) : null
+        if (saved && Array.isArray(saved.openTabs)) {
+          setState((s) => {
+            const valid = saved.openTabs.filter((p: string) => s.files.includes(p))
+            const active = valid.includes(saved.activePath) ? saved.activePath : (valid[0] ?? null)
+            return { ...s, openTabs: valid, activePath: active }
+          })
+        }
+      } catch {
+        // ignorera trasig data
+      }
     },
     [loadRepoData]
   )
+
+  // Spara öppna flikar per repo
+  useEffect(() => {
+    if (!state.repo) return
+    localStorage.setItem(
+      `codester.tabs.${state.repo.path}`,
+      JSON.stringify({ openTabs: state.openTabs, activePath: state.activePath })
+    )
+  }, [state.repo, state.openTabs, state.activePath])
 
   // Återöppna senaste repo om main fortfarande har ett aktivt
   useEffect(() => {
