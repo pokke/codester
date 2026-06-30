@@ -57,6 +57,18 @@ jobs:
           else
             echo "No code signing certificate — building unsigned."
           fi
-          # --publish always laddar upp installer + latest.yml + blockmap till
-          # GitHub Release, vilket auto-uppdateringen (electron-updater) behöver.
-          npx electron-builder --win --publish always
+          npx electron-builder --win --publish never
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          # Installer + manifest (latest.yml) + blockmap krävs för auto-update
+          files: |
+            release/*.exe
+            release/latest.yml
+            release/*.blockmap
+          draft: false
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
