@@ -1190,3 +1190,14 @@ code {
   background: var(--border);
   margin: 4px 0;
 }
+
+/* ── Bekräftelsedialog (t.ex. osparade ändringar) ── */
+.modal.confirm {
+  width: 420px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space);
+  margin-top: var(--space);
+}

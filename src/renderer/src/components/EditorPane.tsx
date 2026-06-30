@@ -36,6 +36,7 @@ export function EditorPane(): JSX.Element {
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
   const [dirtyTabs, setDirtyTabs] = useState<Set<string>>(new Set())
+  const [closePrompt, setClosePrompt] = useState<string | null>(null)
 
   const editedRef = useRef('')
   const diskRef = useRef('')
@@ -211,39 +212,56 @@ export function EditorPane(): JSX.Element {
     markDirty(activePath, isDirty)
   }
 
-  const save = async (): Promise<void> => {
-    if (!dirty) return
-    let content = editedRef.current
+  // Sparar en valfri flik (aktiv → live-innehåll, annars dess buffert).
+  const savePath = async (path: string): Promise<boolean> => {
+    let content = path === activePath ? editedRef.current : buffers.current.get(path)
+    if (content === undefined) return true // inget osparat
     let didFormat = false
-    if (settings.formatOnSave && canFormat(lang)) {
+    const plang = languageForPath(path)
+    if (settings.formatOnSave && canFormat(plang)) {
       try {
-        content = await formatCode(content, lang)
+        content = await formatCode(content, plang)
         didFormat = true
       } catch (e) {
         notify(`Formatering misslyckades: ${e instanceof Error ? e.message : e}`, 'error')
       }
     }
-    const res = await window.api.git.saveFile(activePath, content)
-    if (res.ok) {
+    const res = await window.api.git.saveFile(path, content)
+    if (!res.ok) {
+      notify(`Kunde inte spara: ${res.error}`, 'error')
+      return false
+    }
+    buffers.current.delete(path)
+    markDirty(path, false)
+    if (path === activePath) {
       editedRef.current = content
       diskRef.current = content
       setWorking(content)
-      buffers.current.delete(activePath)
       setDirty(false)
-      markDirty(activePath, false)
-      notify(didFormat ? 'Formaterad & sparad' : 'Sparad', 'success')
-      await refresh()
-    } else {
-      notify(`Kunde inte spara: ${res.error}`, 'error')
     }
+    notify(didFormat ? 'Formaterad & sparad' : 'Sparad', 'success')
+    await refresh()
+    return true
+  }
+
+  const save = (): void => {
+    if (dirty) savePath(activePath)
   }
   saveRef.current = save
 
-  const handleClose = (path: string, e?: React.MouseEvent): void => {
-    e?.stopPropagation()
-    if (dirtyTabs.has(path) && !confirm(`${path} har osparade ändringar. Stäng ändå?`)) return
+  const discardAndClose = (path: string): void => {
     buffers.current.delete(path)
     markDirty(path, false)
+    setClosePrompt(null)
+    closeTab(path)
+  }
+
+  const handleClose = (path: string, e?: React.MouseEvent): void => {
+    e?.stopPropagation()
+    if (dirtyTabs.has(path)) {
+      setClosePrompt(path) // visa in-app-dialog (Spara / Spara inte / Avbryt)
+      return
+    }
     closeTab(path)
   }
 
@@ -350,6 +368,39 @@ export function EditorPane(): JSX.Element {
             automaticLayout: true
           }}
         />
+      )}
+
+      {closePrompt && (
+        <div className="overlay" onClick={() => setClosePrompt(null)}>
+          <div className="modal confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">Spara ändringar?</div>
+            <div className="modal-body">
+              <p>
+                Vill du spara ändringarna i{' '}
+                <strong>{closePrompt.split('/').pop()}</strong>?
+              </p>
+              <p className="muted small">Ändringarna går förlorade om du inte sparar.</p>
+              <div className="dialog-actions">
+                <button className="btn ghost" onClick={() => setClosePrompt(null)}>
+                  Avbryt
+                </button>
+                <button className="btn" onClick={() => discardAndClose(closePrompt)}>
+                  Spara inte
+                </button>
+                <button
+                  className="btn primary"
+                  onClick={async () => {
+                    const p = closePrompt
+                    setClosePrompt(null)
+                    if (await savePath(p)) closeTab(p)
+                  }}
+                >
+                  Spara
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )
