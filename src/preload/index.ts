@@ -8,6 +8,7 @@ import type {
   FileChange,
   GitHubRepo,
   GitHubUser,
+  LineChange,
   PullRequest,
   RepoInfo,
   RepoStatus,
@@ -53,6 +54,9 @@ const api = {
     commitFiles: (hash: string) => invoke<FileChange[]>('git:commitFiles', hash),
     showFile: (rev: string, file: string) => invoke<string>('git:showFile', rev, file),
     search: (query: string) => invoke<SearchHit[]>('git:search', query),
+    replace: (query: string, replacement: string) =>
+      invoke<{ files: number; count: number }>('git:replace', query, replacement),
+    lineChanges: (file: string) => invoke<LineChange[]>('git:lineChanges', file),
     saveFile: (file: string, content: string) =>
       invoke<void>('git:saveFile', file, content),
     blame: (file: string) => invoke<BlameLine[]>('git:blame', file),

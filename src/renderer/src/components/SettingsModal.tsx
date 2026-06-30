@@ -113,6 +113,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             </div>
           </div>
 
+          {/* Formatera vid spara */}
+          <div className="field">
+            <label>Redigering</label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={settings.formatOnSave}
+                onChange={(e) => update({ formatOnSave: e.target.checked })}
+              />
+              Formatera vid spara (Prettier)
+            </label>
+          </div>
+
           <button className="btn full" onClick={reset}>
             Återställ till standard
           </button>

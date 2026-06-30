@@ -1021,3 +1021,37 @@ code {
 .tree-toolbar .btn {
   font-size: 12px;
 }
+
+/* ── Gutter-markeringar för ändrade rader ── */
+.gutter-add {
+  border-left: 3px solid var(--added);
+  margin-left: 3px;
+}
+.gutter-mod {
+  border-left: 3px solid var(--accent);
+  margin-left: 3px;
+}
+.gutter-del {
+  border-left: 3px solid var(--removed);
+  margin-left: 3px;
+}
+
+/* ── Inline blame ── */
+.blame-inline {
+  color: var(--text-muted) !important;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ── Kryssruta i inställningar ── */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.checkbox-row input {
+  width: auto;
+}

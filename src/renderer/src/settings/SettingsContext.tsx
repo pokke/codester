@@ -11,6 +11,7 @@ export interface Settings {
   density: Density
   sidebarWidth: number // px
   inspectorWidth: number // px
+  formatOnSave: boolean
 }
 
 const DEFAULTS: Settings = {
@@ -20,7 +21,8 @@ const DEFAULTS: Settings = {
   uiScale: 1,
   density: 'comfortable',
   sidebarWidth: 250,
-  inspectorWidth: 280
+  inspectorWidth: 280,
+  formatOnSave: false
 }
 
 const STORAGE_KEY = 'codester.settings'

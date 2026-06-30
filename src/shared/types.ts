@@ -82,6 +82,12 @@ export interface SearchHit {
   text: string
 }
 
+export interface LineChange {
+  start: number
+  end: number
+  type: 'add' | 'mod' | 'del'
+}
+
 export interface StashEntry {
   index: number
   message: string

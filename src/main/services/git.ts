@@ -7,6 +7,7 @@ import type {
   CommitLogEntry,
   DiffResult,
   FileChange,
+  LineChange,
   RepoStatus,
   SearchHit,
   StashEntry
@@ -223,6 +224,64 @@ export async function searchRepo(query: string): Promise<SearchHit[]> {
       .filter((h): h is SearchHit => h !== null)
   } catch {
     // git grep returnerar exit 1 när inget matchar
+    return []
+  }
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export async function replaceInRepo(
+  query: string,
+  replacement: string
+): Promise<{ files: number; count: number }> {
+  if (!query || !repoPath) return { files: 0, count: 0 }
+  let list: string[] = []
+  try {
+    const raw = await requireGit().raw(['grep', '-l', '-I', '-F', '-i', '-e', query])
+    list = raw.split('\n').map((s) => s.trim()).filter(Boolean)
+  } catch {
+    return { files: 0, count: 0 } // inga träffar
+  }
+  const re = new RegExp(escapeRegExp(query), 'gi')
+  let files = 0
+  let count = 0
+  for (const rel of list) {
+    const full = join(repoPath, rel)
+    const content = await readFile(full, 'utf-8')
+    const matches = content.match(re)
+    if (!matches) continue
+    await writeFile(full, content.replace(re, replacement), 'utf-8')
+    files++
+    count += matches.length
+  }
+  return { files, count }
+}
+
+export async function lineChanges(file: string): Promise<LineChange[]> {
+  // Rad-ändringar mot HEAD (för gutter-markering), via git diff -U0.
+  try {
+    const raw = await requireGit().diff(['--unified=0', 'HEAD', '--', file])
+    const changes: LineChange[] = []
+    const re = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm
+    let m: RegExpExecArray | null
+    while ((m = re.exec(raw)) !== null) {
+      const oldCount = m[1] === undefined ? 1 : Number(m[1])
+      const newStart = Number(m[2])
+      const newCount = m[3] === undefined ? 1 : Number(m[3])
+      if (newCount === 0) {
+        changes.push({ start: newStart, end: newStart, type: 'del' })
+      } else {
+        changes.push({
+          start: newStart,
+          end: newStart + newCount - 1,
+          type: oldCount === 0 ? 'add' : 'mod'
+        })
+      }
+    }
+    return changes
+  } catch {
     return []
   }
 }

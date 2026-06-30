@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
+import { useToast } from '../ui/Toast'
 import { FileTree } from './FileTree'
 import type { FileChange, SearchHit } from '../../../shared/types'
 
@@ -27,12 +28,15 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     stashes,
     stashSave,
     stashApply,
-    stashDrop
+    stashDrop,
+    refresh
   } = useRepo()
+  const { notify } = useToast()
   const [tab, setTab] = useState<Tab>('changes')
   const [creating, setCreating] = useState(false)
   const [newBranch, setNewBranch] = useState('')
   const [query, setQuery] = useState('')
+  const [replacement, setReplacement] = useState('')
   const [results, setResults] = useState<SearchHit[]>([])
   const [searching, setSearching] = useState(false)
 
@@ -55,6 +59,20 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
   const openHit = (hit: SearchHit): void => {
     selectPath(hit.file, hit.line)
     onOpenEditor()
+  }
+
+  const doReplace = async (): Promise<void> => {
+    if (!query.trim()) return
+    const fileCount = new Set(results.map((r) => r.file)).size
+    if (!confirm(`Ersätt "${query}" med "${replacement}" i ${fileCount} fil(er)?`)) return
+    const res = await window.api.git.replace(query, replacement)
+    if (res.ok) {
+      notify(`Ersatte ${res.data.count} förekomster i ${res.data.files} fil(er)`, 'success')
+      await refresh()
+      setResults([])
+    } else {
+      notify(res.error, 'error')
+    }
   }
 
   if (!repo) {
@@ -182,7 +200,14 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
 
       {tab === 'search' ? (
         <>
-          <div style={{ padding: 'var(--space)' }}>
+          <div
+            style={{
+              padding: 'var(--space)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6
+            }}
+          >
             <input
               autoFocus
               placeholder="Sök i alla filer…"
@@ -190,6 +215,19 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
               onChange={(e) => setQuery(e.target.value)}
               style={{ width: '100%' }}
             />
+            <input
+              placeholder="Ersätt med…"
+              value={replacement}
+              onChange={(e) => setReplacement(e.target.value)}
+              style={{ width: '100%' }}
+            />
+            <button
+              className="btn full"
+              disabled={!query.trim() || results.length === 0}
+              onClick={doReplace}
+            >
+              Ersätt alla
+            </button>
           </div>
           <div className="panel-body">
             {searching && <div className="hint">Söker…</div>}

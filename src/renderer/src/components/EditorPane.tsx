@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Editor, { DiffEditor, useMonaco } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
+import type { BlameLine } from '../../../shared/types'
 import { defineMonacoTheme, languageForPath } from '../editor/monaco'
+import { canFormat, formatCode } from '../editor/format'
 import { ConflictResolver } from './ConflictResolver'
 import { useRepo } from '../state/RepoContext'
 import { useSettings } from '../settings/SettingsContext'
@@ -39,6 +41,11 @@ export function EditorPane(): JSX.Element {
   const saveRef = useRef<() => void>(() => {})
   // Osparat innehåll per flik, så ändringar överlever flikbyten
   const buffers = useRef<Map<string, string>>(new Map())
+  // Gutter-markeringar + inline blame
+  const [editorReady, setEditorReady] = useState(0)
+  const changesRef = useRef<MonacoEditor.IEditorDecorationsCollection | null>(null)
+  const blameDataRef = useRef<BlameLine[]>([])
+  const blameCol = useRef<MonacoEditor.IEditorDecorationsCollection | null>(null)
 
   const change = status?.files.find((f) => f.path === activePath)
   const isConflicted = !!activePath && (status?.conflicted ?? []).includes(activePath)
@@ -101,6 +108,71 @@ export function EditorPane(): JSX.Element {
     }
   }, [activePath, revision])
 
+  // Gutter: markera ändrade rader mot HEAD
+  const applyGutter = (): void => {
+    const ed = editorRef.current
+    if (!ed || !monaco) return
+    window.api.git.lineChanges(activePath!).then((r) => {
+      if (!editorRef.current) return
+      const list = r.ok ? r.data : []
+      const decos = list.map((c) => ({
+        range: new monaco.Range(c.start, 1, Math.max(c.start, c.end), 1),
+        options: { linesDecorationsClassName: `gutter-${c.type}` }
+      }))
+      if (changesRef.current) changesRef.current.set(decos)
+      else changesRef.current = ed.createDecorationsCollection(decos)
+    })
+  }
+
+  // Inline blame på raden där markören står
+  const applyBlame = (): void => {
+    const ed = editorRef.current
+    if (!ed || !monaco) return
+    const pos = ed.getPosition()
+    const b = pos ? blameDataRef.current[pos.lineNumber - 1] : undefined
+    if (!pos || !b) {
+      blameCol.current?.clear()
+      return
+    }
+    const model = ed.getModel()
+    const col = model ? model.getLineMaxColumn(pos.lineNumber) : 1
+    const decos = [
+      {
+        range: new monaco.Range(pos.lineNumber, col, pos.lineNumber, col),
+        options: {
+          after: { content: `    ${b.author} · ${b.date}`, inlineClassName: 'blame-inline' }
+        }
+      }
+    ]
+    if (blameCol.current) blameCol.current.set(decos)
+    else blameCol.current = ed.createDecorationsCollection(decos)
+  }
+
+  // Ladda gutter- och blame-data (endast i redigeringsläge)
+  useEffect(() => {
+    if (!activePath || isConflicted || mode !== 'edit' || !editorReady) return
+    let cancelled = false
+    applyGutter()
+    window.api.git.blame(activePath).then((r) => {
+      if (cancelled) return
+      blameDataRef.current = r.ok ? r.data : []
+      applyBlame()
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePath, revision, mode, editorReady, monaco])
+
+  // Lyssna på markörflytt för att uppdatera inline blame
+  useEffect(() => {
+    const ed = editorRef.current
+    if (!ed) return
+    const sub = ed.onDidChangeCursorPosition(() => applyBlame())
+    return () => sub.dispose()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorReady, monaco])
+
   const themeId = `codester-${settings.themeId}`
 
   if (!activePath) {
@@ -130,10 +202,19 @@ export function EditorPane(): JSX.Element {
 
   const save = async (): Promise<void> => {
     if (!dirty) return
-    const res = await window.api.git.saveFile(activePath, editedRef.current)
+    let content = editedRef.current
+    if (settings.formatOnSave && canFormat(lang)) {
+      try {
+        content = await formatCode(content, lang)
+      } catch (e) {
+        notify(`Formatering misslyckades: ${e instanceof Error ? e.message : e}`, 'error')
+      }
+    }
+    const res = await window.api.git.saveFile(activePath, content)
     if (res.ok) {
-      diskRef.current = editedRef.current
-      setWorking(editedRef.current)
+      editedRef.current = content
+      diskRef.current = content
+      setWorking(content)
       buffers.current.delete(activePath)
       setDirty(false)
       markDirty(activePath, false)
@@ -236,10 +317,13 @@ export function EditorPane(): JSX.Element {
           value={working}
           onMount={(ed, monacoApi) => {
             editorRef.current = ed
+            changesRef.current = null
+            blameCol.current = null
             // Ctrl+S sparar (som i VS Code) – ingen synlig spara-knapp
             ed.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () =>
               saveRef.current()
             )
+            setEditorReady((n) => n + 1)
           }}
           onChange={onEdit}
           options={{

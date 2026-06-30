@@ -75,6 +75,10 @@ export function registerIpc(): void {
   handle('git:commitFiles', (hash: string) => git.commitFiles(hash))
   handle('git:showFile', (rev: string, file: string) => git.showFile(rev, file))
   handle('git:search', (query: string) => git.searchRepo(query))
+  handle('git:replace', (query: string, replacement: string) =>
+    git.replaceInRepo(query, replacement)
+  )
+  handle('git:lineChanges', (file: string) => git.lineChanges(file))
   handle('git:saveFile', (file: string, content: string) => git.saveFile(file, content))
   handle('git:blame', (file: string) => git.blame(file))
   handle('git:listFiles', () => git.listFiles())
