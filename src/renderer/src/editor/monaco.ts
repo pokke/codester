@@ -59,34 +59,57 @@ export function defineMonacoTheme(theme: Theme): string {
   return id
 }
 
-// Enkel filändelse → språk-mappning för Monaco
-export function languageForPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() ?? ''
-  const map: Record<string, string> = {
-    ts: 'typescript',
-    tsx: 'typescript',
-    js: 'javascript',
-    jsx: 'javascript',
-    json: 'json',
-    css: 'css',
-    scss: 'scss',
-    less: 'less',
-    html: 'html',
-    md: 'markdown',
-    py: 'python',
-    rs: 'rust',
-    go: 'go',
-    java: 'java',
-    c: 'c',
-    cpp: 'cpp',
-    cs: 'csharp',
-    sh: 'shell',
-    yml: 'yaml',
-    yaml: 'yaml',
-    xml: 'xml',
-    sql: 'sql'
+// Bygger ett index över Monacos alla registrerade språk (filändelser + filnamn)
+// så att vi får färg för allt Monaco kan, inte bara en handplockad lista.
+let extIndex: Record<string, string> | null = null
+let nameIndex: Record<string, string> | null = null
+
+// Extra mappningar för format Monaco saknar egen grammatik för – föll
+// tidigare tillbaka till plaintext. Vi lånar en snarlik grammatik.
+const overrides: Record<string, string> = {
+  '.vue': 'html',
+  '.svelte': 'html',
+  '.astro': 'html',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.mts': 'typescript',
+  '.cts': 'typescript',
+  '.toml': 'ini',
+  '.gradle': 'java',
+  '.cmake': 'cmake'
+}
+
+function buildIndex(): void {
+  extIndex = {}
+  nameIndex = {}
+  for (const lang of monaco.languages.getLanguages()) {
+    for (const ext of lang.extensions ?? []) extIndex[ext.toLowerCase()] = lang.id
+    for (const fn of lang.filenames ?? []) nameIndex[fn.toLowerCase()] = lang.id
   }
-  return map[ext] ?? 'plaintext'
+}
+
+// Filändelse/filnamn → Monaco-språk-id.
+export function languageForPath(path: string): string {
+  if (!extIndex || !nameIndex) buildIndex()
+  const file = path.split(/[\\/]/).pop()?.toLowerCase() ?? ''
+
+  // 1) Exakt filnamn (Dockerfile, Makefile, .gitignore, …)
+  if (nameIndex![file]) return nameIndex![file]
+
+  const firstDot = file.indexOf('.')
+  if (firstDot >= 0) {
+    // 2) Hela svansen (t.ex. ".d.ts") – fångar sammansatta ändelser
+    const full = file.slice(firstDot)
+    if (overrides[full]) return overrides[full]
+    if (extIndex![full]) return extIndex![full]
+
+    // 3) Sista ändelsen (".ts")
+    const ext = file.slice(file.lastIndexOf('.'))
+    if (overrides[ext]) return overrides[ext]
+    if (extIndex![ext]) return extIndex![ext]
+  }
+
+  return 'plaintext'
 }
 
 export { monaco }
