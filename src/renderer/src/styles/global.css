@@ -10,6 +10,10 @@
   --accent-text: #ffffff;
   --added: #487e02;
   --removed: #a31515;
+  /* Git-statusfärger i filträdet (konventionella, oberoende av tema) */
+  --git-added: #73c991;
+  --git-modified: #e2c08d;
+  --git-deleted: #f14c4c;
   --font-size: 14px;
   --ui-scale: 1;
   --density: 1;

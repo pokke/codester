@@ -1100,3 +1100,39 @@ code {
 .update-banner.ready {
   border-left-color: var(--added);
 }
+
+/* ── Git-status i filträdet ── */
+.fname.git-added { color: var(--git-added); }
+.fname.git-modified { color: var(--git-modified); }
+.fname.git-deleted { color: var(--git-deleted); text-decoration: line-through; }
+.fname.dirty-folder { color: var(--git-modified); }
+
+.git-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  width: 15px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.git-badge.git-added { color: var(--git-added); }
+.git-badge.git-modified { color: var(--git-modified); }
+.git-badge.git-deleted { color: var(--git-deleted); }
+
+.git-dot {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--git-modified);
+  flex-shrink: 0;
+}
+
+/* Dölj badge/dot när radens hover-åtgärder visas */
+.tree-row:hover .git-badge,
+.tree-row:hover .git-dot {
+  display: none;
+}
+
+/* Säkerställ röd prick för borttaget (konflikter/stash) */
+.dot.removed { background: var(--git-deleted); }

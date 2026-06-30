@@ -45,10 +45,29 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const [creating, setCreating] = useState<Creating>(null)
 
   const tree = useMemo(() => buildTree(files), [files])
-  const changedPaths = useMemo(
-    () => new Set((status?.files ?? []).map((f) => f.path)),
-    [status]
-  )
+
+  // Git-status per fil + vilka mappar som innehåller ändringar
+  const { statusByPath, dirtyDirs } = useMemo(() => {
+    const map = new Map<string, 'added' | 'modified' | 'deleted'>()
+    const dirs = new Set<string>()
+    for (const f of status?.files ?? []) {
+      const t = f.status.includes('D')
+        ? 'deleted'
+        : f.status.includes('A') || f.status.includes('?')
+          ? 'added'
+          : 'modified'
+      map.set(f.path, t)
+      const parts = f.path.split('/')
+      for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/'))
+    }
+    return { statusByPath: map, dirtyDirs: dirs }
+  }, [status])
+
+  const badgeLetter: Record<'added' | 'modified' | 'deleted', string> = {
+    added: 'A',
+    modified: 'M',
+    deleted: 'D'
+  }
 
   const toggle = (p: string): void =>
     setExpanded((prev) => {
@@ -125,6 +144,7 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     }
 
     if (node.isFile) {
+      const gs = statusByPath.get(node.path)
       return (
         <div
           key={node.path}
@@ -141,8 +161,8 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
           }}
         >
           <span className="icon">📄</span>
-          <span className="fname">{node.name}</span>
-          {changedPaths.has(node.path) && <span className="dot modified" />}
+          <span className={`fname ${gs ? `git-${gs}` : ''}`}>{node.name}</span>
+          {gs && <span className={`git-badge git-${gs}`}>{badgeLetter[gs]}</span>}
           <span className="row-actions">
             <button
               className="btn ghost icon"
@@ -175,7 +195,10 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       <div key={node.path}>
         <div className="row tree-row" style={pad} onClick={() => toggle(node.path)}>
           <span className="icon">{isOpen ? '▾' : '▸'}</span>
-          <span className="fname">{node.name}</span>
+          <span className={`fname ${dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>
+            {node.name}
+          </span>
+          {dirtyDirs.has(node.path) && <span className="git-dot" />}
           <span className="row-actions">
             <button
               className="btn ghost icon"
