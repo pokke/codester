@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
 
 interface TreeNode {
@@ -40,6 +41,7 @@ type Creating = { parent: string; type: 'file' | 'folder' } | null
 export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
   const { files, activePath, selectPath, previewFile, refresh, status } = useRepo()
   const { notify } = useToast()
+  const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -117,7 +119,12 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   }
 
   const del = async (path: string): Promise<void> => {
-    if (!confirm(`Radera ${path}?`)) return
+    const ok = await confirm({
+      message: `Radera ${path}?`,
+      confirmLabel: 'Radera',
+      danger: true
+    })
+    if (!ok) return
     const res = await window.api.fs.delete(path)
     if (res.ok) await refresh()
     else notify(res.error, 'error')

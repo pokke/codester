@@ -1201,3 +1201,10 @@ code {
   gap: var(--space);
   margin-top: var(--space);
 }
+
+/* ── Destruktiv bekräftelseknapp ── */
+.btn.danger-btn {
+  background: var(--git-deleted);
+  color: #fff;
+  border-color: transparent;
+}

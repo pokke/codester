@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 import { FileTree } from './FileTree'
 import type { FileChange, SearchHit } from '../../../shared/types'
 
@@ -33,6 +34,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     refresh
   } = useRepo()
   const { notify } = useToast()
+  const confirm = useConfirm()
   const [tab, setTab] = useState<Tab>('changes')
   const [creating, setCreating] = useState(false)
   const [newBranch, setNewBranch] = useState('')
@@ -65,7 +67,11 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
   const doReplace = async (): Promise<void> => {
     if (!query.trim()) return
     const fileCount = new Set(results.map((r) => r.file)).size
-    if (!confirm(`Ersätt "${query}" med "${replacement}" i ${fileCount} fil(er)?`)) return
+    const ok = await confirm({
+      message: `Ersätt "${query}" med "${replacement}" i ${fileCount} fil(er)?`,
+      confirmLabel: 'Ersätt alla'
+    })
+    if (!ok) return
     const res = await window.api.git.replace(query, replacement)
     if (res.ok) {
       notify(`Ersatte ${res.data.count} förekomster i ${res.data.files} fil(er)`, 'success')
@@ -132,9 +138,16 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
             <button
               className="btn ghost icon"
               title="Kasta ändringar"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation()
-                if (confirm(`Kasta ändringar i ${f.path}?`)) discard(f.path)
+                if (
+                  await confirm({
+                    message: `Kasta ändringar i ${f.path}?`,
+                    confirmLabel: 'Kasta',
+                    danger: true
+                  })
+                )
+                  discard(f.path)
               }}
             >
               ⨯
@@ -342,8 +355,15 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                       <button
                         className="btn ghost icon"
                         title="Ta bort stash"
-                        onClick={() => {
-                          if (confirm(`Ta bort stash: ${s.message}?`)) stashDrop(s.index)
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              message: `Ta bort stash: ${s.message}?`,
+                              confirmLabel: 'Ta bort',
+                              danger: true
+                            })
+                          )
+                            stashDrop(s.index)
                         }}
                       >
                         ⨯
