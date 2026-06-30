@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityBar, type View } from './components/ActivityBar'
 import { Sidebar } from './components/Sidebar'
 import { EditorPane } from './components/EditorPane'
@@ -15,10 +15,13 @@ import { AboutModal } from './components/AboutModal'
 import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useRepo } from './state/RepoContext'
+import { useSettings } from './settings/SettingsContext'
 import './styles/app.css'
 
 export function App(): JSX.Element {
-  const { repo, activePath, closeTab } = useRepo()
+  const { repo, activePath, openTabs, closeTab, selectPath } = useRepo()
+  const { settings, update } = useSettings()
+  const mruRef = useRef<string[]>([])
   const [view, setView] = useState<View>('editor')
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
@@ -31,6 +34,13 @@ export function App(): JSX.Element {
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
   }, [])
+
+  // Spåra senast använda flikar (för Ctrl+Tab)
+  useEffect(() => {
+    if (activePath) {
+      mruRef.current = [activePath, ...mruRef.current.filter((p) => p !== activePath)]
+    }
+  }, [activePath])
 
   // Globala kortkommandon (VS Code-stil). Monaco sköter Ctrl+Z/Y/F/H m.m.
   // när editorn har fokus.
@@ -55,11 +65,24 @@ export function App(): JSX.Element {
       } else if (k === 'w') {
         e.preventDefault()
         if (activePath) closeTab(activePath) // Ctrl+W → stäng flik
+      } else if (e.key === 'Tab') {
+        e.preventDefault() // Ctrl+Tab → senast använda flik
+        const prev = mruRef.current.find((p) => p !== activePath && openTabs.includes(p))
+        if (prev) selectPath(prev)
+      } else if (k === '=' || k === '+') {
+        e.preventDefault() // Ctrl++ → zooma in
+        update({ uiScale: Math.min(1.4, Math.round((settings.uiScale + 0.05) * 100) / 100) })
+      } else if (k === '-') {
+        e.preventDefault() // Ctrl+- → zooma ut
+        update({ uiScale: Math.max(0.8, Math.round((settings.uiScale - 0.05) * 100) / 100) })
+      } else if (k === '0') {
+        e.preventDefault() // Ctrl+0 → återställ zoom
+        update({ uiScale: 1 })
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [activePath, closeTab])
+  }, [activePath, openTabs, closeTab, selectPath, settings.uiScale, update])
 
   const renderCenter = (): JSX.Element => {
     if (view === 'terminal') return <TerminalView />

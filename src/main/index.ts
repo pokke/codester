@@ -1,12 +1,37 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { readFileSync, writeFileSync } from 'fs'
 import { registerIpc } from './ipc'
 import { initUpdater, quitAndInstall, checkNow } from './services/updater'
 
+// Fönstertillstånd (storlek/position/maximerat) sparas mellan körningar.
+interface WinState {
+  width: number
+  height: number
+  x?: number
+  y?: number
+  maximized?: boolean
+}
+function stateFile(): string {
+  return join(app.getPath('userData'), 'window-state.json')
+}
+function loadWinState(): WinState {
+  try {
+    return { ...{ width: 1280, height: 800 }, ...JSON.parse(readFileSync(stateFile(), 'utf-8')) }
+  } catch {
+    return { width: 1280, height: 800 }
+  }
+}
+
 function createWindow(): void {
+  const saved = loadWinState()
+  let normalBounds = { width: saved.width, height: saved.height, x: saved.x, y: saved.y }
+
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: saved.width,
+    height: saved.height,
+    x: saved.x,
+    y: saved.y,
     minWidth: 900,
     minHeight: 600,
     show: false,
@@ -31,10 +56,32 @@ function createWindow(): void {
   const reveal = (): void => {
     if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show()
   }
-  mainWindow.once('ready-to-show', reveal)
+  mainWindow.once('ready-to-show', () => {
+    if (saved.maximized) mainWindow.maximize()
+    reveal()
+  })
   mainWindow.webContents.once('did-finish-load', reveal)
   mainWindow.webContents.on('did-fail-load', reveal)
   setTimeout(reveal, 2500) // sista utväg
+
+  // Spåra normalstorlek (när ej maximerat) och spara tillståndet vid stängning
+  const trackBounds = (): void => {
+    if (!mainWindow.isMaximized() && !mainWindow.isMinimized()) {
+      normalBounds = mainWindow.getBounds()
+    }
+  }
+  mainWindow.on('resize', trackBounds)
+  mainWindow.on('move', trackBounds)
+  mainWindow.on('close', () => {
+    try {
+      writeFileSync(
+        stateFile(),
+        JSON.stringify({ ...normalBounds, maximized: mainWindow.isMaximized() })
+      )
+    } catch {
+      /* ignorera */
+    }
+  })
 
   // Öppna externa länkar i systemets webbläsare, inte i appen
   mainWindow.webContents.setWindowOpenHandler((details) => {

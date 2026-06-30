@@ -1208,3 +1208,25 @@ code {
   color: #fff;
   border-color: transparent;
 }
+
+/* ── Breadcrumbs i editor-verktygsraden ── */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+.breadcrumbs .crumb {
+  color: var(--text-muted);
+}
+.breadcrumbs .crumb-file {
+  color: var(--text);
+}
+.breadcrumbs .crumb-sep {
+  color: var(--text-muted);
+  margin: 0 4px;
+  opacity: 0.6;
+}

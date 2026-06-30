@@ -9,6 +9,7 @@ import { useRepo } from '../state/RepoContext'
 import { useSettings } from '../settings/SettingsContext'
 import { getTheme } from '../themes/themes'
 import { useToast } from '../ui/Toast'
+import { ContextMenu, type MenuState } from '../ui/ContextMenu'
 
 type Mode = 'diff' | 'edit'
 
@@ -23,6 +24,7 @@ export function EditorPane(): JSX.Element {
     selectPath,
     pinTab,
     closeTab,
+    closeTabs,
     refresh,
     resolveSide
   } = useRepo()
@@ -37,12 +39,14 @@ export function EditorPane(): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [dirtyTabs, setDirtyTabs] = useState<Set<string>>(new Set())
   const [closePrompt, setClosePrompt] = useState<string | null>(null)
+  const [tabMenu, setTabMenu] = useState<MenuState | null>(null)
 
   const editedRef = useRef('')
   const diskRef = useRef('')
   const loadedPathRef = useRef<string | null>(null)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef<() => void>(() => {})
+  const formatDocRef = useRef<() => void>(() => {})
   // Osparat innehåll per flik, så ändringar överlever flikbyten
   const buffers = useRef<Map<string, string>>(new Map())
   // Gutter-markeringar + inline blame
@@ -265,6 +269,50 @@ export function EditorPane(): JSX.Element {
     closeTab(path)
   }
 
+  // Stäng flera flikar men behåll de med osparade ändringar
+  const bulkClose = (targets: string[]): void => {
+    const safe = targets.filter((p) => !dirtyTabs.has(p))
+    safe.forEach((p) => buffers.current.delete(p))
+    closeTabs(safe)
+    const skipped = targets.length - safe.length
+    if (skipped > 0) notify(`${skipped} flik(ar) med osparade ändringar behölls`, 'info')
+  }
+
+  const openTabMenu = (path: string, e: React.MouseEvent): void => {
+    e.preventDefault()
+    const idx = openTabs.indexOf(path)
+    setTabMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: 'Stäng', onClick: () => handleClose(path) },
+        { label: 'Stäng andra', onClick: () => bulkClose(openTabs.filter((p) => p !== path)) },
+        { label: 'Stäng till höger', onClick: () => bulkClose(openTabs.slice(idx + 1)) },
+        { separator: true },
+        { label: 'Stäng alla', onClick: () => bulkClose(openTabs) }
+      ]
+    })
+  }
+
+  // Formatera hela dokumentet (Shift+Alt+F) – bevarar ångra-historik
+  const formatDoc = async (): Promise<void> => {
+    if (!canFormat(lang)) {
+      notify('Ingen formaterare för den här filtypen', 'info')
+      return
+    }
+    try {
+      const formatted = await formatCode(editedRef.current, lang)
+      const ed = editorRef.current
+      const model = ed?.getModel()
+      if (!ed || !model) return
+      ed.executeEdits('format', [{ range: model.getFullModelRange(), text: formatted }])
+      ed.pushUndoStop()
+    } catch (e) {
+      notify(`Formatering misslyckades: ${e instanceof Error ? e.message : e}`, 'error')
+    }
+  }
+  formatDocRef.current = formatDoc
+
   return (
     <main className="panel center">
       {/* Flikrad */}
@@ -277,6 +325,7 @@ export function EditorPane(): JSX.Element {
             }`}
             onClick={() => selectPath(path)}
             onDoubleClick={() => pinTab(path)}
+            onContextMenu={(e) => openTabMenu(path, e)}
             title={path}
             onAuxClick={(e) => e.button === 1 && handleClose(path, e)}
           >
@@ -288,11 +337,17 @@ export function EditorPane(): JSX.Element {
           </div>
         ))}
       </div>
+      {tabMenu && <ContextMenu menu={tabMenu} onClose={() => setTabMenu(null)} />}
 
       <div className="panel-header editor-toolbar">
-        <span title={activePath}>
+        <span className="breadcrumbs" title={activePath}>
           {isConflicted && '⚠ '}
-          {activePath}
+          {activePath.split('/').map((seg, i, arr) => (
+            <span key={i}>
+              <span className={i === arr.length - 1 ? 'crumb-file' : 'crumb'}>{seg}</span>
+              {i < arr.length - 1 && <span className="crumb-sep">›</span>}
+            </span>
+          ))}
         </span>
 
         {isConflicted ? (
@@ -358,6 +413,11 @@ export function EditorPane(): JSX.Element {
             ed.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () =>
               saveRef.current()
             )
+            // Shift+Alt+F → formatera dokumentet
+            ed.addCommand(
+              monacoApi.KeyMod.Shift | monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyF,
+              () => formatDocRef.current()
+            )
             setEditorReady((n) => n + 1)
           }}
           onChange={onEdit}
@@ -365,7 +425,8 @@ export function EditorPane(): JSX.Element {
             fontSize: settings.fontSize,
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
-            automaticLayout: true
+            automaticLayout: true,
+            stickyScroll: { enabled: true }
           }}
         />
       )}

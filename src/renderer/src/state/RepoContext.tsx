@@ -56,6 +56,7 @@ interface RepoContextValue extends RepoState {
   previewFile: (path: string) => void
   pinTab: (path: string) => void
   closeTab: (path: string) => void
+  closeTabs: (paths: string[]) => void
   checkout: (name: string) => Promise<void>
   createBranch: (name: string) => Promise<void>
   stage: (file: string) => Promise<void>
@@ -247,6 +248,24 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     })
   }, [])
 
+  const closeTabs = useCallback((paths: string[]) => {
+    const drop = new Set(paths)
+    setState((s) => {
+      const openTabs = s.openTabs.filter((p) => !drop.has(p))
+      const activePath =
+        s.activePath && drop.has(s.activePath)
+          ? (openTabs[openTabs.length - 1] ?? null)
+          : s.activePath
+      return {
+        ...s,
+        openTabs,
+        activePath,
+        activeLine: null,
+        previewPath: s.previewPath && drop.has(s.previewPath) ? null : s.previewPath
+      }
+    })
+  }, [])
+
   // Auto-uppdatera när filbevakaren signalerar ändringar i repot
   const refreshRef = useRef(refresh)
   refreshRef.current = refresh
@@ -376,6 +395,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         previewFile,
         pinTab,
         closeTab,
+        closeTabs,
         checkout,
         createBranch,
         stage,

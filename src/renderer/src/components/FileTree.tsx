@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
@@ -49,6 +49,18 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const [menu, setMenu] = useState<MenuState | null>(null)
 
   const tree = useMemo(() => buildTree(files), [files])
+
+  // Auto-reveal: expandera mapparna upp till den aktiva filen
+  useEffect(() => {
+    if (!activePath) return
+    const parts = activePath.split('/')
+    if (parts.length < 2) return
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      for (let i = 1; i < parts.length; i++) next.add(parts.slice(0, i).join('/'))
+      return next
+    })
+  }, [activePath])
 
   const { statusByPath, dirtyDirs } = useMemo(() => {
     const map = new Map<string, 'added' | 'modified' | 'deleted'>()
