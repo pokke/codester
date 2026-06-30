@@ -1,0 +1,954 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Titelrad – draggbar (Windows-fönsterkontroller ligger i overlay) */
+.titlebar {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  padding: 0 var(--space);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+.titlebar .brand {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.titlebar .brand .logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.titlebar .spacer {
+  flex: 1;
+}
+.titlebar button {
+  -webkit-app-region: no-drag;
+}
+
+/* Huvudlayout – 3 zoner (flex så panelerna kan storleksändras) */
+.workbench {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.pane {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.pane > * {
+  flex: 1;
+  min-width: 0;
+}
+.center-pane {
+  flex: 1;
+}
+.sidebar-pane,
+.inspector-pane {
+  flex-shrink: 0;
+}
+.resizer {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.resizer:hover {
+  background: var(--accent);
+}
+
+.panel {
+  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.panel.center {
+  background: var(--bg);
+}
+.sidebar {
+  border-right: 1px solid var(--border);
+}
+.inspector {
+  border-left: 1px solid var(--border);
+}
+
+.panel-header {
+  flex-shrink: 0;
+  padding: var(--space) calc(var(--space) * 1.5);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0 calc(var(--space) * 0.5) var(--space);
+}
+
+/* Listrader (branches, filer) */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  padding: calc(var(--space) * 0.6) var(--space);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.row.active {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.row .icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.row .badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.row .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot.added {
+  background: var(--added);
+}
+.dot.modified {
+  background: var(--accent);
+}
+
+/* Knappar */
+.btn {
+  padding: calc(var(--space) * 0.7) calc(var(--space) * 1.4);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  transition: filter 0.1s ease;
+}
+.btn:hover {
+  filter: brightness(1.15);
+}
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+.btn.full {
+  width: 100%;
+  justify-content: center;
+}
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.btn.icon {
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+/* Kod-/diffvy i centerpanelen */
+.code-view {
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+  line-height: 1.55;
+  padding: var(--space) 0;
+  overflow: auto;
+  height: 100%;
+}
+.code-line {
+  display: flex;
+  padding: 0 calc(var(--space) * 1.5);
+  white-space: pre;
+}
+.code-line .ln {
+  width: 3ch;
+  text-align: right;
+  margin-right: calc(var(--space) * 1.5);
+  color: var(--text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+.code-line.add {
+  background: color-mix(in srgb, var(--added) 18%, transparent);
+}
+.code-line.del {
+  background: color-mix(in srgb, var(--removed) 18%, transparent);
+}
+
+/* Syntaxfärger */
+.tok-kw {
+  color: var(--syn-keyword);
+}
+.tok-str {
+  color: var(--syn-string);
+}
+.tok-com {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+.tok-fn {
+  color: var(--syn-function);
+}
+.tok-num {
+  color: var(--syn-number);
+}
+.tok-type {
+  color: var(--syn-type);
+}
+
+/* Statusrad */
+.statusbar {
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space) * 2);
+  padding: 0 var(--space);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 11px;
+}
+.statusbar .seg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.statusbar .spacer {
+  flex: 1;
+}
+
+/* Commit-ruta i inspektören */
+.commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  padding: var(--space) calc(var(--space) * 1.5);
+}
+.commit-box textarea {
+  resize: vertical;
+  min-height: 64px;
+  font-family: var(--font-ui);
+}
+
+/* Inställningspanel (modal) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  width: 460px;
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--space) * 1.5) calc(var(--space) * 2);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.modal-body {
+  padding: calc(var(--space) * 1.5) calc(var(--space) * 2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space) * 2);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space) * 0.7);
+}
+.field > label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space);
+}
+.theme-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+}
+.theme-swatch.active {
+  border-color: var(--accent);
+}
+.theme-swatch .preview {
+  height: 34px;
+  border-radius: 4px;
+  display: flex;
+  overflow: hidden;
+}
+.theme-swatch .preview span {
+  flex: 1;
+}
+.theme-swatch .label {
+  font-size: 12px;
+}
+.swatch-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.swatch.active {
+  border-color: var(--text);
+}
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+.range-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.seg-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg-toggle button {
+  flex: 1;
+  padding: calc(var(--space) * 0.7);
+  border-radius: 0;
+}
+.seg-toggle button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space);
+  color: var(--text-muted);
+  text-align: center;
+  padding: calc(var(--space) * 4);
+}
+.empty-state h2 {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── Layout: aktivitetsfält + body ── */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.activitybar {
+  width: 48px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space) 0;
+  gap: 4px;
+}
+.activitybar .act {
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.activitybar .act:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.activitybar .act.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* ── Sidofält: fil- och branchrader ── */
+.file-row {
+  gap: 6px;
+}
+.file-row .fname {
+  flex-shrink: 0;
+}
+.path-dim {
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-actions {
+  margin-left: auto;
+  display: none;
+  gap: 2px;
+}
+.file-row:hover .row-actions {
+  display: flex;
+}
+.hint {
+  padding: calc(var(--space) * 0.6) var(--space);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ── Editor-verktygsrad ── */
+.editor-toolbar {
+  gap: var(--space);
+  align-items: center;
+}
+.editor-toolbar > span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+.seg-toggle.small {
+  width: auto;
+}
+.seg-toggle.small button {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+.editor-toolbar .btn.primary {
+  padding: 3px 10px;
+}
+
+/* ── Välkomstskärm ── */
+.welcome {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space);
+  text-align: center;
+  padding: calc(var(--space) * 4);
+  max-width: 520px;
+  margin: 0 auto;
+}
+.welcome-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #fff));
+}
+.welcome h1 {
+  font-size: 28px;
+}
+.muted {
+  color: var(--text-muted);
+}
+.small {
+  font-size: 12px;
+}
+.welcome-actions {
+  margin-top: var(--space);
+}
+.welcome-clone {
+  display: flex;
+  gap: var(--space);
+  width: 100%;
+  margin-top: var(--space);
+}
+.welcome-clone input {
+  flex: 1;
+}
+
+/* ── Historik ── */
+.history {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space) 0;
+}
+.commit-row {
+  display: flex;
+  gap: var(--space);
+  padding: calc(var(--space) * 0.8) calc(var(--space) * 2);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.commit-row:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+.graph-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.commit-main {
+  min-width: 0;
+  flex: 1;
+}
+.commit-msg {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+.ref-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--text);
+}
+.commit-meta {
+  display: flex;
+  gap: var(--space);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.hash {
+  font-family: var(--font-mono);
+}
+
+/* ── GitHub-panel ── */
+.gh-header {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+.gh-header > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+.gh-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space) calc(var(--space) * 2);
+}
+.gh-body section {
+  margin-bottom: calc(var(--space) * 3);
+}
+.gh-body h3 {
+  font-size: 13px;
+  margin-bottom: var(--space);
+}
+.pr-row,
+.repo-row {
+  gap: var(--space);
+}
+.pr-num {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+.pr-title {
+  font-weight: 500;
+}
+.repo-main {
+  flex: 1;
+  min-width: 0;
+}
+.repo-row .btn {
+  margin-left: auto;
+  padding: 3px 10px;
+}
+code {
+  font-family: var(--font-mono);
+  background: var(--bg-input);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── Toaster ── */
+.toast-stack {
+  position: fixed;
+  bottom: 32px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+}
+.toast {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  max-width: 360px;
+}
+.toast.success {
+  border-left-color: var(--added);
+}
+.toast.error {
+  border-left-color: var(--removed);
+}
+
+/* ── Kommandopalett ── */
+.palette-overlay {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+.palette {
+  width: 560px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.palette > input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: calc(var(--space) * 1.4);
+  font-size: 14px;
+}
+.palette-list {
+  max-height: 50vh;
+  overflow: auto;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--space) * 0.9) calc(var(--space) * 1.4);
+  cursor: pointer;
+}
+.palette-item.active {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ── Sidofältets flikar (Ändringar / Filer) ── */
+.sidebar-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-tabs button {
+  flex: 1;
+  padding: calc(var(--space) * 0.7);
+  font-size: 12px;
+  color: var(--text-muted);
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+.sidebar-tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Filträd ── */
+.file-tree {
+  font-size: 13px;
+}
+.tree-row {
+  gap: 4px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.tree-row .icon {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+}
+.tree-row .dot {
+  margin-left: auto;
+}
+
+/* ── Konflikter ── */
+.conflict-header {
+  color: var(--removed);
+}
+.file-row.conflict .fname {
+  color: var(--removed);
+}
+
+/* ── Commit-graf ── */
+.history-inner {
+  min-width: 0;
+}
+.graph-svg {
+  pointer-events: none;
+}
+.history .commit-row {
+  box-sizing: border-box;
+  align-items: center;
+}
+
+/* ── Device flow ── */
+.device-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space);
+  width: 100%;
+}
+.device-code {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  letter-spacing: 4px;
+  padding: calc(var(--space) * 1.2) calc(var(--space) * 2);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent);
+}
+.device-flow a {
+  color: var(--accent);
+}
+
+/* ── Konfliktlösare ── */
+.conflict-resolver {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.conflict-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  padding: var(--space) calc(var(--space) * 1.5);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.conflict-bar .spacer {
+  flex: 1;
+}
+.conflict-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space) calc(var(--space) * 1.5);
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+}
+.ctx-block {
+  white-space: pre-wrap;
+  color: var(--text-muted);
+  padding: 4px calc(var(--space) * 1.5);
+  margin: 2px 0;
+}
+.conflict-hunk {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: var(--space) 0;
+  overflow: hidden;
+}
+.conflict-hunk.resolved {
+  border-color: var(--added);
+}
+.hunk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space);
+  background: var(--bg-elevated);
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+.hunk-choices {
+  display: flex;
+  gap: 4px;
+}
+.hunk-choices button {
+  padding: 3px 9px;
+  font-size: 11px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+}
+.hunk-choices button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+.hunk-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.side {
+  min-width: 0;
+}
+.side.ours {
+  border-right: 1px solid var(--border);
+}
+.side-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 4px var(--space);
+  color: var(--text-muted);
+}
+.side.ours .side-label {
+  background: color-mix(in srgb, var(--added) 14%, transparent);
+}
+.side.theirs .side-label {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.side.picked {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.side pre {
+  white-space: pre-wrap;
+  padding: var(--space);
+  overflow-x: auto;
+}
+
+/* ── Terminal ── */
+.terminal-output {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: var(--space) calc(var(--space) * 1.5);
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg);
+  color: var(--text);
+}
+.terminal-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  padding: calc(var(--space) * 0.6) calc(var(--space) * 1.5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+.terminal-input .prompt {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.terminal-input input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+}
+.terminal-input input:focus-visible {
+  outline: none;
+}
+
+/* ── Stash ── */
+.stash-row .fname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Commit-detaljer ── */
+.commit-row.clickable {
+  cursor: pointer;
+}
+.commit-detail-meta {
+  flex-shrink: 0;
+  padding: 6px calc(var(--space) * 1.5);
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.commit-detail-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.commit-file-list {
+  width: 240px;
+  flex-shrink: 0;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+  padding: var(--space) calc(var(--space) * 0.5);
+}
+.commit-diff {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Sökträffar ── */
+.search-hit {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+}
+.hit-loc {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  width: 100%;
+}
+.hit-text {
+  font-size: 11px;
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}

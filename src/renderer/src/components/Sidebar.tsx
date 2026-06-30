@@ -1,0 +1,314 @@
+import { useEffect, useState } from 'react'
+import { useRepo } from '../state/RepoContext'
+import { FileTree } from './FileTree'
+import type { FileChange, SearchHit } from '../../../shared/types'
+
+function statusClass(status: string): string {
+  if (status.includes('A') || status.includes('?')) return 'added'
+  if (status.includes('D')) return 'removed'
+  return 'modified'
+}
+
+type Tab = 'changes' | 'files' | 'search'
+
+export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
+  const {
+    repo,
+    status,
+    branches,
+    activePath,
+    selectPath,
+    checkout,
+    createBranch,
+    stage,
+    unstage,
+    stageAll,
+    discard,
+    stashes,
+    stashSave,
+    stashApply,
+    stashDrop
+  } = useRepo()
+  const [tab, setTab] = useState<Tab>('changes')
+  const [creating, setCreating] = useState(false)
+  const [newBranch, setNewBranch] = useState('')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SearchHit[]>([])
+  const [searching, setSearching] = useState(false)
+
+  // Debouncad fritextsökning i hela repot
+  useEffect(() => {
+    if (tab !== 'search') return
+    if (!query.trim()) {
+      setResults([])
+      return
+    }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      const r = await window.api.git.search(query)
+      if (r.ok) setResults(r.data)
+      setSearching(false)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, tab])
+
+  const openHit = (hit: SearchHit): void => {
+    selectPath(hit.file, hit.line)
+    onOpenEditor()
+  }
+
+  if (!repo) {
+    return (
+      <aside className="panel sidebar">
+        <div className="panel-header">
+          <span>Inget repo</span>
+        </div>
+      </aside>
+    )
+  }
+
+  const conflicted = new Set(status?.conflicted ?? [])
+  const files = (status?.files ?? []).filter((f) => !conflicted.has(f.path))
+  const unstaged = files.filter((f) => !f.staged)
+  const staged = files.filter((f) => f.staged)
+
+  const submitBranch = async (): Promise<void> => {
+    const name = newBranch.trim()
+    if (name) await createBranch(name)
+    setNewBranch('')
+    setCreating(false)
+  }
+
+  const fileRow = (f: FileChange, isStaged: boolean): JSX.Element => (
+    <div
+      key={f.path}
+      className={`row file-row ${activePath === f.path ? 'active' : ''}`}
+      onClick={() => {
+        selectPath(f.path)
+        onOpenEditor()
+      }}
+      title={f.path}
+    >
+      <span className={`dot ${statusClass(f.status)}`} />
+      <span className="fname">{f.path.split('/').pop()}</span>
+      <span className="path-dim">{f.path.split('/').slice(0, -1).join('/')}</span>
+      <span className="row-actions">
+        {isStaged ? (
+          <button
+            className="btn ghost icon"
+            title="Unstage"
+            onClick={(e) => {
+              e.stopPropagation()
+              unstage(f.path)
+            }}
+          >
+            −
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn ghost icon"
+              title="Kasta ändringar"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (confirm(`Kasta ändringar i ${f.path}?`)) discard(f.path)
+              }}
+            >
+              ⨯
+            </button>
+            <button
+              className="btn ghost icon"
+              title="Stage"
+              onClick={(e) => {
+                e.stopPropagation()
+                stage(f.path)
+              }}
+            >
+              +
+            </button>
+          </>
+        )}
+      </span>
+    </div>
+  )
+
+  return (
+    <aside className="panel sidebar">
+      <div className="panel-header">
+        <span>Branches</span>
+        <button className="btn icon ghost" title="Ny branch" onClick={() => setCreating(true)}>
+          +
+        </button>
+      </div>
+      <div className="panel-body" style={{ flex: '0 0 auto', maxHeight: 160 }}>
+        {creating && (
+          <div className="row">
+            <input
+              autoFocus
+              placeholder="ny-branch"
+              value={newBranch}
+              onChange={(e) => setNewBranch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitBranch()
+                if (e.key === 'Escape') setCreating(false)
+              }}
+              style={{ width: '100%' }}
+            />
+          </div>
+        )}
+        {branches.map((b) => (
+          <div
+            key={b.name}
+            className={`row ${b.current ? 'active' : ''}`}
+            onClick={() => !b.current && checkout(b.name)}
+          >
+            <span className="icon">⎇</span>
+            <span>{b.name}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="sidebar-tabs">
+        <button className={tab === 'changes' ? 'active' : ''} onClick={() => setTab('changes')}>
+          Ändringar
+        </button>
+        <button className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}>
+          Filer
+        </button>
+        <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>
+          Sök
+        </button>
+      </div>
+
+      {tab === 'search' ? (
+        <>
+          <div style={{ padding: 'var(--space)' }}>
+            <input
+              autoFocus
+              placeholder="Sök i alla filer…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div className="panel-body">
+            {searching && <div className="hint">Söker…</div>}
+            {!searching && query.trim() && results.length === 0 && (
+              <div className="hint">Inga träffar</div>
+            )}
+            {results.map((hit, i) => (
+              <div
+                key={`${hit.file}:${hit.line}:${i}`}
+                className="row search-hit"
+                onClick={() => openHit(hit)}
+                title={`${hit.file}:${hit.line}`}
+              >
+                <div className="hit-loc">
+                  <span className="fname">{hit.file.split('/').pop()}</span>
+                  <span className="path-dim">:{hit.line}</span>
+                </div>
+                <code className="hit-text">{hit.text.trim().slice(0, 120)}</code>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : tab === 'files' ? (
+        <div className="panel-body">
+          <FileTree onOpenEditor={onOpenEditor} />
+        </div>
+      ) : (
+        <>
+          {conflicted.size > 0 && (
+            <>
+              <div className="panel-header conflict-header">
+                <span>⚠ Konflikter ({conflicted.size})</span>
+              </div>
+              <div className="panel-body" style={{ flex: '0 1 auto', maxHeight: 160 }}>
+                {[...conflicted].map((path) => (
+                  <div
+                    key={path}
+                    className={`row file-row conflict ${activePath === path ? 'active' : ''}`}
+                    onClick={() => {
+                      selectPath(path)
+                      onOpenEditor()
+                    }}
+                    title={path}
+                  >
+                    <span className="dot removed" />
+                    <span className="fname">{path.split('/').pop()}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="panel-header">
+            <span>Stagade ({staged.length})</span>
+          </div>
+          <div className="panel-body" style={{ flex: '0 1 auto', maxHeight: 180 }}>
+            {staged.length === 0 && <div className="hint">Inget stagat</div>}
+            {staged.map((f) => fileRow(f, true))}
+          </div>
+
+          <div className="panel-header">
+            <span>Ändringar ({unstaged.length})</span>
+            <span style={{ display: 'flex', gap: 2 }}>
+              {(unstaged.length > 0 || staged.length > 0) && (
+                <button
+                  className="btn ghost icon"
+                  title="Stasha alla ändringar"
+                  onClick={() => stashSave()}
+                >
+                  ⮟
+                </button>
+              )}
+              {unstaged.length > 0 && (
+                <button className="btn ghost icon" title="Stage alla" onClick={() => stageAll()}>
+                  ++
+                </button>
+              )}
+            </span>
+          </div>
+          <div className="panel-body">
+            {unstaged.length === 0 && <div className="hint">Inga ändringar</div>}
+            {unstaged.map((f) => fileRow(f, false))}
+          </div>
+
+          {stashes.length > 0 && (
+            <>
+              <div className="panel-header" style={{ borderTop: '1px solid var(--border)' }}>
+                <span>Stash ({stashes.length})</span>
+              </div>
+              <div className="panel-body" style={{ flex: '0 1 auto', maxHeight: 160 }}>
+                {stashes.map((s) => (
+                  <div key={s.index} className="row stash-row" title={s.message}>
+                    <span className="icon">📦</span>
+                    <span className="fname">{s.message}</span>
+                    <span className="row-actions">
+                      <button
+                        className="btn ghost icon"
+                        title="Pop (applicera + ta bort)"
+                        onClick={() => stashApply(s.index, true)}
+                      >
+                        ⮝
+                      </button>
+                      <button
+                        className="btn ghost icon"
+                        title="Ta bort stash"
+                        onClick={() => {
+                          if (confirm(`Ta bort stash: ${s.message}?`)) stashDrop(s.index)
+                        }}
+                      >
+                        ⨯
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </aside>
+  )
+}

@@ -1,0 +1,84 @@
+:root {
+  /* Defaultvärden – skrivs över av SettingsContext */
+  --bg: #1e1e1e;
+  --bg-elevated: #252526;
+  --bg-input: #3c3c3c;
+  --border: #333333;
+  --text: #d4d4d4;
+  --text-muted: #858585;
+  --accent: #0e639c;
+  --accent-text: #ffffff;
+  --added: #487e02;
+  --removed: #a31515;
+  --font-size: 14px;
+  --ui-scale: 1;
+  --density: 1;
+
+  --space: calc(8px * var(--density));
+  --radius: 6px;
+  --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'Consolas', 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: calc(13px * var(--ui-scale));
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: calc(var(--space) * 0.6) var(--space);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

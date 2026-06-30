@@ -1,0 +1,6 @@
+# Normalisera radslut till LF i repot (undviker CRLF-brus på Windows)
+* text=auto eol=lf
+
+# Binärer ska aldrig röras
+*.png binary
+*.ico binary

@@ -1,0 +1,65 @@
+{
+  "name": "codester",
+  "version": "0.1.0",
+  "description": "Codester – en lättviktig kod- och Git-klient för Windows",
+  "main": "./out/main/index.js",
+  "author": "Codester Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
+    "icons": "node scripts/gen-icon.mjs",
+    "dist": "electron-vite build && electron-builder --win"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0",
+    "electron-vite": "^2.3.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.2",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "chokidar": "^3.6.0",
+    "monaco-editor": "^0.55.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "simple-git": "^3.36.0"
+  },
+  "build": {
+    "appId": "com.codester.app",
+    "productName": "Codester",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Codester"
+    },
+    "forceCodeSigning": false
+  }
+}
