@@ -1055,3 +1055,21 @@ code {
 .checkbox-row input {
   width: auto;
 }
+
+/* ── Uppdaterings-banner ── */
+.update-banner {
+  position: fixed;
+  bottom: 34px;
+  right: 16px;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+}

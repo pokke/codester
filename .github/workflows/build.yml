@@ -51,20 +51,6 @@ jobs:
           else
             echo "No code signing certificate — building unsigned."
           fi
-          npx electron-builder --win --publish never
-
-      - name: Upload installer artifact
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
-        with:
-          name: codester-windows-installer
-          path: release/*.exe
-          if-no-files-found: error
-
-      - name: Attach installer to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --publish always laddar upp installer + latest.yml + blockmap till
+          # GitHub Release, vilket auto-uppdateringen (electron-updater) behöver.
+          npx electron-builder --win --publish always

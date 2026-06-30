@@ -12,6 +12,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { CommandPalette } from './components/CommandPalette'
 import { QuickOpen } from './components/QuickOpen'
 import { AboutModal } from './components/AboutModal'
+import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useRepo } from './state/RepoContext'
 import './styles/app.css'
@@ -107,6 +108,8 @@ export function App(): JSX.Element {
           )}
         </div>
       </div>
+
+      <UpdateBanner />
 
       <StatusBar version={version} />
 

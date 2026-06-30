@@ -94,6 +94,26 @@ const api = {
     return () => ipcRenderer.removeListener('repo:changed', listener)
   },
 
+  update: {
+    install: (): Promise<void> => ipcRenderer.invoke('update:install'),
+    check: (): Promise<void> => ipcRenderer.invoke('update:check'),
+    on: (cb: (e: { type: string; payload?: unknown }) => void): (() => void) => {
+      const channels = [
+        'update:status',
+        'update:available',
+        'update:downloaded',
+        'update:progress',
+        'update:error'
+      ]
+      const subs = channels.map((ch) => {
+        const fn = (_e: unknown, payload: unknown): void => cb({ type: ch, payload })
+        ipcRenderer.on(ch, fn)
+        return [ch, fn] as const
+      })
+      return () => subs.forEach(([ch, fn]) => ipcRenderer.removeListener(ch, fn))
+    }
+  },
+
   github: {
     hasToken: () => invoke<boolean>('github:hasToken'),
     setToken: (token: string) => invoke<GitHubUser>('github:setToken', token),

@@ -1,6 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { registerIpc } from './ipc'
+import { initUpdater, quitAndInstall, checkNow } from './services/updater'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -51,9 +52,19 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   ipcMain.handle('app:version', () => app.getVersion())
+  ipcMain.handle('update:install', () => quitAndInstall())
+  ipcMain.handle('update:check', () => checkNow())
   registerIpc()
 
   createWindow()
+
+  // Auto-uppdatering: meddela renderern om nya versioner
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    initUpdater((channel, ...args) => {
+      if (!win.isDestroyed()) win.webContents.send(channel, ...args)
+    })
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
