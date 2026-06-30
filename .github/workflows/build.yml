@@ -8,6 +8,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Avbryt äldre/överflödiga körningar för samma ref (t.ex. dubbla main-pushar).
+# Tagg-körningar (releaser) får varsin grupp och avbryts aldrig.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   build:
     runs-on: windows-latest
