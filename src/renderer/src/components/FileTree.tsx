@@ -37,6 +37,7 @@ function sortedChildren(node: TreeNode): TreeNode[] {
 }
 
 type Creating = { parent: string; type: 'file' | 'folder' } | null
+type Clipboard = { paths: string[]; op: 'cut' | 'copy' } | null
 
 export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
   const { files, activePath, selectPath, previewFile, refresh, status } = useRepo()
@@ -47,12 +48,27 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const [draft, setDraft] = useState('')
   const [creating, setCreating] = useState<Creating>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
-  const [clipboard, setClipboard] = useState<{ path: string; op: 'cut' | 'copy' } | null>(null)
+  const [clipboard, setClipboard] = useState<Clipboard>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const anchorRef = useRef<string | null>(null)
   const dragRef = useRef<string | null>(null)
 
   const tree = useMemo(() => buildTree(files), [files])
+  const fileSet = useMemo(() => new Set(files), [files])
 
-  // Auto-reveal: expandera mapparna upp till den aktiva filen
+  // Synliga rader i visningsordning (för Shift-intervallval)
+  const visiblePaths = useMemo(() => {
+    const out: string[] = []
+    const walk = (node: TreeNode): void => {
+      for (const c of sortedChildren(node)) {
+        out.push(c.path)
+        if (!c.isFile && expanded.has(c.path)) walk(c)
+      }
+    }
+    walk(tree)
+    return out
+  }, [tree, expanded])
+
   useEffect(() => {
     if (!activePath) return
     const parts = activePath.split('/')
@@ -93,6 +109,32 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       return next
     })
 
+  // Hantera markering vid klick. Returnerar true om klicket konsumerades
+  // (modifierare) så att anroparen inte ska öppna/fälla ut.
+  const handleSelectClick = (path: string, e: React.MouseEvent): boolean => {
+    if (e.ctrlKey || e.metaKey) {
+      setSelected((prev) => {
+        const n = new Set(prev)
+        n.has(path) ? n.delete(path) : n.add(path)
+        return n
+      })
+      anchorRef.current = path
+      return true
+    }
+    if (e.shiftKey && anchorRef.current) {
+      const a = visiblePaths.indexOf(anchorRef.current)
+      const b = visiblePaths.indexOf(path)
+      if (a >= 0 && b >= 0) {
+        const [lo, hi] = a < b ? [a, b] : [b, a]
+        setSelected(new Set(visiblePaths.slice(lo, hi + 1)))
+      }
+      return true
+    }
+    setSelected(new Set([path]))
+    anchorRef.current = path
+    return false
+  }
+
   const startCreate = (parent: string, type: 'file' | 'folder'): void => {
     if (parent) setExpanded((p) => new Set(p).add(parent))
     setCreating({ parent, type })
@@ -132,29 +174,32 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     else notify(res.error, 'error')
   }
 
-  const del = async (path: string): Promise<void> => {
-    const ok = await confirm({
-      message: `Radera ${path}?`,
-      confirmLabel: 'Radera',
-      danger: true
-    })
-    if (!ok) return
-    const res = await window.api.fs.delete(path)
-    if (res.ok) await refresh()
-    else notify(res.error, 'error')
-  }
-
   const startRename = (path: string, name: string): void => {
     setRenaming(path)
     setDraft(name)
   }
 
-  // Flytta src in i mappen destFolder ('' = roten)
+  const delMany = async (paths: string[]): Promise<void> => {
+    if (paths.length === 0) return
+    const ok = await confirm({
+      message:
+        paths.length === 1 ? `Radera ${paths[0]}?` : `Radera ${paths.length} objekt?`,
+      confirmLabel: 'Radera',
+      danger: true
+    })
+    if (!ok) return
+    for (const p of paths) {
+      const res = await window.api.fs.delete(p)
+      if (!res.ok) notify(res.error, 'error')
+    }
+    setSelected(new Set())
+    await refresh()
+  }
+
   const moveInto = async (src: string, destFolder: string): Promise<void> => {
     const name = src.split('/').pop()!
     const dest = destFolder ? `${destFolder}/${name}` : name
     if (dest === src) return
-    // Hindra att flytta en mapp in i sig själv
     if (destFolder === src || destFolder.startsWith(`${src}/`)) {
       notify('Kan inte flytta en mapp in i sig själv', 'error')
       return
@@ -166,48 +211,59 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
 
   const pasteInto = async (destFolder: string): Promise<void> => {
     if (!clipboard) return
-    const name = clipboard.path.split('/').pop()!
-    const dest = destFolder ? `${destFolder}/${name}` : name
-    const res =
-      clipboard.op === 'cut'
-        ? await window.api.fs.rename(clipboard.path, dest)
-        : await window.api.fs.copy(clipboard.path, dest)
-    if (res.ok) {
-      if (clipboard.op === 'cut') setClipboard(null)
-      await refresh()
-    } else {
-      notify(res.error, 'error')
+    for (const src of clipboard.paths) {
+      const name = src.split('/').pop()!
+      const dest = destFolder ? `${destFolder}/${name}` : name
+      if (dest === src) continue
+      const res =
+        clipboard.op === 'cut'
+          ? await window.api.fs.rename(src, dest)
+          : await window.api.fs.copy(src, dest)
+      if (!res.ok) notify(res.error, 'error')
     }
+    if (clipboard.op === 'cut') setClipboard(null)
+    await refresh()
   }
 
-  // Högerklicksmenyer
+  // Vid högerklick: agera på markeringen om objektet ingår i den, annars enbart objektet
+  const targetsFor = (path: string): string[] => {
+    if (selected.has(path) && selected.size > 1) return [...selected]
+    setSelected(new Set([path]))
+    return [path]
+  }
+
   const openMenu = (e: React.MouseEvent, items: MenuState['items']): void => {
     e.preventDefault()
     e.stopPropagation()
     setMenu({ x: e.clientX, y: e.clientY, items })
   }
-  const fileMenu = (node: TreeNode) => (e: React.MouseEvent): void =>
+  const fileMenu = (node: TreeNode) => (e: React.MouseEvent): void => {
+    const t = targetsFor(node.path)
     openMenu(e, [
-      { label: 'Öppna', onClick: () => { selectPath(node.path); onOpenEditor() } },
+      ...(t.length === 1
+        ? [{ label: 'Öppna', onClick: () => { selectPath(node.path); onOpenEditor() } }, { separator: true }]
+        : []),
+      { label: t.length > 1 ? `Klipp ut (${t.length})` : 'Klipp ut', onClick: () => setClipboard({ paths: t, op: 'cut' }) },
+      { label: t.length > 1 ? `Kopiera (${t.length})` : 'Kopiera', onClick: () => setClipboard({ paths: t, op: 'copy' }) },
       { separator: true },
-      { label: 'Klipp ut', onClick: () => setClipboard({ path: node.path, op: 'cut' }) },
-      { label: 'Kopiera', onClick: () => setClipboard({ path: node.path, op: 'copy' }) },
-      { separator: true },
-      { label: 'Byt namn', onClick: () => startRename(node.path, node.name) },
-      { label: 'Radera', danger: true, onClick: () => del(node.path) }
+      ...(t.length === 1 ? [{ label: 'Byt namn', onClick: () => startRename(node.path, node.name) }] : []),
+      { label: t.length > 1 ? `Radera (${t.length})` : 'Radera', danger: true, onClick: () => delMany(t) }
     ])
-  const folderMenu = (node: TreeNode) => (e: React.MouseEvent): void =>
+  }
+  const folderMenu = (node: TreeNode) => (e: React.MouseEvent): void => {
+    const t = targetsFor(node.path)
     openMenu(e, [
       { label: 'Ny fil', onClick: () => startCreate(node.path, 'file') },
       { label: 'Ny mapp', onClick: () => startCreate(node.path, 'folder') },
       { separator: true },
-      { label: 'Klipp ut', onClick: () => setClipboard({ path: node.path, op: 'cut' }) },
-      { label: 'Kopiera', onClick: () => setClipboard({ path: node.path, op: 'copy' }) },
+      { label: t.length > 1 ? `Klipp ut (${t.length})` : 'Klipp ut', onClick: () => setClipboard({ paths: t, op: 'cut' }) },
+      { label: t.length > 1 ? `Kopiera (${t.length})` : 'Kopiera', onClick: () => setClipboard({ paths: t, op: 'copy' }) },
       ...(clipboard ? [{ label: 'Klistra in', onClick: () => pasteInto(node.path) }] : []),
       { separator: true },
-      { label: 'Byt namn', onClick: () => startRename(node.path, node.name) },
-      { label: 'Radera', danger: true, onClick: () => del(node.path) }
+      ...(t.length === 1 ? [{ label: 'Byt namn', onClick: () => startRename(node.path, node.name) }] : []),
+      { label: t.length > 1 ? `Radera (${t.length})` : 'Radera', danger: true, onClick: () => delMany(t) }
     ])
+  }
   const rootMenu = (e: React.MouseEvent): void =>
     openMenu(e, [
       { label: 'Ny fil', onClick: () => startCreate('', 'file') },
@@ -215,8 +271,31 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       ...(clipboard ? [{ separator: true }, { label: 'Klistra in', onClick: () => pasteInto('') }] : [])
     ])
 
+  // Tangentbord på trädet: Delete, Ctrl+X/C/V
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (selected.size === 0 && e.key !== 'v') return
+    if (e.key === 'Delete') {
+      e.preventDefault()
+      delMany([...selected])
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+      setClipboard({ paths: [...selected], op: 'cut' })
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      setClipboard({ paths: [...selected], op: 'copy' })
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+      // Klistra in i markerad mapp, annars i den markerade filens mapp
+      const sel = [...selected]
+      let dest = ''
+      if (sel.length >= 1) {
+        const p = sel[0]
+        dest = fileSet.has(p) ? p.split('/').slice(0, -1).join('/') : p
+      }
+      pasteInto(dest)
+    }
+  }
+
   const renderNode = (node: TreeNode, depth: number): JSX.Element => {
     const pad = { paddingLeft: 8 + depth * 12 }
+    const isSel = selected.has(node.path)
 
     if (renaming === node.path) {
       return (
@@ -241,12 +320,16 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       return (
         <div
           key={node.path}
-          className={`row tree-row file-row ${activePath === node.path ? 'active' : ''}`}
+          className={`row tree-row file-row ${activePath === node.path ? 'active' : ''} ${
+            isSel ? 'selected' : ''
+          }`}
           style={pad}
           title={node.path}
-          onClick={() => {
-            previewFile(node.path)
-            onOpenEditor()
+          onClick={(e) => {
+            if (!handleSelectClick(node.path, e)) {
+              previewFile(node.path)
+              onOpenEditor()
+            }
           }}
           onDoubleClick={() => {
             selectPath(node.path)
@@ -267,9 +350,11 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     return (
       <div key={node.path}>
         <div
-          className="row tree-row"
+          className={`row tree-row ${isSel ? 'selected' : ''}`}
           style={pad}
-          onClick={() => toggle(node.path)}
+          onClick={(e) => {
+            if (!handleSelectClick(node.path, e)) toggle(node.path)
+          }}
           onContextMenu={folderMenu(node)}
           draggable
           onDragStart={(e) => {
@@ -321,6 +406,8 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   return (
     <div
       className="file-tree"
+      tabIndex={0}
+      onKeyDown={onKeyDown}
       onContextMenu={rootMenu}
       onDragOver={(e) => e.preventDefault()}
       onDrop={() => {

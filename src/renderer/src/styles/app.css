@@ -1230,3 +1230,14 @@ code {
   margin: 0 4px;
   opacity: 0.6;
 }
+
+/* ── Multi-select i filträdet ── */
+.file-tree:focus {
+  outline: none;
+}
+.tree-row.selected {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.tree-row.selected.active {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
