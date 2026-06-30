@@ -18,35 +18,48 @@ import { useRepo } from './state/RepoContext'
 import './styles/app.css'
 
 export function App(): JSX.Element {
-  const { repo } = useRepo()
+  const { repo, activePath, closeTab } = useRepo()
   const [view, setView] = useState<View>('editor')
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
   const [showInspector, setShowInspector] = useState(true)
+  const [sidebarHidden, setSidebarHidden] = useState(false)
   const [version, setVersion] = useState('0.1.0')
 
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
   }, [])
 
-  // Globala kortkommandon
+  // Globala kortkommandon (VS Code-stil). Monaco sköter Ctrl+Z/Y/F/H m.m.
+  // när editorn har fokus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      const k = e.key.toLowerCase()
+      if (k === 'p') {
         e.preventDefault()
         if (e.shiftKey) setShowPalette((v) => !v) // Ctrl+Shift+P → kommandopalett
         else setShowQuickOpen((v) => !v) // Ctrl+P → hoppa till fil
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+      } else if (k === ',') {
         e.preventDefault()
         setShowSettings(true)
+      } else if (k === 'b') {
+        e.preventDefault()
+        setSidebarHidden((v) => !v) // Ctrl+B → visa/dölj sidofält
+      } else if (e.key === '`') {
+        e.preventDefault()
+        setView((v) => (v === 'terminal' ? 'editor' : 'terminal')) // Ctrl+` → terminal
+      } else if (k === 'w') {
+        e.preventDefault()
+        if (activePath) closeTab(activePath) // Ctrl+W → stäng flik
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [activePath, closeTab])
 
   const renderCenter = (): JSX.Element => {
     if (view === 'terminal') return <TerminalView />
@@ -56,7 +69,7 @@ export function App(): JSX.Element {
     return <EditorPane />
   }
 
-  const showSidebar = repo && (view === 'editor' || view === 'history')
+  const showSidebar = repo && !sidebarHidden && (view === 'editor' || view === 'history')
   const showInspectorPanel = repo && showInspector && view === 'editor'
 
   return (

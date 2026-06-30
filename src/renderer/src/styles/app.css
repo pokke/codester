@@ -1155,3 +1155,38 @@ code {
   background: var(--border);
   border-radius: 5px;
 }
+
+/* ── Högerklicksmeny ── */
+.context-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  font-size: 13px;
+}
+.ctx-item {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ctx-item:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.ctx-item.danger {
+  color: var(--git-deleted);
+}
+.ctx-item.danger:hover {
+  background: var(--git-deleted);
+  color: #fff;
+}
+.ctx-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}

@@ -39,6 +39,7 @@ export function EditorPane(): JSX.Element {
 
   const editedRef = useRef('')
   const diskRef = useRef('')
+  const loadedPathRef = useRef<string | null>(null)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef<() => void>(() => {})
   // Osparat innehåll per flik, så ändringar överlever flikbyten
@@ -88,7 +89,10 @@ export function EditorPane(): JSX.Element {
   useEffect(() => {
     if (!activePath) return
     let cancelled = false
-    setLoading(true)
+    // Visa "Laddar…" bara vid genuint filbyte – inte vid tyst omläsning
+    // (revision-bump efter spara/watcher), annars flimrar editorn.
+    const isNewFile = loadedPathRef.current !== activePath
+    if (isNewFile) setLoading(true)
     Promise.all([
       window.api.git.headContent(activePath),
       window.api.git.fileContent(activePath)
@@ -98,12 +102,15 @@ export function EditorPane(): JSX.Element {
       diskRef.current = disk
       const cached = buffers.current.get(activePath)
       const value = cached ?? disk
-      setHead(h.ok ? h.data : '')
-      setWorking(value)
+      setHead((prev) => (prev === (h.ok ? h.data : '') ? prev : h.ok ? h.data : ''))
+      // Uppdatera bara editorvärdet om det faktiskt ändrats (undviker reset av
+      // markör/ångra-historik och flimmer vid omläsning).
+      setWorking((prev) => (prev === value ? prev : value))
       editedRef.current = value
       setDirty(value !== disk)
       markDirty(activePath, value !== disk)
-      setLoading(false)
+      loadedPathRef.current = activePath
+      if (isNewFile) setLoading(false)
     })
     return () => {
       cancelled = true
@@ -207,9 +214,11 @@ export function EditorPane(): JSX.Element {
   const save = async (): Promise<void> => {
     if (!dirty) return
     let content = editedRef.current
+    let didFormat = false
     if (settings.formatOnSave && canFormat(lang)) {
       try {
         content = await formatCode(content, lang)
+        didFormat = true
       } catch (e) {
         notify(`Formatering misslyckades: ${e instanceof Error ? e.message : e}`, 'error')
       }
@@ -222,6 +231,7 @@ export function EditorPane(): JSX.Element {
       buffers.current.delete(activePath)
       setDirty(false)
       markDirty(activePath, false)
+      notify(didFormat ? 'Formaterad & sparad' : 'Sparad', 'success')
       await refresh()
     } else {
       notify(`Kunde inte spara: ${res.error}`, 'error')

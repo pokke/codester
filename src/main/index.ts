@@ -51,6 +51,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Stabilt AppUserModelID som matchar genvägens (appId) – krävs för att
+  // taskbar-fästning och gruppering ska överleva uppdateringar på Windows.
+  app.setAppUserModelId('com.codester.app')
+
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('update:install', () => quitAndInstall())
   ipcMain.handle('update:check', () => checkNow())

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
+import { ContextMenu, type MenuState } from '../ui/ContextMenu'
 
 interface TreeNode {
   name: string
@@ -43,10 +44,10 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [creating, setCreating] = useState<Creating>(null)
+  const [menu, setMenu] = useState<MenuState | null>(null)
 
   const tree = useMemo(() => buildTree(files), [files])
 
-  // Git-status per fil + vilka mappar som innehåller ändringar
   const { statusByPath, dirtyDirs } = useMemo(() => {
     const map = new Map<string, 'added' | 'modified' | 'deleted'>()
     const dirs = new Set<string>()
@@ -122,6 +123,38 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     else notify(res.error, 'error')
   }
 
+  const startRename = (path: string, name: string): void => {
+    setRenaming(path)
+    setDraft(name)
+  }
+
+  // Högerklicksmenyer
+  const openMenu = (e: React.MouseEvent, items: MenuState['items']): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, items })
+  }
+  const fileMenu = (node: TreeNode) => (e: React.MouseEvent): void =>
+    openMenu(e, [
+      { label: 'Öppna', onClick: () => { selectPath(node.path); onOpenEditor() } },
+      { separator: true },
+      { label: 'Byt namn', onClick: () => startRename(node.path, node.name) },
+      { label: 'Radera', danger: true, onClick: () => del(node.path) }
+    ])
+  const folderMenu = (node: TreeNode) => (e: React.MouseEvent): void =>
+    openMenu(e, [
+      { label: 'Ny fil', onClick: () => startCreate(node.path, 'file') },
+      { label: 'Ny mapp', onClick: () => startCreate(node.path, 'folder') },
+      { separator: true },
+      { label: 'Byt namn', onClick: () => startRename(node.path, node.name) },
+      { label: 'Radera', danger: true, onClick: () => del(node.path) }
+    ])
+  const rootMenu = (e: React.MouseEvent): void =>
+    openMenu(e, [
+      { label: 'Ny fil', onClick: () => startCreate('', 'file') },
+      { label: 'Ny mapp', onClick: () => startCreate('', 'folder') }
+    ])
+
   const renderNode = (node: TreeNode, depth: number): JSX.Element => {
     const pad = { paddingLeft: 8 + depth * 12 }
 
@@ -159,33 +192,11 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
             selectPath(node.path)
             onOpenEditor()
           }}
+          onContextMenu={fileMenu(node)}
         >
           <span className="icon">📄</span>
           <span className={`fname ${gs ? `git-${gs}` : ''}`}>{node.name}</span>
           {gs && <span className={`git-badge git-${gs}`}>{badgeLetter[gs]}</span>}
-          <span className="row-actions">
-            <button
-              className="btn ghost icon"
-              title="Byt namn"
-              onClick={(e) => {
-                e.stopPropagation()
-                setRenaming(node.path)
-                setDraft(node.name)
-              }}
-            >
-              ✎
-            </button>
-            <button
-              className="btn ghost icon"
-              title="Radera"
-              onClick={(e) => {
-                e.stopPropagation()
-                del(node.path)
-              }}
-            >
-              🗑
-            </button>
-          </span>
         </div>
       )
     }
@@ -193,45 +204,17 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     const isOpen = expanded.has(node.path)
     return (
       <div key={node.path}>
-        <div className="row tree-row" style={pad} onClick={() => toggle(node.path)}>
+        <div
+          className="row tree-row"
+          style={pad}
+          onClick={() => toggle(node.path)}
+          onContextMenu={folderMenu(node)}
+        >
           <span className="icon">{isOpen ? '▾' : '▸'}</span>
           <span className={`fname ${dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>
             {node.name}
           </span>
           {dirtyDirs.has(node.path) && <span className="git-dot" />}
-          <span className="row-actions">
-            <button
-              className="btn ghost icon"
-              title="Ny fil här"
-              onClick={(e) => {
-                e.stopPropagation()
-                startCreate(node.path, 'file')
-              }}
-            >
-              +
-            </button>
-            <button
-              className="btn ghost icon"
-              title="Byt namn"
-              onClick={(e) => {
-                e.stopPropagation()
-                setRenaming(node.path)
-                setDraft(node.name)
-              }}
-            >
-              ✎
-            </button>
-            <button
-              className="btn ghost icon"
-              title="Radera"
-              onClick={(e) => {
-                e.stopPropagation()
-                del(node.path)
-              }}
-            >
-              🗑
-            </button>
-          </span>
         </div>
         {isOpen && (
           <>
@@ -262,18 +245,11 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   )
 
   return (
-    <div className="file-tree">
-      <div className="tree-toolbar">
-        <button className="btn ghost icon" title="Ny fil" onClick={() => startCreate('', 'file')}>
-          📄+
-        </button>
-        <button className="btn ghost icon" title="Ny mapp" onClick={() => startCreate('', 'folder')}>
-          📁+
-        </button>
-      </div>
+    <div className="file-tree" onContextMenu={rootMenu}>
       {creating?.parent === '' && createInput(0)}
-      {files.length === 0 && !creating && <div className="hint">Inga filer</div>}
+      {files.length === 0 && !creating && <div className="hint">Högerklicka för att skapa filer</div>}
       {sortedChildren(tree).map((c) => renderNode(c, 0))}
+      {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </div>
   )
 }

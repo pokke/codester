@@ -24,7 +24,7 @@ export function getRepoPath(): string | null {
 }
 
 function requireGit(): SimpleGit {
-  if (!git) throw new Error('Inget repo är öppnat')
+     if (!git) throw new Error('Inget repo är öppnat')
   return git
 }
 
