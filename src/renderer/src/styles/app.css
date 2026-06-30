@@ -1136,3 +1136,22 @@ code {
 
 /* Säkerställ röd prick för borttaget (konflikter/stash) */
 .dot.removed { background: var(--git-deleted); }
+
+/* ── xterm.js värd ── */
+.xterm-host {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.xterm-host .xterm {
+  height: 100%;
+}
+.xterm-host .xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.xterm-host .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}

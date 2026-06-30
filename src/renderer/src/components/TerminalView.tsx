@@ -1,44 +1,106 @@
 import { useEffect, useRef, useState } from 'react'
+import { Terminal } from '@xterm/xterm'
+import { FitAddon } from '@xterm/addon-fit'
+import '@xterm/xterm/css/xterm.css'
 import { useRepo } from '../state/RepoContext'
+import { useSettings } from '../settings/SettingsContext'
+import { getTheme, type Theme } from '../themes/themes'
 
-// Tar bort ANSI-escape-sekvenser så utdata blir läsbar i en enkel <pre>.
-function stripAnsi(s: string): string {
-  // eslint-disable-next-line no-control-regex
-  return s.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*(\x07|\x1b\\)/g, '')
+// Bygg ett xterm-tema från Codesters apptema (xterm kräver hex, inte CSS-vars).
+function xtermTheme(t: Theme): Record<string, string> {
+  const c = t.colors
+  return {
+    background: c.bg,
+    foreground: c.text,
+    cursor: c.accent,
+    cursorAccent: c.bg,
+    selectionBackground: `${c.accent}55`,
+    black: c.bg,
+    red: c.removed,
+    green: c.added,
+    yellow: c.synType,
+    blue: c.synKeyword,
+    magenta: c.synNumber,
+    cyan: c.synFunction,
+    white: c.text,
+    brightBlack: c.textMuted,
+    brightRed: c.removed,
+    brightGreen: c.added,
+    brightYellow: c.synType,
+    brightBlue: c.synKeyword,
+    brightMagenta: c.synNumber,
+    brightCyan: c.synFunction,
+    brightWhite: c.text
+  }
 }
 
 export function TerminalView(): JSX.Element {
-  const { repo, refresh } = useRepo()
-  const [output, setOutput] = useState('')
+  const { repo } = useRepo()
+  const { settings } = useSettings()
+  const hostRef = useRef<HTMLDivElement>(null)
+  const termRef = useRef<Terminal | null>(null)
+  const fitRef = useRef<FitAddon | null>(null)
   const [input, setInput] = useState('')
-  const outRef = useRef<HTMLPreElement>(null)
   const history = useRef<string[]>([])
   const histPos = useRef(-1)
 
-  // Starta (och vid repo-byte: starta om) terminalen
+  // Skapa terminalen en gång
   useEffect(() => {
-    setOutput('')
-    const unsub = window.api.terminal.onData((d) => setOutput((prev) => prev + stripAnsi(d)))
-    window.api.terminal.start()
-    return () => {
-      unsub()
-      window.api.terminal.kill()
-    }
-  }, [repo?.path])
+    if (!hostRef.current) return
+    const term = new Terminal({
+      fontFamily: "'Cascadia Code', 'Consolas', monospace",
+      fontSize: settings.fontSize,
+      cursorBlink: true,
+      convertEol: true,
+      theme: xtermTheme(getTheme(settings.themeId))
+    })
+    const fit = new FitAddon()
+    term.loadAddon(fit)
+    term.open(hostRef.current)
+    fit.fit()
+    termRef.current = term
+    fitRef.current = fit
 
+    const unsub = window.api.terminal.onData((d) => term.write(d))
+    window.api.terminal.ensure()
+
+    const ro = new ResizeObserver(() => {
+      try {
+        fit.fit()
+      } catch {
+        /* host kan vara borttagen */
+      }
+    })
+    ro.observe(hostRef.current)
+
+    return () => {
+      ro.disconnect()
+      unsub()
+      term.dispose()
+      termRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Uppdatera tema/fontstorlek live
   useEffect(() => {
-    if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight
-  }, [output])
+    const term = termRef.current
+    if (!term) return
+    term.options.theme = xtermTheme(getTheme(settings.themeId))
+    term.options.fontSize = settings.fontSize
+    fitRef.current?.fit()
+  }, [settings.themeId, settings.fontSize])
 
   const run = (): void => {
+    const term = termRef.current
+    if (!term) return
     const cmd = input
-    setOutput((prev) => `${prev}\n$ ${cmd}\n`)
+    // Eko av kommandot med en färgad prompt
+    term.write(`\r\n\x1b[36m❯\x1b[0m ${cmd}\r\n`)
     window.api.terminal.input(`${cmd}\n`)
     if (cmd.trim()) history.current.unshift(cmd)
     histPos.current = -1
     setInput('')
-    // Uppdatera git-status efter ett tag (kommandot kan ha ändrat repot)
-    setTimeout(() => refresh(), 600)
   }
 
   const onKey = (e: React.KeyboardEvent): void => {
@@ -65,26 +127,28 @@ export function TerminalView(): JSX.Element {
     <main className="panel center">
       <div className="panel-header editor-toolbar">
         <span>Terminal {repo ? `· ${repo.name}` : ''}</span>
-        <button className="btn ghost icon" title="Rensa" onClick={() => setOutput('')}>
+        <button
+          className="btn ghost icon"
+          title="Rensa"
+          onClick={() => termRef.current?.clear()}
+        >
           ⌫
         </button>
         <button
           className="btn ghost icon"
-          title="Starta om"
+          title="Starta om skalet"
           onClick={() => {
+            termRef.current?.reset()
             window.api.terminal.kill()
-            setOutput('')
             window.api.terminal.start()
           }}
         >
           ⟳
         </button>
       </div>
-      <pre className="terminal-output" ref={outRef}>
-        {output}
-      </pre>
+      <div className="xterm-host" ref={hostRef} />
       <div className="terminal-input">
-        <span className="prompt">$</span>
+        <span className="prompt">❯</span>
         <input
           autoFocus
           value={input}

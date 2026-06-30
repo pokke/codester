@@ -1,6 +1,6 @@
 {
   "name": "codester",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Codester – en lättviktig kod- och Git-klient för Windows",
   "main": "./out/main/index.js",
   "author": "Codester Team",
@@ -29,6 +29,8 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "chokidar": "^3.6.0",
     "electron-updater": "^6.8.9",
     "monaco-editor": "^0.55.1",

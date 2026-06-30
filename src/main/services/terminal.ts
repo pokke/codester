@@ -28,6 +28,11 @@ export function startTerminal(sender: WebContents, cwd: string | null): void {
   send(`Codester-terminal · ${dir}\n`)
 }
 
+// Starta bara om inget skal redan kör (så sessionen överlever vy-byten).
+export function ensureStarted(sender: WebContents, cwd: string | null): void {
+  if (!shell) startTerminal(sender, cwd)
+}
+
 export function writeTerminal(data: string): void {
   shell?.stdin.write(data)
 }

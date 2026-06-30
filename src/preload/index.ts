@@ -72,6 +72,7 @@ const api = {
 
   terminal: {
     start: (): void => ipcRenderer.send('terminal:start'),
+    ensure: (): void => ipcRenderer.send('terminal:ensure'),
     input: (data: string): void => ipcRenderer.send('terminal:input', data),
     kill: (): void => ipcRenderer.send('terminal:kill'),
     onData: (cb: (data: string) => void): (() => void) => {
