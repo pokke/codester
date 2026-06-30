@@ -74,11 +74,18 @@ const api = {
     start: (): void => ipcRenderer.send('terminal:start'),
     ensure: (): void => ipcRenderer.send('terminal:ensure'),
     input: (data: string): void => ipcRenderer.send('terminal:input', data),
+    resize: (cols: number, rows: number): void =>
+      ipcRenderer.send('terminal:resize', cols, rows),
     kill: (): void => ipcRenderer.send('terminal:kill'),
     onData: (cb: (data: string) => void): (() => void) => {
       const listener = (_e: unknown, data: string): void => cb(data)
       ipcRenderer.on('terminal:data', listener)
       return () => ipcRenderer.removeListener('terminal:data', listener)
+    },
+    onMode: (cb: (mode: string) => void): (() => void) => {
+      const listener = (_e: unknown, mode: string): void => cb(mode)
+      ipcRenderer.on('terminal:mode', listener)
+      return () => ipcRenderer.removeListener('terminal:mode', listener)
     }
   },
 

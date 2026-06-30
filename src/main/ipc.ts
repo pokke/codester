@@ -100,6 +100,9 @@ export function registerIpc(): void {
   ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))
   ipcMain.on('terminal:ensure', (e) => terminal.ensureStarted(e.sender, git.getRepoPath()))
   ipcMain.on('terminal:input', (_e, data: string) => terminal.writeTerminal(data))
+  ipcMain.on('terminal:resize', (_e, cols: number, rows: number) =>
+    terminal.resizeTerminal(cols, rows)
+  )
   ipcMain.on('terminal:kill', () => terminal.killTerminal())
 
   // --- GitHub ---

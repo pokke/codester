@@ -2,44 +2,91 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { homedir } from 'os'
 import type { WebContents } from 'electron'
 
-// Lättviktig terminal/kommandokonsol utan native-beroenden (ingen node-pty).
-// Vi startar ett uthålligt PowerShell-skal med pipes och strömmar utdata till
-// renderern. Input skickas radvis. Detta täcker git/npm/build-kommandon väl;
-// fullt interaktiva TUI-program (vim etc) kräver en riktig PTY och stöds inte.
+// Terminal-backend. Föredrar en riktig PTY (@lydell/node-pty, förbyggd ConPTY)
+// → färger, markör, riktig prompt och interaktiva program. Misslyckas den
+// native-laddningen faller vi tillbaka till ett pipe-baserat PowerShell-skal.
 
-let shell: ChildProcessWithoutNullStreams | null = null
+type PtyModule = typeof import('@lydell/node-pty')
+type IPty = import('@lydell/node-pty').IPty
+
+let ptyLib: PtyModule | null = null
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  ptyLib = require('@lydell/node-pty')
+} catch {
+  ptyLib = null
+}
+
+let ptyProc: IPty | null = null
+let pipeProc: ChildProcessWithoutNullStreams | null = null
 
 export function startTerminal(sender: WebContents, cwd: string | null): void {
   killTerminal()
   const dir = cwd ?? homedir()
-  shell = spawn('powershell.exe', ['-NoLogo', '-NoExit', '-Command', '-'], {
+  const send = (channel: string, ...args: unknown[]): void => {
+    if (!sender.isDestroyed()) sender.send(channel, ...args)
+  }
+
+  if (ptyLib) {
+    try {
+      ptyProc = ptyLib.spawn('powershell.exe', [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: dir,
+        env: process.env as Record<string, string>
+      })
+      ptyProc.onData((d) => send('terminal:data', d))
+      ptyProc.onExit(() => send('terminal:data', '\r\n[skalet avslutades]\r\n'))
+      send('terminal:mode', 'pty')
+      return
+    } catch {
+      ptyProc = null
+    }
+  }
+
+  // Fallback: pipe-baserat skal (radvis, ingen full interaktivitet)
+  pipeProc = spawn('powershell.exe', ['-NoLogo', '-NoExit', '-Command', '-'], {
     cwd: dir,
     windowsHide: true
   })
-
-  const send = (data: string): void => {
-    if (!sender.isDestroyed()) sender.send('terminal:data', data)
-  }
-
-  shell.stdout.on('data', (d: Buffer) => send(d.toString()))
-  shell.stderr.on('data', (d: Buffer) => send(d.toString()))
-  shell.on('exit', (code) => send(`\n[processen avslutades med kod ${code ?? 0}]\n`))
-
-  send(`Codester-terminal · ${dir}\n`)
+  pipeProc.stdout.on('data', (d: Buffer) => send('terminal:data', d.toString()))
+  pipeProc.stderr.on('data', (d: Buffer) => send('terminal:data', d.toString()))
+  pipeProc.on('exit', (code) => send('terminal:data', `\r\n[skalet avslutades med kod ${code ?? 0}]\r\n`))
+  send('terminal:mode', 'pipe')
+  send('terminal:data', `Codester-terminal · ${dir}\r\n`)
 }
 
-// Starta bara om inget skal redan kör (så sessionen överlever vy-byten).
 export function ensureStarted(sender: WebContents, cwd: string | null): void {
-  if (!shell) startTerminal(sender, cwd)
+  if (!ptyProc && !pipeProc) startTerminal(sender, cwd)
 }
 
 export function writeTerminal(data: string): void {
-  shell?.stdin.write(data)
+  if (ptyProc) ptyProc.write(data)
+  else pipeProc?.stdin.write(data)
+}
+
+export function resizeTerminal(cols: number, rows: number): void {
+  if (ptyProc && cols > 0 && rows > 0) {
+    try {
+      ptyProc.resize(cols, rows)
+    } catch {
+      /* ignorera */
+    }
+  }
 }
 
 export function killTerminal(): void {
-  if (shell) {
-    shell.kill()
-    shell = null
+  if (ptyProc) {
+    try {
+      ptyProc.kill()
+    } catch {
+      /* ignorera */
+    }
+    ptyProc = null
+  }
+  if (pipeProc) {
+    pipeProc.kill()
+    pipeProc = null
   }
 }
