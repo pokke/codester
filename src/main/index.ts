@@ -64,6 +64,8 @@ app.whenReady().then(() => {
     initUpdater((channel, ...args) => {
       if (!win.isDestroyed()) win.webContents.send(channel, ...args)
     })
+    // Leta efter uppdateringar igen när fönstret får fokus (strypt i updater)
+    win.on('focus', () => checkNow())
   }
 
   app.on('activate', () => {

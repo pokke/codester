@@ -19,6 +19,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     branches,
     activePath,
     selectPath,
+    previewFile,
     checkout,
     createBranch,
     stage,
@@ -102,6 +103,10 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
       key={f.path}
       className={`row file-row ${activePath === f.path ? 'active' : ''}`}
       onClick={() => {
+        previewFile(f.path)
+        onOpenEditor()
+      }}
+      onDoubleClick={() => {
         selectPath(f.path)
         onOpenEditor()
       }}
@@ -267,6 +272,10 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                     key={path}
                     className={`row file-row conflict ${activePath === path ? 'active' : ''}`}
                     onClick={() => {
+                      previewFile(path)
+                      onOpenEditor()
+                    }}
+                    onDoubleClick={() => {
                       selectPath(path)
                       onOpenEditor()
                     }}

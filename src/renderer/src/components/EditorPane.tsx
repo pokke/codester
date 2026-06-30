@@ -15,11 +15,13 @@ type Mode = 'diff' | 'edit'
 export function EditorPane(): JSX.Element {
   const {
     openTabs,
+    previewPath,
     activePath,
     activeLine,
     status,
     revision,
     selectPath,
+    pinTab,
     closeTab,
     refresh,
     resolveSide
@@ -192,6 +194,8 @@ export function EditorPane(): JSX.Element {
 
   const onEdit = (v: string | undefined): void => {
     const val = v ?? ''
+    // Redigering fäster en förhandsflik (som i VS Code)
+    if (previewPath === activePath) pinTab(activePath)
     editedRef.current = val
     const isDirty = val !== diskRef.current
     setDirty(isDirty)
@@ -240,8 +244,11 @@ export function EditorPane(): JSX.Element {
         {openTabs.map((path) => (
           <div
             key={path}
-            className={`tab ${activePath === path ? 'active' : ''}`}
+            className={`tab ${activePath === path ? 'active' : ''} ${
+              previewPath === path ? 'preview' : ''
+            }`}
             onClick={() => selectPath(path)}
+            onDoubleClick={() => pinTab(path)}
             title={path}
             onAuxClick={(e) => e.button === 1 && handleClose(path, e)}
           >

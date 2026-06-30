@@ -39,6 +39,8 @@ interface RepoState {
   files: string[]
   stashes: StashEntry[]
   openTabs: string[]
+  /** flik i förhandsläge (singelklick) – ersätts av nästa förhandsvisning */
+  previewPath: string | null
   activePath: string | null
   activeLine: number | null
   /** ökar vid varje omladdning – editorn lyssnar för auto-omläsning */
@@ -51,6 +53,8 @@ interface RepoContextValue extends RepoState {
   cloneAndOpen: (url: string) => Promise<void>
   refresh: () => Promise<void>
   selectPath: (path: string | null, line?: number) => void
+  previewFile: (path: string) => void
+  pinTab: (path: string) => void
   closeTab: (path: string) => void
   checkout: (name: string) => Promise<void>
   createBranch: (name: string) => Promise<void>
@@ -81,6 +85,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     files: [],
     stashes: [],
     openTabs: [],
+    previewPath: null,
     activePath: null,
     activeLine: null,
     revision: 0,
@@ -113,7 +118,8 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
 
   const setRepo = useCallback(
     async (repo: RepoInfo) => {
-      setState((s) => ({ ...s, repo, activePath: null, openTabs: [] }))
+      localStorage.setItem('codester.lastRepo', repo.path)
+      setState((s) => ({ ...s, repo, activePath: null, openTabs: [], previewPath: null }))
       await loadRepoData()
       // Återställ tidigare öppna flikar för detta repo (om filerna finns kvar)
       try {
@@ -142,14 +148,16 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     )
   }, [state.repo, state.openTabs, state.activePath])
 
-  // Återöppna senaste repo om main fortfarande har ett aktivt
+  // Återöppna senaste repo: först main:s aktiva, annars sparad sökväg (överlever
+  // omstart/uppdatering). Misslyckas det (raderat repo) glöms sökvägen tyst.
   useEffect(() => {
     ;(async () => {
       const current = await unwrap(window.api.repo.current())
-      if (current) {
-        const info = await unwrap(window.api.repo.open(current))
-        if (info) await setRepo(info)
-      }
+      const path = current ?? localStorage.getItem('codester.lastRepo')
+      if (!path) return
+      const res = await window.api.repo.open(path)
+      if (res.ok) await setRepo(res.data)
+      else localStorage.removeItem('codester.lastRepo')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -187,13 +195,37 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     [unwrap, withBusy, setRepo, notify]
   )
 
+  // Öppna/fäst en flik permanent (dubbelklick, sökträff, quick open)
   const selectPath = useCallback((path: string | null, line?: number) => {
     setState((s) => ({
       ...s,
       activePath: path,
       activeLine: line ?? null,
-      openTabs: path && !s.openTabs.includes(path) ? [...s.openTabs, path] : s.openTabs
+      openTabs: path && !s.openTabs.includes(path) ? [...s.openTabs, path] : s.openTabs,
+      previewPath: s.previewPath === path ? null : s.previewPath
     }))
+  }, [])
+
+  // Förhandsvisa (singelklick) – återanvänder förhandsfliken istället för ny
+  const previewFile = useCallback((path: string) => {
+    setState((s) => {
+      if (s.openTabs.includes(path) && s.previewPath !== path) {
+        // redan en fäst flik → bara aktivera
+        return { ...s, activePath: path, activeLine: null }
+      }
+      const pinned = s.openTabs.filter((p) => p !== s.previewPath)
+      return {
+        ...s,
+        openTabs: [...pinned, path],
+        previewPath: path,
+        activePath: path,
+        activeLine: null
+      }
+    })
+  }, [])
+
+  const pinTab = useCallback((path: string) => {
+    setState((s) => (s.previewPath === path ? { ...s, previewPath: null } : s))
   }, [])
 
   const closeTab = useCallback((path: string) => {
@@ -205,7 +237,13 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         // aktivera grannen (föregående, annars nästa)
         activePath = openTabs[idx - 1] ?? openTabs[idx] ?? openTabs[openTabs.length - 1] ?? null
       }
-      return { ...s, openTabs, activePath, activeLine: null }
+      return {
+        ...s,
+        openTabs,
+        activePath,
+        activeLine: null,
+        previewPath: s.previewPath === path ? null : s.previewPath
+      }
     })
   }, [])
 
@@ -335,6 +373,8 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         cloneAndOpen,
         refresh,
         selectPath,
+        previewFile,
+        pinTab,
         closeTab,
         checkout,
         createBranch,

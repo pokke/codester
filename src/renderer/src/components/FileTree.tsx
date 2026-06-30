@@ -37,7 +37,7 @@ function sortedChildren(node: TreeNode): TreeNode[] {
 type Creating = { parent: string; type: 'file' | 'folder' } | null
 
 export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
-  const { files, activePath, selectPath, refresh, status } = useRepo()
+  const { files, activePath, selectPath, previewFile, refresh, status } = useRepo()
   const { notify } = useToast()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -132,6 +132,10 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
           style={pad}
           title={node.path}
           onClick={() => {
+            previewFile(node.path)
+            onOpenEditor()
+          }}
+          onDoubleClick={() => {
             selectPath(node.path)
             onOpenEditor()
           }}

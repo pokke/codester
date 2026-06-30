@@ -21,18 +21,23 @@ export function initUpdater(send: Send): void {
   autoUpdater.on('update-downloaded', (info) => send('update:downloaded', info.version))
   autoUpdater.on('error', (e) => send('update:error', e == null ? 'okänt fel' : String(e)))
 
-  autoUpdater.checkForUpdates().catch(() => {
-    /* nätverksfel m.m. – ignoreras tyst */
-  })
-
-  // Kolla igen en gång i timmen om appen är öppen länge
-  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000)
+  checkNow()
+  // Kolla regelbundet medan appen är öppen
+  setInterval(checkNow, 30 * 60 * 1000)
 }
 
 export function quitAndInstall(): void {
   autoUpdater.quitAndInstall()
 }
 
+let lastCheck = 0
 export function checkNow(): void {
-  if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {})
+  if (!app.isPackaged) return
+  const now = Date.now()
+  // Strypning: minst 5 min mellan kontroller (t.ex. vid upprepad fönsterfokus)
+  if (now - lastCheck < 5 * 60 * 1000) return
+  lastCheck = now
+  autoUpdater.checkForUpdates().catch(() => {
+    /* nätverksfel m.m. – ignoreras tyst */
+  })
 }
