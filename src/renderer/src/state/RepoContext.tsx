@@ -38,8 +38,11 @@ interface RepoState {
   log: CommitLogEntry[]
   files: string[]
   stashes: StashEntry[]
+  openTabs: string[]
   activePath: string | null
   activeLine: number | null
+  /** ökar vid varje omladdning – editorn lyssnar för auto-omläsning */
+  revision: number
   busy: boolean
 }
 
@@ -48,6 +51,7 @@ interface RepoContextValue extends RepoState {
   cloneAndOpen: (url: string) => Promise<void>
   refresh: () => Promise<void>
   selectPath: (path: string | null, line?: number) => void
+  closeTab: (path: string) => void
   checkout: (name: string) => Promise<void>
   createBranch: (name: string) => Promise<void>
   stage: (file: string) => Promise<void>
@@ -76,8 +80,10 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     log: [],
     files: [],
     stashes: [],
+    openTabs: [],
     activePath: null,
     activeLine: null,
+    revision: 0,
     busy: false
   })
 
@@ -95,7 +101,8 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
       branches: branches ?? s.branches,
       log: log ?? s.log,
       files: files ?? s.files,
-      stashes: stashes ?? s.stashes
+      stashes: stashes ?? s.stashes,
+      revision: s.revision + 1
     }))
   }, [unwrap])
 
@@ -106,7 +113,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
 
   const setRepo = useCallback(
     async (repo: RepoInfo) => {
-      setState((s) => ({ ...s, repo, activePath: null }))
+      setState((s) => ({ ...s, repo, activePath: null, openTabs: [] }))
       await loadRepoData()
     },
     [loadRepoData]
@@ -158,7 +165,25 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
   )
 
   const selectPath = useCallback((path: string | null, line?: number) => {
-    setState((s) => ({ ...s, activePath: path, activeLine: line ?? null }))
+    setState((s) => ({
+      ...s,
+      activePath: path,
+      activeLine: line ?? null,
+      openTabs: path && !s.openTabs.includes(path) ? [...s.openTabs, path] : s.openTabs
+    }))
+  }, [])
+
+  const closeTab = useCallback((path: string) => {
+    setState((s) => {
+      const idx = s.openTabs.indexOf(path)
+      const openTabs = s.openTabs.filter((p) => p !== path)
+      let activePath = s.activePath
+      if (s.activePath === path) {
+        // aktivera grannen (föregående, annars nästa)
+        activePath = openTabs[idx - 1] ?? openTabs[idx] ?? openTabs[openTabs.length - 1] ?? null
+      }
+      return { ...s, openTabs, activePath, activeLine: null }
+    })
   }, [])
 
   // Auto-uppdatera när filbevakaren signalerar ändringar i repot
@@ -287,6 +312,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         cloneAndOpen,
         refresh,
         selectPath,
+        closeTab,
         checkout,
         createBranch,
         stage,

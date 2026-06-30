@@ -11,7 +11,17 @@ import { useToast } from '../ui/Toast'
 type Mode = 'diff' | 'edit'
 
 export function EditorPane(): JSX.Element {
-  const { activePath, activeLine, status, refresh, resolveSide } = useRepo()
+  const {
+    openTabs,
+    activePath,
+    activeLine,
+    status,
+    revision,
+    selectPath,
+    closeTab,
+    refresh,
+    resolveSide
+  } = useRepo()
   const { settings } = useSettings()
   const { notify } = useToast()
   const monaco = useMonaco()
@@ -21,17 +31,30 @@ export function EditorPane(): JSX.Element {
   const [working, setWorking] = useState('')
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [dirtyTabs, setDirtyTabs] = useState<Set<string>>(new Set())
+
   const editedRef = useRef('')
+  const diskRef = useRef('')
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
+  // Osparat innehåll per flik, så ändringar överlever flikbyten
+  const buffers = useRef<Map<string, string>>(new Map())
 
   const change = status?.files.find((f) => f.path === activePath)
   const isConflicted = !!activePath && (status?.conflicted ?? []).includes(activePath)
 
+  const markDirty = (path: string, isDirty: boolean): void => {
+    setDirtyTabs((prev) => {
+      if (isDirty === prev.has(path)) return prev
+      const next = new Set(prev)
+      isDirty ? next.add(path) : next.delete(path)
+      return next
+    })
+  }
+
   // Applicera Codesters tema på Monaco när temat ändras
   useEffect(() => {
     if (!monaco) return
-    const themeId = defineMonacoTheme(getTheme(settings.themeId))
-    monaco.editor.setTheme(themeId)
+    monaco.editor.setTheme(defineMonacoTheme(getTheme(settings.themeId)))
   }, [monaco, settings.themeId])
 
   // Välj förnuftigt standardläge när filen byts
@@ -49,22 +72,33 @@ export function EditorPane(): JSX.Element {
     }
   }, [activeLine, loading, mode, working])
 
-  // Ladda innehåll när aktiv fil ändras
+  // Ladda innehåll vid filbyte ELLER när repot ändras (revision) – men behåll
+  // osparade ändringar. Disk läses om varje gång, så editorn är aldrig "fast"
+  // på en gammal version.
   useEffect(() => {
     if (!activePath) return
+    let cancelled = false
     setLoading(true)
-    setDirty(false)
     Promise.all([
       window.api.git.headContent(activePath),
       window.api.git.fileContent(activePath)
     ]).then(([h, w]) => {
+      if (cancelled) return
+      const disk = w.ok ? w.data : ''
+      diskRef.current = disk
+      const cached = buffers.current.get(activePath)
+      const value = cached ?? disk
       setHead(h.ok ? h.data : '')
-      const content = w.ok ? w.data : ''
-      setWorking(content)
-      editedRef.current = content
+      setWorking(value)
+      editedRef.current = value
+      setDirty(value !== disk)
+      markDirty(activePath, value !== disk)
       setLoading(false)
     })
-  }, [activePath])
+    return () => {
+      cancelled = true
+    }
+  }, [activePath, revision])
 
   const themeId = `codester-${settings.themeId}`
 
@@ -73,7 +107,7 @@ export function EditorPane(): JSX.Element {
       <main className="panel center">
         <div className="empty-state">
           <div style={{ fontSize: 40 }}>📄</div>
-          <h2>Ingen fil vald</h2>
+          <h2>Ingen fil öppen</h2>
           <p>Välj en fil i sidofältet – under "Ändringar" för diff, eller "Filer" för att bläddra.</p>
         </div>
       </main>
@@ -81,12 +115,26 @@ export function EditorPane(): JSX.Element {
   }
 
   const lang = languageForPath(activePath)
+  const canDiff = !!change && !isConflicted
+
+  const onEdit = (v: string | undefined): void => {
+    const val = v ?? ''
+    editedRef.current = val
+    const isDirty = val !== diskRef.current
+    setDirty(isDirty)
+    if (isDirty) buffers.current.set(activePath, val)
+    else buffers.current.delete(activePath)
+    markDirty(activePath, isDirty)
+  }
 
   const save = async (): Promise<void> => {
     const res = await window.api.git.saveFile(activePath, editedRef.current)
     if (res.ok) {
+      diskRef.current = editedRef.current
       setWorking(editedRef.current)
+      buffers.current.delete(activePath)
       setDirty(false)
+      markDirty(activePath, false)
       notify('Sparad', 'success')
       await refresh()
     } else {
@@ -94,10 +142,35 @@ export function EditorPane(): JSX.Element {
     }
   }
 
-  const canDiff = !!change && !isConflicted
+  const handleClose = (path: string, e?: React.MouseEvent): void => {
+    e?.stopPropagation()
+    if (dirtyTabs.has(path) && !confirm(`${path} har osparade ändringar. Stäng ändå?`)) return
+    buffers.current.delete(path)
+    markDirty(path, false)
+    closeTab(path)
+  }
 
   return (
     <main className="panel center">
+      {/* Flikrad */}
+      <div className="tabbar">
+        {openTabs.map((path) => (
+          <div
+            key={path}
+            className={`tab ${activePath === path ? 'active' : ''}`}
+            onClick={() => selectPath(path)}
+            title={path}
+            onAuxClick={(e) => e.button === 1 && handleClose(path, e)}
+          >
+            <span className="tab-name">{path.split('/').pop()}</span>
+            {dirtyTabs.has(path) && <span className="tab-dirty">•</span>}
+            <button className="tab-close" title="Stäng" onClick={(e) => handleClose(path, e)}>
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
       <div className="panel-header editor-toolbar">
         <span title={activePath}>
           {isConflicted && '⚠ '}
@@ -107,10 +180,10 @@ export function EditorPane(): JSX.Element {
         {isConflicted ? (
           <>
             <span className="muted small">Lös per block nedan, eller hela filen:</span>
-            <button className="btn" onClick={() => resolveSide(activePath, 'ours')}>
+            <button className="btn" onClick={() => resolveSideFull('ours')}>
               Hela filen: våra
             </button>
-            <button className="btn" onClick={() => resolveSide(activePath, 'theirs')}>
+            <button className="btn" onClick={() => resolveSideFull('theirs')}>
               Hela filen: deras
             </button>
           </>
@@ -159,14 +232,12 @@ export function EditorPane(): JSX.Element {
           height="100%"
           theme={themeId}
           language={lang}
+          path={activePath}
           value={working}
           onMount={(ed) => {
             editorRef.current = ed
           }}
-          onChange={(v) => {
-            editedRef.current = v ?? ''
-            setDirty((v ?? '') !== working)
-          }}
+          onChange={onEdit}
           options={{
             fontSize: settings.fontSize,
             minimap: { enabled: true },
@@ -177,4 +248,8 @@ export function EditorPane(): JSX.Element {
       )}
     </main>
   )
+
+  function resolveSideFull(side: 'ours' | 'theirs'): void {
+    if (activePath) resolveSide(activePath, side)
+  }
 }

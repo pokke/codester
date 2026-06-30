@@ -952,3 +952,60 @@ code {
   text-overflow: ellipsis;
   max-width: 100%;
 }
+
+/* ── Flikrad (öppna filer) ── */
+.tabbar {
+  display: flex;
+  flex-shrink: 0;
+  overflow-x: auto;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+.tabbar::-webkit-scrollbar {
+  height: 0;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 200px;
+  border-top: 2px solid transparent;
+}
+.tab:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.tab.active {
+  background: var(--bg);
+  color: var(--text);
+  border-top-color: var(--accent);
+}
+.tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-dirty {
+  color: var(--accent);
+  font-size: 16px;
+  line-height: 0;
+}
+.tab-close {
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  opacity: 1;
+}
+.tab-close:hover {
+  background: color-mix(in srgb, var(--text) 15%, transparent);
+  color: var(--text);
+}
