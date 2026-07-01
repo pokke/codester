@@ -14,11 +14,18 @@ interface Command {
 interface Props {
   onClose: () => void
   setView: (v: View) => void
+  openPanel: (tab: 'terminal' | 'problems') => void
   openSettings: () => void
   openAbout: () => void
 }
 
-export function CommandPalette({ onClose, setView, openSettings, openAbout }: Props): JSX.Element {
+export function CommandPalette({
+  onClose,
+  setView,
+  openPanel,
+  openSettings,
+  openAbout
+}: Props): JSX.Element {
   const repo = useRepo()
   const { update } = useSettings()
   const [query, setQuery] = useState('')
@@ -30,7 +37,8 @@ export function CommandPalette({ onClose, setView, openSettings, openAbout }: Pr
       { id: 'view-editor', label: 'Visa: Ändringar & kod', run: () => setView('editor') },
       { id: 'view-history', label: 'Visa: Historik', run: () => setView('history') },
       { id: 'view-github', label: 'Visa: GitHub', run: () => setView('github') },
-      { id: 'view-terminal', label: 'Visa: Terminal', run: () => setView('terminal') },
+      { id: 'view-terminal', label: 'Visa: Terminal', run: () => openPanel('terminal') },
+      { id: 'view-problems', label: 'Visa: Problem', run: () => openPanel('problems') },
       { id: 'push', label: 'Git: Push', run: () => repo.push() },
       { id: 'pull', label: 'Git: Pull', run: () => repo.pull() },
       { id: 'fetch', label: 'Git: Fetch', run: () => repo.fetch() },

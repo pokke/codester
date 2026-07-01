@@ -32,7 +32,18 @@ export function App(): JSX.Element {
   const [showQuickOpen, setShowQuickOpen] = useState(false)
   const [showInspector, setShowInspector] = useState(true)
   const [sidebarHidden, setSidebarHidden] = useState(false)
+  const [panelTab, setPanelTab] = useState<'terminal' | 'problems' | null>(null)
+  const [panelHeight, setPanelHeight] = useState<number>(
+    () => Number(localStorage.getItem('codester.panelHeight')) || 240
+  )
   const [version, setVersion] = useState('0.1.0')
+
+  const togglePanel = (tab: 'terminal' | 'problems'): void =>
+    setPanelTab((cur) => (cur === tab ? null : tab))
+
+  useEffect(() => {
+    localStorage.setItem('codester.panelHeight', String(panelHeight))
+  }, [panelHeight])
 
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
@@ -76,10 +87,10 @@ export function App(): JSX.Element {
         setSidebarHidden((v) => !v) // Ctrl+B → visa/dölj sidofält
       } else if (e.key === '`') {
         e.preventDefault()
-        setView((v) => (v === 'terminal' ? 'editor' : 'terminal')) // Ctrl+` → terminal
+        togglePanel('terminal') // Ctrl+` → terminal-panel
       } else if (e.shiftKey && k === 'm') {
         e.preventDefault()
-        setView((v) => (v === 'problems' ? 'editor' : 'problems')) // Ctrl+Shift+M → problem
+        togglePanel('problems') // Ctrl+Shift+M → problem-panel
       } else if (k === 'w') {
         e.preventDefault()
         if (activePath) closeTab(activePath) // Ctrl+W → stäng flik
@@ -103,9 +114,7 @@ export function App(): JSX.Element {
   }, [activePath, openTabs, closeTab, selectPath, settings.uiScale, update])
 
   const renderCenter = (): JSX.Element => {
-    if (view === 'terminal') return <TerminalView />
     if (view === 'github') return <GitHubPanel />
-    if (view === 'problems') return <ProblemsView onOpenFile={() => setView('editor')} />
     if (!repo) return <WelcomeScreen />
     if (view === 'history') return <HistoryView />
     return <EditorPane />
@@ -135,11 +144,15 @@ export function App(): JSX.Element {
 
       <div className="body">
         <ActivityBar
-          view={view}
-          onChange={setView}
+          view={panelTab ?? view}
+          onChange={(id) => {
+            if (id === 'terminal' || id === 'problems') togglePanel(id)
+            else setView(id)
+          }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPalette={() => setShowPalette(true)}
         />
+        <div className="main-area">
         <div className="workbench">
           {showSidebar && (
             <>
@@ -162,11 +175,66 @@ export function App(): JSX.Element {
             </>
           )}
         </div>
+
+        {panelTab && (
+          <>
+            <div
+              className="panel-resizer"
+              title="Dra för att ändra höjd"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                const startY = e.clientY
+                const startH = panelHeight
+                const move = (ev: MouseEvent): void =>
+                  setPanelHeight(
+                    Math.max(120, Math.min(window.innerHeight - 200, startH + (startY - ev.clientY)))
+                  )
+                const up = (): void => {
+                  window.removeEventListener('mousemove', move)
+                  window.removeEventListener('mouseup', up)
+                }
+                window.addEventListener('mousemove', move)
+                window.addEventListener('mouseup', up)
+              }}
+            />
+            <div className="bottom-panel" style={{ height: panelHeight }}>
+              <div className="panel-tabs">
+                <button
+                  className={panelTab === 'terminal' ? 'active' : ''}
+                  onClick={() => setPanelTab('terminal')}
+                >
+                  Terminal
+                </button>
+                <button
+                  className={panelTab === 'problems' ? 'active' : ''}
+                  onClick={() => setPanelTab('problems')}
+                >
+                  Problem
+                </button>
+                <span className="spacer" />
+                <button
+                  className="btn ghost icon"
+                  title="Stäng panel (Ctrl+`)"
+                  onClick={() => setPanelTab(null)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="panel-content">
+                <div className="panel-view" style={{ display: panelTab === 'terminal' ? 'flex' : 'none' }}>
+                  <TerminalView />
+                </div>
+                {panelTab === 'problems' && <ProblemsView onOpenFile={() => setView('editor')} />}
+              </div>
+            </div>
+          </>
+        )}
+        </div>
       </div>
 
       <UpdateBanner />
 
-      <StatusBar version={version} onShowProblems={() => setView('problems')} />
+      <StatusBar version={version} onShowProblems={() => setPanelTab('problems')} />
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showAbout && <AboutModal version={version} onClose={() => setShowAbout(false)} />}
@@ -180,6 +248,7 @@ export function App(): JSX.Element {
         <CommandPalette
           onClose={() => setShowPalette(false)}
           setView={setView}
+          openPanel={togglePanel}
           openSettings={() => {
             setShowPalette(false)
             setShowSettings(true)

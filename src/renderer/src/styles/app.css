@@ -1449,3 +1449,63 @@ code {
   flex: 1;
   min-width: 0;
 }
+
+/* ── Huvudyta + bottenpanel (Fas D) ── */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.panel-resizer {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.panel-resizer:hover {
+  background: var(--accent);
+}
+.bottom-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+.panel-tabs button {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+.panel-tabs button.active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.panel-tabs .spacer {
+  flex: 1;
+}
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.panel-content > *,
+.panel-view {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
