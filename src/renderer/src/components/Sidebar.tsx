@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { FileTree } from './FileTree'
+import { TimelineView } from './TimelineView'
 import { MultiRepoChanges } from './MultiRepoChanges'
 import { CommitBox } from './CommitBox'
 import type { FileChange, SearchHit } from '../../../shared/types'
@@ -306,8 +307,11 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
           </div>
         </>
       ) : tab === 'files' ? (
-        <div className="panel-body">
-          <FileTree onOpenEditor={onOpenEditor} />
+        <div className="files-tab">
+          <div className="files-tree-wrap">
+            <FileTree onOpenEditor={onOpenEditor} />
+          </div>
+          <TimelineView />
         </div>
       ) : repos.length > 1 ? (
         <MultiRepoChanges onOpenEditor={onOpenEditor} />

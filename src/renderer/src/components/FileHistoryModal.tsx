@@ -7,10 +7,12 @@ import { getTheme } from '../themes/themes'
 
 export function FileHistoryModal({
   file,
-  onClose
+  onClose,
+  initialRev
 }: {
   file: string
   onClose: () => void
+  initialRev?: string
 }): JSX.Element {
   const { settings } = useSettings()
   const monaco = useMonaco()
@@ -28,10 +30,13 @@ export function FileHistoryModal({
     window.api.git.fileLog(file).then((r) => {
       if (r.ok) {
         setCommits(r.data)
-        setSelected(r.data[0] ?? null)
+        const pick = initialRev
+          ? r.data.find((c) => c.hash === initialRev || c.shortHash === initialRev)
+          : null
+        setSelected(pick ?? r.data[0] ?? null)
       }
     })
-  }, [file])
+  }, [file, initialRev])
 
   useEffect(() => {
     if (!selected) return
