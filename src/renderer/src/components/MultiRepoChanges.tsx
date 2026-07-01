@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import type { BranchInfo, FileChange, RepoStatus } from '../../../shared/types'
+import { rowA11y } from '../ui/a11y'
 
 // Simultana per-repo källkontroll-sektioner (multi-root). En sektion per repo
 // med egna ändringar + commit-ruta. Riktar git-anrop mot rätt rot.
@@ -123,6 +124,7 @@ export function MultiRepoChanges({ onOpenEditor }: { onOpenEditor: () => void })
     <div
       key={f.path}
       className="row file-row"
+      {...rowA11y(() => openFile(root, f.path, false))}
       onClick={() => openFile(root, f.path, false)}
       onDoubleClick={() => openFile(root, f.path, true)}
       title={f.path}
@@ -194,6 +196,7 @@ export function MultiRepoChanges({ onOpenEditor }: { onOpenEditor: () => void })
           <section className="repo-section" key={r.path}>
             <div
               className="panel-header repo-section-header"
+              {...rowA11y(() => toggleCollapse(r.path))}
               onClick={() => toggleCollapse(r.path)}
               title={r.path}
             >

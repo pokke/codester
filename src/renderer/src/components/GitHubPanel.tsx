@@ -3,6 +3,7 @@ import type { DeviceCodeInfo, GitHubRepo, GitHubUser, PullRequest } from '../../
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { Icon } from '../ui/Icon'
+import { rowA11y } from '../ui/a11y'
 
 export function GitHubPanel(): JSX.Element {
   const { cloneAndOpen, repo } = useRepo()
@@ -202,7 +203,12 @@ export function GitHubPanel(): JSX.Element {
             <h3>Öppna pull requests</h3>
             {pulls.length === 0 && <p className="muted small">Inga öppna PR (eller ingen remote).</p>}
             {pulls.map((p) => (
-              <div key={p.number} className="row pr-row" onClick={() => window.open(p.url)}>
+              <div
+                key={p.number}
+                className="row pr-row"
+                {...rowA11y(() => window.open(p.url))}
+                onClick={() => window.open(p.url)}
+              >
                 <span className="pr-num">#{p.number}</span>
                 <span className="pr-title">{p.title}</span>
                 <span className="path-dim">

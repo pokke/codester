@@ -7,6 +7,7 @@ import { TimelineView } from './TimelineView'
 import { MultiRepoChanges } from './MultiRepoChanges'
 import { CommitBox } from './CommitBox'
 import { Icon } from '../ui/Icon'
+import { rowA11y } from '../ui/a11y'
 import type { FileChange, SearchHit } from '../../../shared/types'
 
 function statusClass(status: string): string {
@@ -128,6 +129,10 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     <div
       key={f.path}
       className={`row file-row ${activePath === f.path ? 'active' : ''}`}
+      {...rowA11y(() => {
+        previewFile(f.path)
+        onOpenEditor()
+      })}
       onClick={() => {
         previewFile(f.path)
         onOpenEditor()
@@ -334,6 +339,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                   <div
                     key={`${hit.line}:${i}`}
                     className="row search-hit"
+                    {...rowA11y(() => openHit(hit))}
                     onClick={() => openHit(hit)}
                     title={`${file}:${hit.line}`}
                   >
@@ -367,6 +373,10 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                   <div
                     key={path}
                     className={`row file-row conflict ${activePath === path ? 'active' : ''}`}
+                    {...rowA11y(() => {
+                      previewFile(path)
+                      onOpenEditor()
+                    })}
                     onClick={() => {
                       previewFile(path)
                       onOpenEditor()

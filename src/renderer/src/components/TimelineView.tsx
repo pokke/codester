@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import type { CommitLogEntry } from '../../../shared/types'
 import { FileHistoryModal } from './FileHistoryModal'
+import { rowA11y } from '../ui/a11y'
 
 // Tidslinje (VS Code-stil): glanceable git-historik för den aktiva filen,
 // längst ner i Filer-fliken. Klick öppnar diffen för den versionen.
@@ -47,6 +48,7 @@ export function TimelineView(): JSX.Element {
               key={c.hash}
               className="row timeline-row"
               title={c.message}
+              {...rowA11y(() => setModalRev(c.hash))}
               onClick={() => setModalRev(c.hash)}
             >
               <span className="fname">{c.message}</span>

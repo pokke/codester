@@ -415,7 +415,50 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       ...(clipboard ? [{ separator: true }, { label: 'Klistra in', onClick: () => pasteInto(root, '') }] : [])
     ])
 
+  // Slå upp {root, node} för en markerad rad-nyckel
+  const nodeForKey = (key: string): { root: string; node: TreeNode } | null => {
+    for (const r of rows) if (r.kind === 'node' && ck(r.root, r.node.path) === key) return r
+    return null
+  }
+  const scrollKeyIntoView = (key: string): void => {
+    const ri = rows.findIndex((r) => r.kind === 'node' && ck(r.root, r.node.path) === key)
+    const el = scrollRef.current
+    if (ri < 0 || !el) return
+    const top = ri * ROW_H
+    if (top < el.scrollTop) el.scrollTop = top
+    else if (top + ROW_H > el.scrollTop + el.clientHeight) el.scrollTop = top + ROW_H - el.clientHeight
+  }
+  // Tangentbordsnavigering (pilar/Enter) med den enkla markeringen som fokus
+  const navKey = (key: string): void => {
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      if (!visibleKeys.length) return
+      let idx = anchorRef.current ? visibleKeys.indexOf(anchorRef.current) : -1
+      idx = key === 'ArrowDown' ? Math.min(idx + 1, visibleKeys.length - 1) : Math.max(idx - 1, 0)
+      if (idx < 0) idx = 0
+      const k = visibleKeys[idx]
+      setSelected(new Set([k]))
+      anchorRef.current = k
+      selRootRef.current = k.slice(0, k.indexOf(SEP))
+      scrollKeyIntoView(k)
+      return
+    }
+    const cur = anchorRef.current
+    const r = cur ? nodeForKey(cur) : null
+    if (!r) return
+    const { root, node } = r
+    if (key === 'Enter') node.isFile ? openFile(root, node.path, false) : toggle(root, node.path)
+    else if (key === 'ArrowRight' && !node.isFile && !expanded.has(ck(root, node.path)))
+      toggle(root, node.path)
+    else if (key === 'ArrowLeft' && !node.isFile && expanded.has(ck(root, node.path)))
+      toggle(root, node.path)
+  }
+
   const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
+      e.preventDefault()
+      navKey(e.key)
+      return
+    }
     const root = selRootRef.current
     if (selected.size === 0 || !root) return
     const paths = [...selected]
