@@ -18,6 +18,7 @@ import { useRepo } from './state/RepoContext'
 import { useSettings } from './settings/SettingsContext'
 import { configureTypeScript } from './editor/monaco'
 import { initLsp, setLspRoot } from './editor/lsp'
+import { loadKeybindings, matches } from './settings/keybindings'
 import './styles/app.css'
 
 export function App(): JSX.Element {
@@ -46,6 +47,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
     initLsp() // registrera LSP-providers en gång
+    loadKeybindings() // läs keybindings.json (annars standard)
   }, [])
 
   // Spåra senast använda flikar (för Ctrl+Tab)
@@ -70,26 +72,42 @@ export function App(): JSX.Element {
   // när editorn har fokus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // Konfigurerbara kommandon (keybindings.json)
+      if (matches(e, 'quickOpen')) {
+        e.preventDefault()
+        setShowQuickOpen((v) => !v)
+        return
+      }
+      if (matches(e, 'commandPalette')) {
+        e.preventDefault()
+        setShowPalette((v) => !v)
+        return
+      }
+      if (matches(e, 'openSettings')) {
+        e.preventDefault()
+        setShowSettings(true)
+        return
+      }
+      if (matches(e, 'toggleSidebar')) {
+        e.preventDefault()
+        setSidebarHidden((v) => !v)
+        return
+      }
+      if (matches(e, 'toggleTerminal')) {
+        e.preventDefault()
+        togglePanel('terminal')
+        return
+      }
+      if (matches(e, 'toggleProblems')) {
+        e.preventDefault()
+        togglePanel('problems')
+        return
+      }
+      // Fasta specialtangenter: Ctrl+Tab (MRU) + zoom
       const mod = e.ctrlKey || e.metaKey
       if (!mod) return
       const k = e.key.toLowerCase()
-      if (k === 'p') {
-        e.preventDefault()
-        if (e.shiftKey) setShowPalette((v) => !v) // Ctrl+Shift+P → kommandopalett
-        else setShowQuickOpen((v) => !v) // Ctrl+P → hoppa till fil
-      } else if (k === ',') {
-        e.preventDefault()
-        setShowSettings(true)
-      } else if (k === 'b') {
-        e.preventDefault()
-        setSidebarHidden((v) => !v) // Ctrl+B → visa/dölj sidofält
-      } else if (e.key === '`') {
-        e.preventDefault()
-        togglePanel('terminal') // Ctrl+` → terminal-panel
-      } else if (e.shiftKey && k === 'm') {
-        e.preventDefault()
-        togglePanel('problems') // Ctrl+Shift+M → problem-panel
-      } else if (e.key === 'Tab') {
+      if (e.key === 'Tab') {
         e.preventDefault() // Ctrl+Tab → senast använda flik
         const prev = mruRef.current.find((p) => p !== activePath && openTabs.includes(p))
         if (prev) selectPath(prev)

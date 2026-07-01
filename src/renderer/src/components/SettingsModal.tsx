@@ -1,8 +1,102 @@
 import { useEffect, useState } from 'react'
 import { useSettings, type Density, SETTINGS_FILE } from '../settings/SettingsContext'
+import {
+  KEYBINDING_FILE,
+  loadKeybindings,
+  defaultKeybindingsJson,
+  COMMANDS
+} from '../settings/keybindings'
 import { themes } from '../themes/themes'
 import { LangServersSettings } from './LangServersSettings'
 import { useToast } from '../ui/Toast'
+
+// Återanvändbar redigerare för en JSON-config-fil (settings.json/keybindings.json).
+function JsonConfigSection({
+  file,
+  title,
+  fallback,
+  onSave
+}: {
+  file: string
+  title: string
+  fallback: string
+  onSave: (obj: Record<string, unknown>, raw: string) => void | Promise<void>
+}): JSX.Element {
+  const { notify } = useToast()
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [dir, setDir] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    window.api.config.read(file).then((r) => setText(r.ok && r.data ? r.data : fallback))
+    window.api.config.dir().then((r) => {
+      if (r.ok) setDir(r.data)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const save = async (): Promise<void> => {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Ogiltig JSON')
+      return
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      setErr('JSON måste vara ett objekt')
+      return
+    }
+    setErr(null)
+    await onSave(parsed as Record<string, unknown>, text)
+    notify(`${file} sparad`, 'success')
+  }
+
+  return (
+    <div className="field">
+      <label>
+        <button
+          className="btn ghost small"
+          style={{ padding: '2px 8px' }}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? '▾' : '▸'} {title}
+        </button>
+      </label>
+      {open && (
+        <>
+          {dir && (
+            <p className="muted small">
+              {dir}\{file}
+            </p>
+          )}
+          <textarea
+            className="json-editor"
+            spellCheck={false}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          {err && <p className="error-text small">{err}</p>}
+          <div style={{ display: 'flex', gap: 'var(--space)' }}>
+            <button
+              className="btn"
+              onClick={() =>
+                window.api.config.read(file).then((r) => setText(r.ok && r.data ? r.data : fallback))
+              }
+            >
+              Läs om
+            </button>
+            <button className="btn primary" onClick={save}>
+              Spara
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 const ACCENTS = ['#0e639c', '#0a7ea4', '#7c3aed', '#bd93f9', '#e06c75', '#2ea043', '#d29922']
 const DENSITIES: Density[] = ['compact', 'comfortable', 'spacious']
@@ -14,40 +108,6 @@ const DENSITY_LABEL: Record<Density, string> = {
 
 export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const { settings, update, replace, reset } = useSettings()
-  const { notify } = useToast()
-  const [showJson, setShowJson] = useState(false)
-  const [jsonText, setJsonText] = useState('')
-  const [jsonError, setJsonError] = useState<string | null>(null)
-  const [dir, setDir] = useState('')
-
-  // Ladda filens innehåll när JSON-vyn öppnas
-  useEffect(() => {
-    if (!showJson) return
-    window.api.config.read(SETTINGS_FILE).then((r) => {
-      setJsonText(r.ok && r.data ? r.data : JSON.stringify(settings, null, 2))
-    })
-    window.api.config.dir().then((r) => {
-      if (r.ok) setDir(r.data)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showJson])
-
-  const saveJson = (): void => {
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(jsonText)
-    } catch (e) {
-      setJsonError(e instanceof Error ? e.message : 'Ogiltig JSON')
-      return
-    }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      setJsonError('JSON måste vara ett objekt')
-      return
-    }
-    setJsonError(null)
-    replace(parsed as Partial<typeof settings>)
-    notify('settings.json sparad', 'success')
-  }
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -187,45 +247,26 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
 
           <LangServersSettings />
 
-          {/* Redigerbar settings.json */}
-          <div className="field">
-            <label>
-              <button
-                className="btn ghost small"
-                onClick={() => setShowJson((v) => !v)}
-                style={{ padding: '2px 8px' }}
-              >
-                {showJson ? '▾' : '▸'} settings.json
-              </button>
-            </label>
-            {showJson && (
-              <>
-                {dir && <p className="muted small">{dir}\settings.json</p>}
-                <textarea
-                  className="json-editor"
-                  spellCheck={false}
-                  value={jsonText}
-                  onChange={(e) => setJsonText(e.target.value)}
-                />
-                {jsonError && <p className="error-text small">{jsonError}</p>}
-                <div style={{ display: 'flex', gap: 'var(--space)' }}>
-                  <button
-                    className="btn"
-                    onClick={() =>
-                      window.api.config
-                        .read(SETTINGS_FILE)
-                        .then((r) => setJsonText(r.ok && r.data ? r.data : ''))
-                    }
-                  >
-                    Läs om
-                  </button>
-                  <button className="btn primary" onClick={saveJson}>
-                    Spara JSON
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          {/* Redigerbar config */}
+          <JsonConfigSection
+            file={SETTINGS_FILE}
+            title="settings.json"
+            fallback={JSON.stringify(settings, null, 2)}
+            onSave={(obj) => replace(obj as Partial<typeof settings>)}
+          />
+          <JsonConfigSection
+            file={KEYBINDING_FILE}
+            title="keybindings.json"
+            fallback={defaultKeybindingsJson()}
+            onSave={async (_obj, raw) => {
+              await window.api.config.write(KEYBINDING_FILE, raw)
+              await loadKeybindings()
+            }}
+          />
+          <p className="muted small">
+            Kommandon:{' '}
+            {COMMANDS.map((c) => c.id).join(', ')}
+          </p>
 
           <button className="btn full" onClick={reset}>
             Återställ till standard

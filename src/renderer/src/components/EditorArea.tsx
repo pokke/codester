@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EditorGroup, type GroupApi, type SharedBuffers } from './EditorGroup'
 import { useRepo } from '../state/RepoContext'
+import { matches } from '../settings/keybindings'
 
 // Editor-ytan: en primär grupp (styrd av RepoContext) och en valfri sekundär
 // (delad) grupp med egna flikar. Buffertar och dirty-status delas så samma fil
@@ -106,16 +107,14 @@ export function EditorArea(): JSX.Element {
     if (activePath) openToSide(activePath)
   }, [activePath, openToSide])
 
-  // Editor-kortkommandon: Ctrl+\ delar editorn, Ctrl+W stänger fliken i den
+  // Editor-kortkommandon (konfigurerbara): dela editorn, stäng fliken i den
   // fokuserade gruppen (som i VS Code).
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      const mod = e.ctrlKey || e.metaKey
-      if (!mod) return
-      if (e.key === '\\') {
+      if (matches(e, 'splitEditor')) {
         e.preventDefault()
         splitPrimary()
-      } else if (e.key.toLowerCase() === 'w') {
+      } else if (matches(e, 'closeTab')) {
         e.preventDefault()
         if (activeGroup === 'secondary' && active2) closeTab2(active2)
         else if (activePath) closeTab(activePath)
