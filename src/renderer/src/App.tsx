@@ -16,6 +16,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useRepo } from './state/RepoContext'
 import { useSettings } from './settings/SettingsContext'
+import { configureTypeScript } from './editor/monaco'
 import './styles/app.css'
 
 export function App(): JSX.Element {
@@ -41,6 +42,16 @@ export function App(): JSX.Element {
       mruRef.current = [activePath, ...mruRef.current.filter((p) => p !== activePath)]
     }
   }, [activePath])
+
+  // Projektmedveten JS/TS: mata Monaco med tsconfig + filer + typer (en gång per repo)
+  const tsConfiguredRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!repo || tsConfiguredRef.current === repo.path) return
+    tsConfiguredRef.current = repo.path
+    window.api.lang.tsProject().then((r) => {
+      if (r.ok && r.data) configureTypeScript(r.data)
+    })
+  }, [repo])
 
   // Globala kortkommandon (VS Code-stil). Monaco sköter Ctrl+Z/Y/F/H m.m.
   // när editorn har fokus.

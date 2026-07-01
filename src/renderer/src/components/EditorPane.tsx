@@ -421,7 +421,7 @@ export function EditorPane(): JSX.Element {
           height="100%"
           theme={themeId}
           language={lang}
-          path={activePath}
+          path={`file:///${activePath}`}
           value={working}
           onMount={(ed, monacoApi) => {
             editorRef.current = ed

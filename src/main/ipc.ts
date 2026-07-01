@@ -5,6 +5,7 @@ import * as github from './services/github'
 import * as terminal from './services/terminal'
 import * as watcher from './services/watcher'
 import * as files from './services/files'
+import * as lang from './services/lang'
 
 function watchRepo(path: string): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -96,6 +97,9 @@ export function registerIpc(): void {
   handle('fs:rename', (oldRel: string, newRel: string) => files.renamePath(oldRel, newRel))
   handle('fs:delete', (rel: string) => files.deletePath(rel))
   handle('fs:copy', (srcRel: string, destRel: string) => files.copyPath(srcRel, destRel))
+
+  // --- Språkintelligens ---
+  handle('lang:tsProject', () => lang.tsProject())
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
   ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))

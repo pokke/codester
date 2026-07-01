@@ -14,7 +14,8 @@ import type {
   RepoStatus,
   Result,
   SearchHit,
-  StashEntry
+  StashEntry,
+  TsProject
 } from '../shared/types'
 
 // Säker, typad brygga mellan renderer och main. Allt går via Result-kuvert.
@@ -95,6 +96,10 @@ const api = {
     rename: (oldRel: string, newRel: string) => invoke<void>('fs:rename', oldRel, newRel),
     delete: (rel: string) => invoke<void>('fs:delete', rel),
     copy: (srcRel: string, destRel: string) => invoke<void>('fs:copy', srcRel, destRel)
+  },
+
+  lang: {
+    tsProject: () => invoke<TsProject | null>('lang:tsProject')
   },
 
   onRepoChanged: (cb: () => void): (() => void) => {

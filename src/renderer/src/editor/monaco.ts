@@ -112,4 +112,120 @@ export function languageForPath(path: string): string {
   return 'plaintext'
 }
 
+// ── Projektmedveten JS/TS ─────────────────────────────────────────────
+// Matar Monacos TS/JS-motor med projektets tsconfig, käll-filer (som modeller)
+// och node_modules-typer (som extra libs) → autocomplete/hover/diagnostik som
+// förstår hela projektet.
+
+interface TsProjectLike {
+  compilerOptions: Record<string, unknown>
+  files: { path: string; content: string }[]
+}
+
+const CODE_RE = /\.(ts|tsx|js|jsx|mts|cts)$/
+const MAX_PROJECT_MODELS = 1500
+
+function mapEnum(map: Record<string, number>, val: unknown, fallback: number): number {
+  if (typeof val === 'string' && map[val.toLowerCase()] !== undefined) return map[val.toLowerCase()]
+  return fallback
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mapCompilerOptions(co: Record<string, unknown>): Record<string, unknown> {
+  const t = (monaco.languages as any).typescript
+  const target: Record<string, number> = {
+    es3: t.ScriptTarget.ES3,
+    es5: t.ScriptTarget.ES5,
+    es6: t.ScriptTarget.ES2015,
+    es2015: t.ScriptTarget.ES2015,
+    es2016: t.ScriptTarget.ES2016,
+    es2017: t.ScriptTarget.ES2017,
+    es2018: t.ScriptTarget.ES2018,
+    es2019: t.ScriptTarget.ES2019,
+    es2020: t.ScriptTarget.ES2020,
+    es2021: t.ScriptTarget.ES2021,
+    es2022: t.ScriptTarget.ES2022,
+    esnext: t.ScriptTarget.ESNext,
+    latest: t.ScriptTarget.Latest
+  }
+  const mod: Record<string, number> = {
+    none: t.ModuleKind.None,
+    commonjs: t.ModuleKind.CommonJS,
+    amd: t.ModuleKind.AMD,
+    umd: t.ModuleKind.UMD,
+    system: t.ModuleKind.System,
+    es6: t.ModuleKind.ES2015,
+    es2015: t.ModuleKind.ES2015,
+    es2020: t.ModuleKind.ES2015,
+    es2022: t.ModuleKind.ESNext,
+    esnext: t.ModuleKind.ESNext,
+    node16: t.ModuleKind.ESNext,
+    nodenext: t.ModuleKind.ESNext
+  }
+  const jsx: Record<string, number> = {
+    none: t.JsxEmit.None,
+    preserve: t.JsxEmit.Preserve,
+    react: t.JsxEmit.React,
+    'react-jsx': t.JsxEmit.ReactJSX,
+    'react-jsxdev': t.JsxEmit.ReactJSXDev,
+    'react-native': t.JsxEmit.ReactNative
+  }
+  const res: Record<string, number> = {
+    classic: t.ModuleResolutionKind.Classic,
+    node: t.ModuleResolutionKind.NodeJs,
+    node10: t.ModuleResolutionKind.NodeJs,
+    node16: t.ModuleResolutionKind.NodeJs,
+    nodenext: t.ModuleResolutionKind.NodeJs,
+    bundler: t.ModuleResolutionKind.NodeJs
+  }
+  return {
+    allowJs: true,
+    allowNonTsExtensions: true,
+    allowSyntheticDefaultImports: true,
+    esModuleInterop: co.esModuleInterop !== false,
+    target: mapEnum(target, co.target, t.ScriptTarget.ESNext),
+    module: mapEnum(mod, co.module, t.ModuleKind.ESNext),
+    moduleResolution: mapEnum(res, co.moduleResolution, t.ModuleResolutionKind.NodeJs),
+    jsx: mapEnum(jsx, co.jsx, t.JsxEmit.ReactJSX),
+    jsxImportSource: typeof co.jsxImportSource === 'string' ? co.jsxImportSource : undefined,
+    strict: co.strict === true,
+    skipLibCheck: co.skipLibCheck !== false,
+    baseUrl: typeof co.baseUrl === 'string' ? co.baseUrl : undefined,
+    paths: co.paths && typeof co.paths === 'object' ? co.paths : undefined,
+    lib: Array.isArray(co.lib) ? (co.lib as string[]).map((l) => l.toLowerCase()) : undefined
+  }
+}
+
+export function configureTypeScript(project: TsProjectLike): void {
+  try {
+    const tns = (monaco.languages as any).typescript
+    if (!tns) return
+    const opts = mapCompilerOptions(project.compilerOptions)
+    tns.typescriptDefaults.setCompilerOptions(opts)
+    tns.javascriptDefaults.setCompilerOptions(opts)
+    tns.typescriptDefaults.setEagerModelSync(true)
+    tns.javascriptDefaults.setEagerModelSync(true)
+
+    const codeFiles = project.files.filter(
+      (f) => !f.path.startsWith('node_modules/') && CODE_RE.test(f.path)
+    )
+    const extraLibs = project.files
+      .filter((f) => f.path.startsWith('node_modules/'))
+      .map((f) => ({ content: f.content, filePath: monaco.Uri.parse(`file:///${f.path}`).toString() }))
+
+    // Skapa modeller för projektets filer (så korsfils-IntelliSense fungerar)
+    if (codeFiles.length <= MAX_PROJECT_MODELS) {
+      for (const f of codeFiles) {
+        const uri = monaco.Uri.parse(`file:///${f.path}`)
+        if (!monaco.editor.getModel(uri)) monaco.editor.createModel(f.content, undefined, uri)
+      }
+    }
+
+    tns.typescriptDefaults.setExtraLibs(extraLibs)
+    tns.javascriptDefaults.setExtraLibs(extraLibs)
+  } catch {
+    /* tyst – IntelliSense är best-effort */
+  }
+}
+
 export { monaco }

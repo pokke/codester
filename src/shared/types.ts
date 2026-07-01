@@ -82,6 +82,11 @@ export interface SearchHit {
   text: string
 }
 
+export interface TsProject {
+  compilerOptions: Record<string, unknown>
+  files: { path: string; content: string }[]
+}
+
 export interface LineChange {
   start: number
   end: number
