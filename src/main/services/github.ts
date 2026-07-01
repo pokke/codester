@@ -37,8 +37,29 @@ import {
 
 const API = 'https://api.github.com'
 
-let token: string | null = loadToken()
-let clientId: string | null = loadClientId()
+// OBS: safeStorage (Windows DPAPI) är bara tillgänglig EFTER app 'ready'. Den
+// här modulen importeras före whenReady, så vi får INTE läsa token vid import –
+// då skulle en giltig token dekrypteras som null och användaren tvingas logga
+// in på nytt vid varje omstart/uppdatering. Ladda den lat vid första användning
+// (som alltid sker efter ready via IPC).
+let token: string | null = null
+let tokenLoaded = false
+let clientId: string | null = null
+let clientIdLoaded = false
+
+function ensureTokenLoaded(): void {
+  if (!tokenLoaded) {
+    token = loadToken()
+    tokenLoaded = true
+  }
+}
+
+function ensureClientIdLoaded(): void {
+  if (!clientIdLoaded) {
+    clientId = loadClientId()
+    clientIdLoaded = true
+  }
+}
 
 // fetch med timeout – annars kan ett anrop pendra för evigt (proxy/DNS/offline)
 // och få appen att verka låst.
@@ -109,6 +130,7 @@ async function ghError(res: Response): Promise<Error> {
 }
 
 async function ghReq<T>(method: string, path: string, body?: unknown): Promise<T> {
+  ensureTokenLoaded()
   if (!token) throw new Error('Ingen GitHub-token angiven')
   const res = await timedFetch(`${API}${path}`, {
     method,
@@ -125,6 +147,7 @@ async function ghReq<T>(method: string, path: string, body?: unknown): Promise<T
 const etagCache = new Map<string, { etag: string; data: unknown }>()
 
 async function gh<T>(path: string): Promise<T> {
+  ensureTokenLoaded()
   if (!token) throw new Error('Ingen GitHub-token angiven')
   const cached = etagCache.get(path)
   const res = await timedFetch(`${API}${path}`, {
@@ -147,6 +170,7 @@ function nextLink(link: string | null): string | null {
 }
 
 async function ghPaged<T>(path: string, maxPages = 10): Promise<T[]> {
+  ensureTokenLoaded()
   if (!token) throw new Error('Ingen GitHub-token angiven')
   const sep = path.includes('?') ? '&' : '?'
   let url: string | null = /[?&]per_page=/.test(path)
@@ -166,11 +190,13 @@ async function ghPaged<T>(path: string, maxPages = 10): Promise<T[]> {
 }
 
 export function hasToken(): boolean {
+  ensureTokenLoaded()
   return !!token
 }
 
 export async function setToken(value: string): Promise<GitHubUser> {
   token = value.trim()
+  tokenLoaded = true
   // Validera direkt genom att hämta användaren
   const user = await getUser()
   saveToken(token)
@@ -179,6 +205,7 @@ export async function setToken(value: string): Promise<GitHubUser> {
 
 export function signOut(): void {
   token = null
+  tokenLoaded = true
   clearToken()
 }
 
@@ -187,15 +214,18 @@ export function signOut(): void {
 // ett publikt client ID behövs, ingen client secret (säkert för skrivbordsappar).
 
 export function getClientId(): string | null {
+  ensureClientIdLoaded()
   return clientId
 }
 
 export function setClientId(id: string): void {
   clientId = id.trim()
+  clientIdLoaded = true
   saveClientId(clientId)
 }
 
 export async function deviceStart(): Promise<DeviceCodeInfo> {
+  ensureClientIdLoaded()
   if (!clientId) throw new Error('Inget client ID konfigurerat')
   const res = await timedFetch('https://github.com/login/device/code', {
     method: 'POST',
@@ -223,6 +253,7 @@ export async function deviceStart(): Promise<DeviceCodeInfo> {
 }
 
 export async function devicePoll(deviceCode: string, interval: number): Promise<GitHubUser> {
+  ensureClientIdLoaded()
   if (!clientId) throw new Error('Inget client ID konfigurerat')
   let wait = Math.max(interval, 5)
   const deadline = Date.now() + 15 * 60 * 1000
@@ -244,6 +275,7 @@ export async function devicePoll(deviceCode: string, interval: number): Promise<
     }
     if (d.access_token) {
       token = d.access_token
+      tokenLoaded = true
       const user = await getUser()
       saveToken(token)
       return user
