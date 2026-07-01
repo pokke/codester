@@ -31,7 +31,10 @@ export function initUpdater(send: Send): void {
 const CHECK_INTERVAL_MS = 5 * 60 * 1000
 
 export function quitAndInstall(): void {
-  autoUpdater.quitAndInstall()
+  // isSilent=true → kör NSIS-installeraren tyst (ingen guide/Nästa-knappar),
+  // installerar till samma mapp som förra gången.
+  // isForceRunAfter=true → starta om appen automatiskt efteråt.
+  autoUpdater.quitAndInstall(true, true)
 }
 
 let lastCheck = 0
