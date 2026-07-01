@@ -32,7 +32,10 @@ export function App(): JSX.Element {
   const [showPalette, setShowPalette] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
   const [sidebarHidden, setSidebarHidden] = useState(false)
-  const [panelTab, setPanelTab] = useState<'terminal' | 'problems' | null>(null)
+  const [panelTab, setPanelTab] = useState<'terminal' | 'problems' | null>(() => {
+    const saved = localStorage.getItem('codester.panelTab')
+    return saved === 'terminal' || saved === 'problems' ? saved : null
+  })
   const [panelHeight, setPanelHeight] = useState<number>(
     () => Number(localStorage.getItem('codester.panelHeight')) || 240
   )
@@ -44,6 +47,11 @@ export function App(): JSX.Element {
   useEffect(() => {
     localStorage.setItem('codester.panelHeight', String(panelHeight))
   }, [panelHeight])
+
+  // Kom ihåg om terminal-/problem-panelen var öppen (överlever omstart/uppdatering)
+  useEffect(() => {
+    localStorage.setItem('codester.panelTab', panelTab ?? '')
+  }, [panelTab])
 
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
