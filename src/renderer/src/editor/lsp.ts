@@ -82,6 +82,16 @@ export function initLsp(): void {
   window.api.lsp.onDiagnostics(({ uri, diagnostics }) => {
     const model = monaco.editor.getModel(toModelUri(uri))
     if (!model) return
+    // TS/JS-diagnostik från buntad tsserver är opålitlig i electron-projektets
+    // multi-tsconfig-uppsättning (main-filer hamnar i "inferred project" utan
+    // lib → falska "Cannot find Promise/Error"). Sanningen är tsc/CI. Vi
+    // behåller completion/hover/definition/rename men visar inga TS/JS-fel i
+    // Problem-panelen. Övriga språkservrar (python/rust/…) visas som vanligt.
+    const lang = model.getLanguageId()
+    if (lang === 'typescript' || lang === 'javascript') {
+      monaco.editor.setModelMarkers(model, 'lsp', [])
+      return
+    }
     const Sev = monaco.MarkerSeverity
     const sevMap: Record<number, monaco.MarkerSeverity> = {
       1: Sev.Error, 2: Sev.Warning, 3: Sev.Info, 4: Sev.Hint

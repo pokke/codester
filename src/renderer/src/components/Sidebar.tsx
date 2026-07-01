@@ -281,11 +281,11 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
       </div>
 
       <div className="sidebar-tabs">
-        <button className={tab === 'changes' ? 'active' : ''} onClick={() => setTab('changes')}>
-          Ändringar
-        </button>
         <button className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}>
           Filer
+        </button>
+        <button className={tab === 'changes' ? 'active' : ''} onClick={() => setTab('changes')}>
+          Ändringar
         </button>
         <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>
           Sök

@@ -18,17 +18,19 @@ export function GitHubPanel(): JSX.Element {
   const [showCfg, setShowCfg] = useState(false)
   const [device, setDevice] = useState<DeviceCodeInfo | null>(null)
   const [reposLoading, setReposLoading] = useState(false)
+  const [authed, setAuthed] = useState(false)
 
   const loadUser = async (): Promise<void> => {
     const cid = await window.api.github.getClientId()
     if (cid.ok) setClientId(cid.data)
     const has = await window.api.github.hasToken()
     if (has.ok && has.data) {
+      // Har vi en token → visa repo-vyn direkt. Användarprofilen hämtas
+      // best-effort (kan strula utan att vi ska falla tillbaka till login).
+      setAuthed(true)
+      loadRepos()
       const u = await window.api.github.user()
-      if (u.ok) {
-        setUser(u.data)
-        loadRepos()
-      }
+      if (u.ok) setUser(u.data)
     }
   }
 
@@ -53,6 +55,7 @@ export function GitHubPanel(): JSX.Element {
     setDevice(null)
     if (res.ok) {
       setUser(res.data)
+      setAuthed(true)
       notify(`Inloggad som ${res.data.login}`, 'success')
       loadRepos()
     } else {
@@ -80,14 +83,15 @@ export function GitHubPanel(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (user && repo) loadPulls()
+    if (authed && repo) loadPulls()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, repo])
+  }, [authed, repo])
 
   const connect = async (): Promise<void> => {
     const res = await window.api.github.setToken(token)
     if (res.ok) {
       setUser(res.data)
+      setAuthed(true)
       setToken('')
       notify(`Inloggad som ${res.data.login}`, 'success')
       loadRepos()
@@ -99,11 +103,12 @@ export function GitHubPanel(): JSX.Element {
   const signOut = async (): Promise<void> => {
     await window.api.github.signOut()
     setUser(null)
+    setAuthed(false)
     setRepos([])
     setPulls([])
   }
 
-  if (!user) {
+  if (!authed) {
     return (
       <main className="panel center">
         <div className="welcome">
@@ -189,8 +194,8 @@ export function GitHubPanel(): JSX.Element {
     <main className="panel center">
       <div className="panel-header gh-header">
         <span>
-          {user.avatarUrl && <img className="avatar" src={user.avatarUrl} alt="" />}
-          {user.name ?? user.login} (@{user.login})
+          {user?.avatarUrl && <img className="avatar" src={user.avatarUrl} alt="" />}
+          {user ? `${user.name ?? user.login} (@${user.login})` : 'GitHub'}
         </span>
         <button className="btn ghost" onClick={signOut}>
           Logga ut
