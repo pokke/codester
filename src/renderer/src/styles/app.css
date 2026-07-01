@@ -1080,6 +1080,67 @@
 }
 .gh-list-head h3 {
   margin: 0;
+  margin-right: auto;
+}
+.gh-filter {
+  background: var(--bg-elev, var(--bg));
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.pr-mergeable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Konversationstråd (kommentarer + reviews) */
+.gh-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gh-comment {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg-elev, transparent);
+}
+.gh-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.gh-comment-head .path-dim {
+  margin-left: auto;
+  font-size: 11px;
+}
+.gh-review {
+  border-left: 3px solid var(--border);
+}
+.gh-review.approve {
+  border-left-color: var(--ok, #3fb950);
+}
+.gh-review.request {
+  border-left-color: var(--danger, #f85149);
+}
+.gh-review-state {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.gh-review-state.approve {
+  color: var(--ok, #3fb950);
+}
+.gh-review-state.request {
+  color: var(--danger, #f85149);
+}
+.repo-badge.is-closed {
+  color: var(--danger, #f85149);
+  border-color: var(--danger, #f85149);
 }
 .pr-detail,
 .pr-create {

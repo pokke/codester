@@ -7,6 +7,7 @@ import type {
   DiffResult,
   FileChange,
   CheckStatus,
+  GhComment,
   GhNotification,
   Gist,
   GitHubRepo,
@@ -16,6 +17,7 @@ import type {
   LineChange,
   NewRelease,
   PrFile,
+  PrReview,
   PullRequest,
   PullRequestDetail,
   RateLimit,
@@ -205,18 +207,21 @@ const api = {
       invoke<GitHubUser>('github:devicePoll', deviceCode, interval),
     user: () => invoke<GitHubUser>('github:user'),
     repos: () => invoke<GitHubRepo[]>('github:repos'),
-    pulls: () => invoke<PullRequest[]>('github:pulls'),
+    pulls: (state?: 'open' | 'closed' | 'all') => invoke<PullRequest[]>('github:pulls', state),
     pr: (number: number) => invoke<PullRequestDetail>('github:pr', number),
     prFiles: (number: number) => invoke<PrFile[]>('github:prFiles', number),
+    prReviews: (number: number) => invoke<PrReview[]>('github:prReviews', number),
     checks: (ref: string) => invoke<CheckStatus>('github:checks', ref),
     createPr: (title: string, body: string, base?: string) =>
       invoke<PullRequest>('github:createPr', title, body, base),
     defaultBranch: () => invoke<string>('github:defaultBranch'),
-    issues: () => invoke<Issue[]>('github:issues'),
+    issues: (state?: 'open' | 'closed' | 'all') => invoke<Issue[]>('github:issues', state),
     issue: (number: number) => invoke<Issue>('github:issue', number),
     createIssue: (title: string, body: string, labels?: string[], assignees?: string[]) =>
       invoke<Issue>('github:createIssue', title, body, labels, assignees),
     labels: () => invoke<RepoLabel[]>('github:labels'),
+    assignees: () => invoke<string[]>('github:assignees'),
+    issueComments: (number: number) => invoke<GhComment[]>('github:issueComments', number),
     review: (number: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body: string) =>
       invoke<void>('github:review', number, event, body),
     mergePr: (number: number, method: 'merge' | 'squash' | 'rebase') =>
@@ -225,6 +230,8 @@ const api = {
       invoke<void>('github:issueComment', number, body),
     setIssueState: (number: number, state: 'open' | 'closed') =>
       invoke<void>('github:setIssueState', number, state),
+    setPrState: (number: number, state: 'open' | 'closed') =>
+      invoke<void>('github:setPrState', number, state),
     notifications: () => invoke<GhNotification[]>('github:notifications'),
     notificationCount: () => invoke<number>('github:notificationCount'),
     markNotifRead: (id: string) => invoke<void>('github:markNotifRead', id),

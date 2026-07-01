@@ -103,6 +103,23 @@ export interface PrFile {
   patch: string | null
 }
 
+// En kommentar i konversationen (samma form för issues och PR:er).
+export interface GhComment {
+  id: number
+  author: string
+  body: string
+  createdAt: string
+}
+
+// En inlämnad review på en PR (godkänd/ändringar begärda/kommentar).
+export interface PrReview {
+  id: number
+  author: string
+  state: string // APPROVED | CHANGES_REQUESTED | COMMENTED | DISMISSED | PENDING
+  body: string
+  submittedAt: string
+}
+
 export type CheckState = 'success' | 'failure' | 'pending' | 'none'
 export interface CheckStatus {
   state: CheckState

@@ -188,10 +188,10 @@ export function registerIpc(): void {
   )
   handle('github:user', () => github.getUser())
   handle('github:repos', () => github.listRepos())
-  handle('github:pulls', async () => {
+  handle('github:pulls', async (state?: 'open' | 'closed' | 'all') => {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listPullRequests(or.owner, or.repo)
+    return github.listPullRequests(or.owner, or.repo, state)
   })
   handle('github:pr', async (number: number) => {
     const or = await git.remoteOwnerRepo()
@@ -223,10 +223,10 @@ export function registerIpc(): void {
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.getRepoDefaultBranch(or.owner, or.repo)
   })
-  handle('github:issues', async () => {
+  handle('github:issues', async (state?: 'open' | 'closed' | 'all') => {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listIssues(or.owner, or.repo)
+    return github.listIssues(or.owner, or.repo, state)
   })
   handle('github:issue', async (number: number) => {
     const or = await git.remoteOwnerRepo()
@@ -268,6 +268,26 @@ export function registerIpc(): void {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.setIssueState(or.owner, or.repo, number, state)
+  })
+  handle('github:setPrState', async (number: number, state: 'open' | 'closed') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.setPullState(or.owner, or.repo, number, state)
+  })
+  handle('github:issueComments', async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listIssueComments(or.owner, or.repo, number)
+  })
+  handle('github:prReviews', async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listPrReviews(or.owner, or.repo, number)
+  })
+  handle('github:assignees', async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listAssignees(or.owner, or.repo)
   })
   handle('git:checkoutPr', (number: number, branch: string) =>
     git.checkoutPullRequest(number, branch)

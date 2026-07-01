@@ -2,6 +2,7 @@ import type {
   CheckState,
   CheckStatus,
   DeviceCodeInfo,
+  GhComment,
   GhNotification,
   GitHubRepo,
   GitHubUser,
@@ -10,6 +11,7 @@ import type {
   NewPullRequest,
   NewRelease,
   PrFile,
+  PrReview,
   PullRequest,
   PullRequestDetail,
   RateLimit,
@@ -287,22 +289,28 @@ export async function listRepos(): Promise<GitHubRepo[]> {
   }))
 }
 
-export async function listPullRequests(owner: string, repo: string): Promise<PullRequest[]> {
+export async function listPullRequests(
+  owner: string,
+  repo: string,
+  state: 'open' | 'closed' | 'all' = 'open'
+): Promise<PullRequest[]> {
   const prs = await ghPaged<{
     number: number
     title: string
     user: { login: string }
     state: string
     html_url: string
+    draft?: boolean
     head: { ref: string }
     base: { ref: string }
-  }>(`/repos/${owner}/${repo}/pulls?state=open`)
+  }>(`/repos/${owner}/${repo}/pulls?state=${state}&sort=updated&direction=desc`, state === 'open' ? 10 : 3)
   return prs.map((p) => ({
     number: p.number,
     title: p.title,
     author: p.user.login,
     state: p.state,
     url: p.html_url,
+    draft: p.draft ?? false,
     headRef: p.head.ref,
     baseRef: p.base.ref
   }))
@@ -450,6 +458,66 @@ export async function setIssueState(
   state: 'open' | 'closed'
 ): Promise<void> {
   await ghReq('PATCH', `/repos/${owner}/${repo}/issues/${number}`, { state })
+}
+
+// Stäng/återöppna en PR via pulls-endpointen (funkar ej på redan mergad PR).
+export async function setPullState(
+  owner: string,
+  repo: string,
+  number: number,
+  state: 'open' | 'closed'
+): Promise<void> {
+  await ghReq('PATCH', `/repos/${owner}/${repo}/pulls/${number}`, { state })
+}
+
+// Konversationskommentarer (issues-endpointen gäller även PR:er).
+export async function listIssueComments(
+  owner: string,
+  repo: string,
+  number: number
+): Promise<GhComment[]> {
+  const cs = await ghPaged<{
+    id: number
+    user: { login: string } | null
+    body: string
+    created_at: string
+  }>(`/repos/${owner}/${repo}/issues/${number}/comments`)
+  return cs.map((c) => ({
+    id: c.id,
+    author: c.user?.login ?? 'okänd',
+    body: c.body ?? '',
+    createdAt: c.created_at
+  }))
+}
+
+// Inlämnade reviews på en PR (godkänn/begär ändringar/kommentar).
+export async function listPrReviews(
+  owner: string,
+  repo: string,
+  number: number
+): Promise<PrReview[]> {
+  const rs = await ghPaged<{
+    id: number
+    user: { login: string } | null
+    state: string
+    body: string
+    submitted_at: string | null
+  }>(`/repos/${owner}/${repo}/pulls/${number}/reviews`)
+  return rs
+    .filter((r) => r.state !== 'PENDING')
+    .map((r) => ({
+      id: r.id,
+      author: r.user?.login ?? 'okänd',
+      state: r.state,
+      body: r.body ?? '',
+      submittedAt: r.submitted_at ?? ''
+    }))
+}
+
+// Användare som kan tilldelas issues/PR:er i repot (för assignee-väljaren).
+export async function listAssignees(owner: string, repo: string): Promise<string[]> {
+  const us = await ghPaged<{ login: string }>(`/repos/${owner}/${repo}/assignees`)
+  return us.map((u) => u.login)
 }
 
 // --- Notiser ---
@@ -784,11 +852,15 @@ function mapIssue(i: {
   }
 }
 
-export async function listIssues(owner: string, repo: string): Promise<Issue[]> {
+export async function listIssues(
+  owner: string,
+  repo: string,
+  state: 'open' | 'closed' | 'all' = 'open'
+): Promise<Issue[]> {
   // Filtrera bort pull requests (GitHub listar PRs som issues)
   const issues = await ghPaged<
     Parameters<typeof mapIssue>[0] & { pull_request?: unknown }
-  >(`/repos/${owner}/${repo}/issues?state=open`)
+  >(`/repos/${owner}/${repo}/issues?state=${state}&sort=updated&direction=desc`, state === 'open' ? 10 : 3)
   return issues.filter((i) => !i.pull_request).map(mapIssue)
 }
 

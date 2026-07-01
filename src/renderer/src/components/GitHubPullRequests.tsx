@@ -4,7 +4,17 @@ import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
 import { Markdown } from '../ui/Markdown'
-import type { CheckStatus, PrFile, PullRequest, PullRequestDetail } from '../../../shared/types'
+import { Conversation } from './GitHubConversation'
+import type {
+  CheckStatus,
+  GhComment,
+  PrFile,
+  PrReview,
+  PullRequest,
+  PullRequestDetail
+} from '../../../shared/types'
+
+type PrFilter = 'open' | 'closed' | 'all' | 'mine'
 
 // Renderar en unified-diff-patch med färgade rader (samma stil som HunkView).
 export function PatchView({ patch }: { patch: string | null }): JSX.Element {
@@ -54,6 +64,8 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
   const [pr, setPr] = useState<PullRequestDetail | null>(null)
   const [files, setFiles] = useState<PrFile[]>([])
   const [checks, setChecks] = useState<CheckStatus | null>(null)
+  const [comments, setComments] = useState<GhComment[]>([])
+  const [reviews, setReviews] = useState<PrReview[]>([])
   const [openFile, setOpenFile] = useState<string | null>(null)
   const [reviewBody, setReviewBody] = useState('')
   const [mergeMethod, setMergeMethod] = useState<'merge' | 'squash' | 'rebase'>('merge')
@@ -67,6 +79,8 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
       }
     })
     window.api.github.prFiles(number).then((r) => r.ok && setFiles(r.data))
+    window.api.github.issueComments(number).then((r) => r.ok && setComments(r.data))
+    window.api.github.prReviews(number).then((r) => r.ok && setReviews(r.data))
   }
   useEffect(load, [number])
 
@@ -107,6 +121,21 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
       load()
     } else notify(r.error, 'error')
   }
+  const toggleState = async (): Promise<void> => {
+    if (!pr || busy) return
+    const next = pr.state === 'open' ? 'closed' : 'open'
+    if (next === 'closed') {
+      const ok = await confirm({ message: `Stäng PR #${pr.number}?`, confirmLabel: 'Stäng' })
+      if (!ok) return
+    }
+    setBusy(true)
+    const r = await window.api.github.setPrState(number, next)
+    setBusy(false)
+    if (r.ok) {
+      notify(next === 'closed' ? 'PR stängd' : 'PR återöppnad', 'success')
+      load()
+    } else notify(r.error, 'error')
+  }
 
   return (
     <div className="pr-detail">
@@ -141,39 +170,58 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
             <span className="path-dim">{pr.changedFiles} filer</span>
           </div>
 
-          {!pr.merged && (
-            <div className="pr-actions">
-              <button className="btn small" disabled={busy} onClick={checkout}>
-                Checka ut lokalt
-              </button>
-              <span className="spacer" />
-              <select
-                className="merge-method"
-                value={mergeMethod}
-                onChange={(e) => setMergeMethod(e.target.value as typeof mergeMethod)}
-              >
-                <option value="merge">Merge</option>
-                <option value="squash">Squash</option>
-                <option value="rebase">Rebase</option>
-              </select>
-              <button
-                className="btn primary small"
-                disabled={busy || pr.mergeable === false}
-                title={pr.mergeable === false ? 'Kan inte mergas (konflikter)' : ''}
-                onClick={merge}
-              >
-                Merga
+          {pr.state === 'open' && pr.mergeable === null && (
+            <div className="hint pr-mergeable">
+              Kontrollerar merge-status…{' '}
+              <button className="btn ghost small" disabled={busy} onClick={load}>
+                Uppdatera
               </button>
             </div>
           )}
 
-          {!pr.merged && (
+          <div className="pr-actions">
+            <button className="btn small" disabled={busy} onClick={checkout}>
+              Checka ut lokalt
+            </button>
+            {!pr.merged && (
+              <button className="btn ghost small" disabled={busy} onClick={toggleState}>
+                {pr.state === 'open' ? 'Stäng PR' : 'Återöppna'}
+              </button>
+            )}
+            {pr.state === 'open' && (
+              <>
+                <span className="spacer" />
+                <select
+                  className="merge-method"
+                  value={mergeMethod}
+                  onChange={(e) => setMergeMethod(e.target.value as typeof mergeMethod)}
+                >
+                  <option value="merge">Merge</option>
+                  <option value="squash">Squash</option>
+                  <option value="rebase">Rebase</option>
+                </select>
+                <button
+                  className="btn primary small"
+                  disabled={busy || pr.mergeable === false}
+                  title={pr.mergeable === false ? 'Kan inte mergas (konflikter)' : ''}
+                  onClick={merge}
+                >
+                  Merga
+                </button>
+              </>
+            )}
+          </div>
+
+          {pr.state === 'open' && (
             <div className="pr-review">
               <textarea
                 className="pr-create-body"
-                placeholder="Review-kommentar (valfri för godkänn/begär ändringar)…"
+                placeholder="Review-kommentar (Ctrl+Enter för att kommentera)…"
                 value={reviewBody}
                 onChange={(e) => setReviewBody(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && reviewBody.trim()) review('COMMENT')
+                }}
               />
               <div className="pr-review-actions">
                 <button className="btn small approve" disabled={busy} onClick={() => review('APPROVE')}>
@@ -202,6 +250,9 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
               <Markdown text={pr.body} />
             </div>
           )}
+
+          <Conversation comments={comments} reviews={reviews} />
+
           <div className="pr-files">
             {files.map((f) => {
               const open = openFile === f.filename
@@ -287,16 +338,25 @@ export function GitHubPullRequests(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [openPr, setOpenPr] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
+  const [filter, setFilter] = useState<PrFilter>('open')
+  const [me, setMe] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.github.user().then((r) => r.ok && setMe(r.data.login))
+  }, [])
 
   const load = (): void => {
     setLoading(true)
-    window.api.github.pulls().then((r) => {
-      setPrs(r.ok ? r.data : [])
+    // "mina" hämtar allt och filtrerar på författare i klienten
+    const apiState = filter === 'mine' ? 'all' : filter
+    window.api.github.pulls(apiState).then((r) => {
+      const data = r.ok ? r.data : []
+      setPrs(filter === 'mine' && me ? data.filter((p) => p.author === me) : data)
       setLoading(false)
       if (!r.ok) notify(r.error, 'error')
     })
   }
-  useEffect(load, [])
+  useEffect(load, [filter, me])
 
   if (creating)
     return (
@@ -308,18 +368,39 @@ export function GitHubPullRequests(): JSX.Element {
         }}
       />
     )
-  if (openPr != null) return <PrDetail number={openPr} onBack={() => setOpenPr(null)} />
+  if (openPr != null)
+    return (
+      <PrDetail
+        number={openPr}
+        onBack={() => {
+          setOpenPr(null)
+          load()
+        }}
+      />
+    )
 
   return (
     <>
       <div className="gh-list-head">
         <h3>Pull requests</h3>
+        <select
+          className="gh-filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as PrFilter)}
+        >
+          <option value="open">Öppna</option>
+          <option value="closed">Stängda</option>
+          <option value="all">Alla</option>
+          <option value="mine" disabled={!me}>
+            Mina
+          </option>
+        </select>
         <button className="btn small" onClick={() => setCreating(true)}>
           + Ny PR
         </button>
       </div>
       {loading && <div className="hint">Hämtar…</div>}
-      {!loading && prs.length === 0 && <div className="hint">Inga öppna pull requests</div>}
+      {!loading && prs.length === 0 && <div className="hint">Inga pull requests</div>}
       {prs.map((p) => (
         <div
           key={p.number}
@@ -331,6 +412,7 @@ export function GitHubPullRequests(): JSX.Element {
           <span className="pr-title">
             {p.title}
             {p.draft && <span className="repo-badge">utkast</span>}
+            {p.state === 'closed' && <span className="repo-badge is-closed">stängd</span>}
           </span>
           <span className="path-dim">
             {p.headRef} → {p.baseRef} · @{p.author}

@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { useToast } from '../ui/Toast'
 import { rowA11y } from '../ui/a11y'
 import { Markdown } from '../ui/Markdown'
-import type { Issue } from '../../../shared/types'
+import { Conversation } from './GitHubConversation'
+import type { GhComment, Issue } from '../../../shared/types'
+
+type IssueFilter = 'open' | 'closed' | 'all' | 'mine'
 
 function contrastText(hex: string): string {
   const n = parseInt(hex, 16)
@@ -33,11 +36,13 @@ function Labels({ labels }: { labels: Issue['labels'] }): JSX.Element | null {
 function IssueDetail({ number, onBack }: { number: number; onBack: () => void }): JSX.Element {
   const { notify } = useToast()
   const [issue, setIssue] = useState<Issue | null>(null)
+  const [comments, setComments] = useState<GhComment[]>([])
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = (): void => {
     window.api.github.issue(number).then((r) => r.ok && setIssue(r.data))
+    window.api.github.issueComments(number).then((r) => r.ok && setComments(r.data))
   }
   useEffect(load, [number])
 
@@ -103,11 +108,17 @@ function IssueDetail({ number, onBack }: { number: number; onBack: () => void })
           ) : (
             <div className="hint">Ingen beskrivning</div>
           )}
+
+          <Conversation comments={comments} />
+
           <textarea
             className="pr-create-body"
-            placeholder="Skriv en kommentar…"
+            placeholder="Skriv en kommentar (Ctrl+Enter för att skicka)…"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitComment()
+            }}
           />
           <button className="btn primary" disabled={!comment.trim() || busy} onClick={submitComment}>
             Kommentera
@@ -122,13 +133,15 @@ function CreateIssue({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const { notify } = useToast()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [assignees, setAssignees] = useState('')
   const [repoLabels, setRepoLabels] = useState<{ name: string; color: string }[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [assignable, setAssignable] = useState<string[]>([])
+  const [pickedUsers, setPickedUsers] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     window.api.github.labels().then((r) => r.ok && setRepoLabels(r.data))
+    window.api.github.assignees().then((r) => r.ok && setAssignable(r.data))
   }, [])
 
   const toggle = (name: string): void =>
@@ -137,15 +150,17 @@ function CreateIssue({ onClose, onCreated }: { onClose: () => void; onCreated: (
       n.has(name) ? n.delete(name) : n.add(name)
       return n
     })
+  const toggleUser = (login: string): void =>
+    setPickedUsers((prev) => {
+      const n = new Set(prev)
+      n.has(login) ? n.delete(login) : n.add(login)
+      return n
+    })
 
   const submit = async (): Promise<void> => {
     if (!title.trim() || busy) return
     setBusy(true)
-    const asg = assignees
-      .split(',')
-      .map((s) => s.trim().replace(/^@/, ''))
-      .filter(Boolean)
-    const r = await window.api.github.createIssue(title.trim(), body, [...selected], asg)
+    const r = await window.api.github.createIssue(title.trim(), body, [...selected], [...pickedUsers])
     setBusy(false)
     if (r.ok) {
       notify(`Issue #${r.data.number} skapat`, 'success')
@@ -194,8 +209,25 @@ function CreateIssue({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
         </>
       )}
-      <label className="field-label">Tilldela (kommaseparerade användare, valfri)</label>
-      <input value={assignees} onChange={(e) => setAssignees(e.target.value)} placeholder="octocat, …" />
+      {assignable.length > 0 && (
+        <>
+          <label className="field-label">Tilldela</label>
+          <div className="label-picker">
+            {assignable.map((u) => {
+              const on = pickedUsers.has(u)
+              return (
+                <button
+                  key={u}
+                  className={`issue-label label-pick ${on ? 'on' : ''}`}
+                  onClick={() => toggleUser(u)}
+                >
+                  @{u}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
       <button className="btn primary full" disabled={!title.trim() || busy} onClick={submit}>
         {busy ? 'Skapar…' : 'Skapa issue'}
       </button>
@@ -209,16 +241,24 @@ export function GitHubIssues(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [openIssue, setOpenIssue] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
+  const [filter, setFilter] = useState<IssueFilter>('open')
+  const [me, setMe] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.github.user().then((r) => r.ok && setMe(r.data.login))
+  }, [])
 
   const load = (): void => {
     setLoading(true)
-    window.api.github.issues().then((r) => {
-      setIssues(r.ok ? r.data : [])
+    const apiState = filter === 'mine' ? 'all' : filter
+    window.api.github.issues(apiState).then((r) => {
+      const data = r.ok ? r.data : []
+      setIssues(filter === 'mine' && me ? data.filter((i) => i.author === me) : data)
       setLoading(false)
       if (!r.ok) notify(r.error, 'error')
     })
   }
-  useEffect(load, [])
+  useEffect(load, [filter, me])
 
   if (creating)
     return (
@@ -245,12 +285,24 @@ export function GitHubIssues(): JSX.Element {
     <>
       <div className="gh-list-head">
         <h3>Issues</h3>
+        <select
+          className="gh-filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as IssueFilter)}
+        >
+          <option value="open">Öppna</option>
+          <option value="closed">Stängda</option>
+          <option value="all">Alla</option>
+          <option value="mine" disabled={!me}>
+            Mina
+          </option>
+        </select>
         <button className="btn small" onClick={() => setCreating(true)}>
           + Nytt
         </button>
       </div>
       {loading && <div className="hint">Hämtar…</div>}
-      {!loading && issues.length === 0 && <div className="hint">Inga öppna issues</div>}
+      {!loading && issues.length === 0 && <div className="hint">Inga issues</div>}
       {issues.map((i) => (
         <div
           key={i.number}
@@ -259,7 +311,10 @@ export function GitHubIssues(): JSX.Element {
           onClick={() => setOpenIssue(i.number)}
         >
           <span className="pr-num">#{i.number}</span>
-          <span className="pr-title">{i.title}</span>
+          <span className="pr-title">
+            {i.title}
+            {i.state === 'closed' && <span className="repo-badge is-closed">stängd</span>}
+          </span>
           <Labels labels={i.labels} />
           {i.comments > 0 && <span className="path-dim">💬 {i.comments}</span>}
         </div>
