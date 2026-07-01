@@ -411,6 +411,101 @@
   border-radius: calc(var(--radius) * 1.5);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
+/* Två-panels inställningspanel */
+.settings-modal {
+  width: 780px;
+  max-width: 92vw;
+  height: 80vh;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.settings-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.settings-nav {
+  width: 190px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: var(--space);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+}
+.settings-nav button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.settings-nav button:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+.settings-nav button.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+.settings-nav-icon {
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+}
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: calc(var(--space) * 1.5) calc(var(--space) * 2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space) * 2);
+}
+
+/* Kortkommando-lista */
+.kb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.kb-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.kb-chip {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  min-width: 120px;
+  text-align: center;
+}
+.kb-chip:hover {
+  border-color: var(--accent);
+}
+.kb-chip.capturing {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
 .modal-header {
   display: flex;
   align-items: center;

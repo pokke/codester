@@ -155,3 +155,19 @@ export async function loadKeybindings(): Promise<void> {
 export function defaultKeybindingsJson(): string {
   return JSON.stringify(DEFAULTS, null, 2)
 }
+
+async function persist(): Promise<void> {
+  await window.api.config.write(KEYBINDING_FILE, JSON.stringify(bindings, null, 2))
+}
+
+// Sätt en enskild bindning och spara till keybindings.json (från inspelaren).
+export async function setBinding(id: string, combo: string): Promise<void> {
+  bindings[id] = combo
+  await persist()
+}
+
+// Återställ en bindning till standardvärdet.
+export async function resetBinding(id: string): Promise<void> {
+  bindings[id] = DEFAULTS[id]
+  await persist()
+}
