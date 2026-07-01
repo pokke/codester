@@ -15,22 +15,52 @@ import { ContextMenu, type MenuState } from '../ui/ContextMenu'
 
 type Mode = 'diff' | 'edit' | 'hunks'
 
-export function EditorPane(): JSX.Element {
-  const {
-    openTabs,
-    previewPath,
-    activePath,
-    activeLine,
-    status,
-    revision,
-    selectPath,
-    pinTab,
-    closeTab,
-    closeTabs,
-    reorderTabs,
-    refresh,
-    resolveSide
-  } = useRepo()
+// Flik-/aktivfil-tillstånd som en grupp behöver. Primärgruppen matas från
+// RepoContext, en sekundär (delad) grupp från EditorArea:s lokala state.
+export interface GroupApi {
+  openTabs: string[]
+  activePath: string | null
+  previewPath: string | null
+  activeLine: number | null
+  selectPath: (path: string | null, line?: number) => void
+  pinTab: (path: string) => void
+  closeTab: (path: string) => void
+  closeTabs: (paths: string[]) => void
+  reorderTabs: (from: string, to: string) => void
+}
+
+// Delas mellan grupperna så osparat innehåll och dirty-status är samma oavsett
+// vilken grupp en fil visas i.
+export interface SharedBuffers {
+  buffers: React.MutableRefObject<Map<string, string>>
+  dirtyTabs: Set<string>
+  markDirty: (path: string, isDirty: boolean) => void
+}
+
+interface EditorGroupProps {
+  api: GroupApi
+  shared: SharedBuffers
+  isActive: boolean
+  onFocus: () => void
+  onSplit?: () => void
+  onOpenToSide?: (path: string) => void
+  onCloseGroup?: () => void
+}
+
+export function EditorGroup({
+  api,
+  shared,
+  isActive,
+  onFocus,
+  onSplit,
+  onOpenToSide,
+  onCloseGroup
+}: EditorGroupProps): JSX.Element {
+  const { openTabs, previewPath, activePath, activeLine } = api
+  const { selectPath, pinTab, closeTab, closeTabs, reorderTabs } = api
+  const { buffers, dirtyTabs, markDirty } = shared
+  // Globalt/repo-brett tillstånd är gemensamt för alla grupper
+  const { status, revision, refresh, resolveSide } = useRepo()
   const dragTabRef = useRef<string | null>(null)
   const { settings } = useSettings()
   const { notify } = useToast()
@@ -41,7 +71,6 @@ export function EditorPane(): JSX.Element {
   const [working, setWorking] = useState('')
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [dirtyTabs, setDirtyTabs] = useState<Set<string>>(new Set())
   const [closePrompt, setClosePrompt] = useState<string | null>(null)
   const [tabMenu, setTabMenu] = useState<MenuState | null>(null)
   const [showHistory, setShowHistory] = useState(false)
@@ -55,8 +84,6 @@ export function EditorPane(): JSX.Element {
   const autoSaveRef = useRef(settings.autoSave)
   autoSaveRef.current = settings.autoSave
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Osparat innehåll per flik, så ändringar överlever flikbyten
-  const buffers = useRef<Map<string, string>>(new Map())
   // Gutter-markeringar + inline blame
   const [editorReady, setEditorReady] = useState(0)
   const changesRef = useRef<MonacoEditor.IEditorDecorationsCollection | null>(null)
@@ -65,15 +92,6 @@ export function EditorPane(): JSX.Element {
 
   const change = status?.files.find((f) => f.path === activePath)
   const isConflicted = !!activePath && (status?.conflicted ?? []).includes(activePath)
-
-  const markDirty = (path: string, isDirty: boolean): void => {
-    setDirtyTabs((prev) => {
-      if (isDirty === prev.has(path)) return prev
-      const next = new Set(prev)
-      isDirty ? next.add(path) : next.delete(path)
-      return next
-    })
-  }
 
   // Applicera Codesters tema på Monaco när temat ändras
   useEffect(() => {
@@ -102,8 +120,6 @@ export function EditorPane(): JSX.Element {
   useEffect(() => {
     if (!activePath) return
     let cancelled = false
-    // Visa "Laddar…" bara vid genuint filbyte – inte vid tyst omläsning
-    // (revision-bump efter spara/watcher), annars flimrar editorn.
     const isNewFile = loadedPathRef.current !== activePath
     if (isNewFile) setLoading(true)
     Promise.all([
@@ -116,8 +132,6 @@ export function EditorPane(): JSX.Element {
       const cached = buffers.current.get(activePath)
       const value = cached ?? disk
       setHead((prev) => (prev === (h.ok ? h.data : '') ? prev : h.ok ? h.data : ''))
-      // Uppdatera bara editorvärdet om det faktiskt ändrats (undviker reset av
-      // markör/ångra-historik och flimmer vid omläsning).
       setWorking((prev) => (prev === value ? prev : value))
       editedRef.current = value
       setDirty(value !== disk)
@@ -196,10 +210,11 @@ export function EditorPane(): JSX.Element {
   }, [editorReady, monaco])
 
   const themeId = `codester-${settings.themeId}`
+  const groupClass = `panel center editor-group ${isActive ? 'group-active' : ''}`
 
   if (!activePath) {
     return (
-      <main className="panel center">
+      <main className={groupClass} onMouseDownCapture={onFocus}>
         <div className="empty-state">
           <div style={{ fontSize: 40 }}>📄</div>
           <h2>Ingen fil öppen</h2>
@@ -214,7 +229,6 @@ export function EditorPane(): JSX.Element {
 
   const onEdit = (v: string | undefined): void => {
     const val = v ?? ''
-    // Redigering fäster en förhandsflik (som i VS Code)
     if (previewPath === activePath) pinTab(activePath)
     editedRef.current = val
     const isDirty = val !== diskRef.current
@@ -222,7 +236,6 @@ export function EditorPane(): JSX.Element {
     if (isDirty) buffers.current.set(activePath, val)
     else buffers.current.delete(activePath)
     markDirty(activePath, isDirty)
-    // Auto-spara efter en kort paus
     if (autoSaveRef.current === 'afterDelay' && isDirty) {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
       autoSaveTimer.current = setTimeout(() => saveRef.current(), 800)
@@ -301,6 +314,9 @@ export function EditorPane(): JSX.Element {
         { label: 'Stäng', onClick: () => handleClose(path) },
         { label: 'Stäng andra', onClick: () => bulkClose(openTabs.filter((p) => p !== path)) },
         { label: 'Stäng till höger', onClick: () => bulkClose(openTabs.slice(idx + 1)) },
+        ...(onOpenToSide
+          ? [{ separator: true }, { label: 'Öppna till höger', onClick: () => onOpenToSide(path) }]
+          : []),
         { separator: true },
         { label: 'Stäng alla', onClick: () => bulkClose(openTabs) }
       ]
@@ -327,7 +343,7 @@ export function EditorPane(): JSX.Element {
   formatDocRef.current = formatDoc
 
   return (
-    <main className="panel center">
+    <main className={groupClass} onMouseDownCapture={onFocus}>
       {/* Flikrad */}
       <div className="tabbar">
         {openTabs.map((path) => (
@@ -408,6 +424,21 @@ export function EditorPane(): JSX.Element {
             </button>
           </>
         )}
+
+        {onSplit && (
+          <button
+            className="btn ghost icon"
+            title="Dela editor till höger"
+            onClick={() => onSplit()}
+          >
+            ◫
+          </button>
+        )}
+        {onCloseGroup && (
+          <button className="btn ghost icon" title="Stäng grupp" onClick={() => onCloseGroup()}>
+            ✕
+          </button>
+        )}
       </div>
 
       {isConflicted ? (
@@ -444,10 +475,9 @@ export function EditorPane(): JSX.Element {
             editorRef.current = ed
             changesRef.current = null
             blameCol.current = null
+            ed.onDidFocusEditorText(() => onFocus())
             // Ctrl+S sparar (som i VS Code) – ingen synlig spara-knapp
-            ed.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () =>
-              saveRef.current()
-            )
+            ed.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => saveRef.current())
             // Shift+Alt+F → formatera dokumentet
             ed.addCommand(
               monacoApi.KeyMod.Shift | monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyF,
@@ -478,8 +508,7 @@ export function EditorPane(): JSX.Element {
             <div className="modal-header">Spara ändringar?</div>
             <div className="modal-body">
               <p>
-                Vill du spara ändringarna i{' '}
-                <strong>{closePrompt.split('/').pop()}</strong>?
+                Vill du spara ändringarna i <strong>{closePrompt.split('/').pop()}</strong>?
               </p>
               <p className="muted small">Ändringarna går förlorade om du inte sparar.</p>
               <div className="dialog-actions">

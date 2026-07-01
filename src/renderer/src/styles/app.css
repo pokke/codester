@@ -80,6 +80,36 @@
 .panel.center {
   background: var(--bg);
 }
+
+/* ── Editor-grupper (delad editor) ── */
+.editor-groups {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+}
+.editor-group-wrap {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+.editor-group {
+  flex: 1;
+  min-width: 0;
+}
+/* Aktiv grupp markeras med en accentlinje överst i flikraden */
+.editor-group.group-active .tabbar {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.group-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.group-resizer:hover {
+  background: var(--accent);
+}
 .sidebar {
   border-right: 1px solid var(--border);
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActivityBar, type View } from './components/ActivityBar'
 import { Sidebar } from './components/Sidebar'
-import { EditorPane } from './components/EditorPane'
+import { EditorArea } from './components/EditorArea'
 import { HistoryView } from './components/HistoryView'
 import { GitHubPanel } from './components/GitHubPanel'
 import { TerminalView } from './components/TerminalView'
@@ -115,7 +115,7 @@ export function App(): JSX.Element {
     if (view === 'github') return <GitHubPanel />
     if (!repo) return <WelcomeScreen />
     if (view === 'history') return <HistoryView />
-    return <EditorPane />
+    return <EditorArea />
   }
 
   const showSidebar = repo && !sidebarHidden && (view === 'editor' || view === 'history')
