@@ -136,6 +136,11 @@ export async function listRepos(): Promise<GitHubRepo[]> {
       private: boolean
       description: string | null
       default_branch: string
+      html_url: string
+      stargazers_count: number
+      language: string | null
+      pushed_at: string
+      updated_at: string
     }>
   >('/user/repos?per_page=100&sort=updated')
   return repos.map((r) => ({
@@ -144,7 +149,11 @@ export async function listRepos(): Promise<GitHubRepo[]> {
     cloneUrl: r.clone_url,
     private: r.private,
     description: r.description,
-    defaultBranch: r.default_branch
+    defaultBranch: r.default_branch,
+    htmlUrl: r.html_url,
+    stars: r.stargazers_count ?? 0,
+    language: r.language,
+    updatedAt: r.pushed_at ?? r.updated_at
   }))
 }
 

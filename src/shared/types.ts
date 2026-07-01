@@ -64,6 +64,10 @@ export interface GitHubRepo {
   private: boolean
   description: string | null
   defaultBranch: string
+  htmlUrl: string
+  stars: number
+  language: string | null
+  updatedAt: string
 }
 
 export interface PullRequest {

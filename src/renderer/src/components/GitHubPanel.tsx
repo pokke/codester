@@ -1,9 +1,50 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DeviceCodeInfo, GitHubRepo, GitHubUser, PullRequest } from '../../../shared/types'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { Icon } from '../ui/Icon'
 import { rowA11y } from '../ui/a11y'
+
+type RepoSort = 'updated' | 'name' | 'stars'
+
+const LANG_COLORS: Record<string, string> = {
+  TypeScript: '#3178c6',
+  JavaScript: '#f1e05a',
+  Python: '#3572a5',
+  Rust: '#dea584',
+  Go: '#00add8',
+  Java: '#b07219',
+  'C++': '#f34b7d',
+  C: '#888888',
+  'C#': '#178600',
+  HTML: '#e34c26',
+  CSS: '#563d7c',
+  Shell: '#89e051',
+  Ruby: '#701516',
+  PHP: '#4f5d95',
+  Swift: '#f05138',
+  Kotlin: '#a97bff',
+  Vue: '#41b883',
+  Dart: '#00b4ab'
+}
+function langColor(lang: string): string {
+  return LANG_COLORS[lang] ?? 'var(--text-muted)'
+}
+function relativeTime(iso: string): string {
+  const then = Date.parse(iso)
+  if (!then) return ''
+  const s = (Date.now() - then) / 1000
+  if (s < 60) return 'nyss'
+  const m = s / 60
+  if (m < 60) return `${Math.floor(m)} min sedan`
+  const h = m / 60
+  if (h < 24) return `${Math.floor(h)} h sedan`
+  const d = h / 24
+  if (d < 30) return `${Math.floor(d)} d sedan`
+  const mo = d / 30
+  if (mo < 12) return `${Math.floor(mo)} mån sedan`
+  return `${Math.floor(mo / 12)} år sedan`
+}
 
 export function GitHubPanel(): JSX.Element {
   const { cloneAndOpen, repo } = useRepo()
@@ -19,6 +60,7 @@ export function GitHubPanel(): JSX.Element {
   const [device, setDevice] = useState<DeviceCodeInfo | null>(null)
   const [reposLoading, setReposLoading] = useState(false)
   const [authed, setAuthed] = useState(false)
+  const [sortBy, setSortBy] = useState<RepoSort>('updated')
 
   const loadUser = async (): Promise<void> => {
     const cid = await window.api.github.getClientId()
@@ -186,9 +228,14 @@ export function GitHubPanel(): JSX.Element {
     )
   }
 
-  const filtered = repos.filter((r) =>
-    r.fullName.toLowerCase().includes(filter.toLowerCase())
-  )
+  const shown = useMemo(() => {
+    const f = repos.filter((r) => r.fullName.toLowerCase().includes(filter.toLowerCase()))
+    const s = [...f]
+    if (sortBy === 'name') s.sort((a, b) => a.fullName.localeCompare(b.fullName))
+    else if (sortBy === 'stars') s.sort((a, b) => b.stars - a.stars)
+    else s.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    return s
+  }, [repos, filter, sortBy])
 
   return (
     <main className="panel center">
@@ -225,7 +272,26 @@ export function GitHubPanel(): JSX.Element {
         )}
 
         <section>
-          <h3>Dina repon</h3>
+          <div className="repo-list-head">
+            <h3>Dina repon {repos.length > 0 && <span className="muted small">({repos.length})</span>}</h3>
+            <div className="seg-toggle small">
+              {(
+                [
+                  ['updated', 'Senaste'],
+                  ['name', 'Namn'],
+                  ['stars', 'Stjärnor']
+                ] as const
+              ).map(([v, l]) => (
+                <button
+                  key={v}
+                  className={sortBy === v ? 'active' : ''}
+                  onClick={() => setSortBy(v)}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
           <input
             placeholder="Filtrera…"
             value={filter}
@@ -233,27 +299,45 @@ export function GitHubPanel(): JSX.Element {
             style={{ width: '100%', marginBottom: 8 }}
           />
           {reposLoading && repos.length === 0 && <div className="hint">Hämtar repon…</div>}
-          {!reposLoading && repos.length === 0 && (
-            <div className="hint">Inga repon hittades</div>
+          {!reposLoading && repos.length === 0 && <div className="hint">Inga repon hittades</div>}
+          {!reposLoading && repos.length > 0 && shown.length === 0 && (
+            <div className="hint">Inga repon matchar filtret</div>
           )}
-          {filtered.map((r) => (
-            <div key={r.fullName} className="row repo-row">
-              <span className="icon">
-                <Icon name={r.private ? 'lock' : 'repo'} size={14} />
-              </span>
-              <div className="repo-main">
-                <div className="fname">{r.fullName}</div>
-                {r.description && <div className="path-dim">{r.description}</div>}
+          <div className="repo-cards">
+            {shown.map((r) => (
+              <div key={r.fullName} className="repo-card">
+                <div className="repo-card-head">
+                  <Icon name={r.private ? 'lock' : 'repo'} size={14} />
+                  <span className="fname" title={r.fullName}>
+                    {r.name}
+                  </span>
+                  {r.private && <span className="repo-badge">privat</span>}
+                  <span className="spacer" />
+                  <button
+                    className="btn ghost small"
+                    title="Öppna på GitHub"
+                    onClick={() => window.open(r.htmlUrl)}
+                  >
+                    Öppna
+                  </button>
+                  <button className="btn small" title="Klona" onClick={() => cloneAndOpen(r.cloneUrl)}>
+                    Klona
+                  </button>
+                </div>
+                {r.description && <div className="repo-card-desc">{r.description}</div>}
+                <div className="repo-card-meta">
+                  {r.language && (
+                    <span className="repo-lang">
+                      <span className="lang-dot" style={{ background: langColor(r.language) }} />
+                      {r.language}
+                    </span>
+                  )}
+                  {r.stars > 0 && <span title="Stjärnor">★ {r.stars}</span>}
+                  {r.updatedAt && <span className="path-dim">{relativeTime(r.updatedAt)}</span>}
+                </div>
               </div>
-              <button
-                className="btn"
-                title="Klona"
-                onClick={() => cloneAndOpen(r.cloneUrl)}
-              >
-                Klona
-              </button>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       </div>
     </main>
