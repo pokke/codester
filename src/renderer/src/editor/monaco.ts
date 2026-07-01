@@ -52,6 +52,11 @@ export function defineMonacoTheme(theme: Theme): string {
       'editorCursor.foreground': c.accent,
       'editor.selectionBackground': c.accent + '55',
       'editor.lineHighlightBackground': c.bgElevated,
+      // Sticky scroll måste ha en ogenomskinlig bakgrund, annars lyser
+      // innehållet bakom igenom och de fastnaglade raderna ser ut att
+      // ligga dubbelt (spöktext).
+      'editorStickyScroll.background': c.bg,
+      'editorStickyScrollHover.background': c.bgElevated,
       'diffEditor.insertedTextBackground': c.added + '33',
       'diffEditor.removedTextBackground': c.removed + '33'
     }
