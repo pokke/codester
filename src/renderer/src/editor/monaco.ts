@@ -122,9 +122,6 @@ interface TsProjectLike {
   files: { path: string; content: string }[]
 }
 
-const CODE_RE = /\.(ts|tsx|js|jsx|mts|cts)$/
-const MAX_PROJECT_MODELS = 1500
-
 function mapEnum(map: Record<string, number>, val: unknown, fallback: number): number {
   if (typeof val === 'string' && map[val.toLowerCase()] !== undefined) return map[val.toLowerCase()]
   return fallback
@@ -225,25 +222,44 @@ export function configureTypeScript(project: TsProjectLike): void {
     tns.javascriptDefaults.setEagerModelSync(true)
     silenceSemanticDiagnostics()
 
-    const codeFiles = project.files.filter(
-      (f) => !f.path.startsWith('node_modules/') && CODE_RE.test(f.path)
-    )
+    // Endast node_modules-typer som extra libs (fallback när tsserver saknas).
+    // Projektfiler för-skapas INTE som modeller – tsserver läser filsystemet
+    // självt, och att skapa alla modeller skulle spamma didOpen.
     const extraLibs = project.files
       .filter((f) => f.path.startsWith('node_modules/'))
       .map((f) => ({ content: f.content, filePath: monaco.Uri.parse(`file:///${f.path}`).toString() }))
-
-    // Skapa modeller för projektets filer (så korsfils-IntelliSense fungerar)
-    if (codeFiles.length <= MAX_PROJECT_MODELS) {
-      for (const f of codeFiles) {
-        const uri = monaco.Uri.parse(`file:///${f.path}`)
-        if (!monaco.editor.getModel(uri)) monaco.editor.createModel(f.content, undefined, uri)
-      }
-    }
-
     tns.typescriptDefaults.setExtraLibs(extraLibs)
     tns.javascriptDefaults.setExtraLibs(extraLibs)
   } catch {
     /* tyst – IntelliSense är best-effort */
+  }
+}
+
+// Stänger av Monacos inbyggda TS/JS-språkfunktioner (låt tsserver ta över).
+// Syntaxfärgning påverkas inte.
+export function disableBuiltinTs(): void {
+  try {
+    const tns = (monaco.languages as any).typescript
+    if (!tns) return
+    const off = {
+      completionItems: false,
+      hovers: false,
+      documentSymbols: false,
+      definitions: false,
+      references: false,
+      documentHighlights: false,
+      rename: false,
+      diagnostics: false,
+      documentRangeFormattingEdits: false,
+      signatureHelp: false,
+      onTypeFormattingEdits: false,
+      codeActions: false,
+      inlayHints: false
+    }
+    tns.typescriptDefaults.setModeConfiguration(off)
+    tns.javascriptDefaults.setModeConfiguration(off)
+  } catch {
+    /* tyst */
   }
 }
 

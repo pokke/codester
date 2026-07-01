@@ -1,24 +1,48 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { dirname, join } from 'path'
 import type { WebContents } from 'electron'
 import { getRepoPath } from './git'
 
 // Generisk LSP-klient: startar en språkserver per språk, pratar JSON-RPC över
 // stdio, synkar dokument och vidarebefordrar completion/hover/definition samt
-// pushar diagnostik till renderern. Kräver att servern finns installerad; om
-// inte är LSP helt inaktivt (appen påverkas inte).
+// pushar diagnostik till renderern. TS/JS använder en buntad typescript-
+// language-server (zero-install); övriga kräver att servern finns i PATH.
 
-interface ServerDef {
+interface SpawnCfg {
   cmd: string
   args: string[]
+  env?: NodeJS.ProcessEnv
+  initOptions?: unknown
 }
 
-// Språk-id (Monaco) → serverkommando. Servern måste finnas i PATH.
-const SERVERS: Record<string, ServerDef> = {
+// PATH-baserade servrar (måste installeras av användaren).
+const SERVERS: Record<string, { cmd: string; args: string[] }> = {
   python: { cmd: 'pyright-langserver', args: ['--stdio'] },
   rust: { cmd: 'rust-analyzer', args: [] },
   go: { cmd: 'gopls', args: [] },
   c: { cmd: 'clangd', args: [] },
   cpp: { cmd: 'clangd', args: [] }
+}
+
+// Bygger spawn-konfig för ett språk. TS/JS körs via buntad tsls under
+// Electrons node-runtime, med explicit sökväg till buntad tsserver.
+function buildConfig(langId: string): SpawnCfg | null {
+  if (langId === 'typescript' || langId === 'javascript') {
+    try {
+      const tsls = join(dirname(require.resolve('typescript-language-server/package.json')), 'lib', 'cli.mjs')
+      const tsserver = require.resolve('typescript/lib/tsserver.js')
+      return {
+        cmd: process.execPath,
+        args: [tsls, '--stdio'],
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        initOptions: { tsserver: { path: tsserver } }
+      }
+    } catch {
+      return null
+    }
+  }
+  const d = SERVERS[langId]
+  return d ? { cmd: d.cmd, args: d.args } : null
 }
 
 function rootUri(): string {
@@ -36,7 +60,7 @@ class LspServer {
 
   constructor(
     private langId: string,
-    private def: ServerDef,
+    private cfg: SpawnCfg,
     private sender: WebContents
   ) {
     this.ready = new Promise((r) => (this.resolveReady = r))
@@ -44,8 +68,9 @@ class LspServer {
 
   async start(): Promise<boolean> {
     try {
-      this.proc = spawn(this.def.cmd, this.def.args, {
+      this.proc = spawn(this.cfg.cmd, this.cfg.args, {
         cwd: getRepoPath() ?? process.cwd(),
+        env: this.cfg.env ?? process.env,
         windowsHide: true
       })
     } catch {
@@ -64,6 +89,7 @@ class LspServer {
         processId: process.pid,
         rootUri: rootUri(),
         workspaceFolders: [{ uri: rootUri(), name: 'workspace' }],
+        initializationOptions: this.cfg.initOptions,
         capabilities: {
           textDocument: {
             synchronization: { didSave: true, dynamicRegistration: false },
@@ -179,12 +205,12 @@ export async function ensure(langId: string, sender: WebContents): Promise<boole
   if (unavailable.has(langId)) return false
   const existing = servers.get(langId)
   if (existing) return existing.whenReady()
-  const def = SERVERS[langId]
-  if (!def) {
+  const cfg = buildConfig(langId)
+  if (!cfg) {
     unavailable.add(langId)
     return false
   }
-  const srv = new LspServer(langId, def, sender)
+  const srv = new LspServer(langId, cfg, sender)
   servers.set(langId, srv)
   const ok = await srv.start()
   if (!ok) {

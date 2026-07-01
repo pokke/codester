@@ -1,10 +1,12 @@
-import { monaco } from './monaco'
+import { monaco, disableBuiltinTs } from './monaco'
 
 // Kopplar Monaco till språkservrar via main-processens LSP-brygga:
-// dokumentsynk, completion, hover, definition och diagnostik. Aktiveras bara
-// för språk där en server faktiskt finns installerad.
+// dokumentsynk, completion, hover, definition, referenser, rename och diagnostik.
+// TS/JS drivs av buntad tsserver (då stängs Monacos inbyggda motor av); övriga
+// språk aktiveras bara om en server finns installerad.
 
-const LSP_LANGS = new Set(['python', 'rust', 'go', 'c', 'cpp'])
+const LSP_LANGS = new Set(['typescript', 'javascript', 'python', 'rust', 'go', 'c', 'cpp'])
+let builtinTsDisabled = false
 
 let lspRoot = '' // absolut repo-sökväg, normaliserad med '/'
 export function setLspRoot(path: string): void {
@@ -105,6 +107,11 @@ export function initLsp(): void {
     if (!LSP_LANGS.has(langId)) return
     ensure(langId).then((ok) => {
       if (!ok) return
+      // tsserver tog över TS/JS → stäng av Monacos inbyggda motor (ingen dubblett)
+      if ((langId === 'typescript' || langId === 'javascript') && !builtinTsDisabled) {
+        builtinTsDisabled = true
+        disableBuiltinTs()
+      }
       window.api.lsp.didOpen(langId, toLspUri(model), model.getValue())
       versions.set(model, 1)
       model.onDidChangeContent(() => {
