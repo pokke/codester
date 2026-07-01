@@ -5,6 +5,7 @@ interface Props {
   onChange: (v: View) => void
   onOpenSettings: () => void
   onOpenPalette: () => void
+  badges?: Partial<Record<View, number>>
 }
 
 // Bara riktiga vyer bor här. Terminal/Problem togglas från statusraden nere
@@ -15,19 +16,29 @@ const items: { id: View; icon: string; label: string }[] = [
   { id: 'github', icon: '⌥', label: 'GitHub' }
 ]
 
-export function ActivityBar({ view, onChange, onOpenSettings, onOpenPalette }: Props): JSX.Element {
+export function ActivityBar({
+  view,
+  onChange,
+  onOpenSettings,
+  onOpenPalette,
+  badges
+}: Props): JSX.Element {
   return (
     <div className="activitybar">
-      {items.map((it) => (
-        <button
-          key={it.id}
-          className={`act ${view === it.id ? 'active' : ''}`}
-          title={it.label}
-          onClick={() => onChange(it.id)}
-        >
-          {it.icon}
-        </button>
-      ))}
+      {items.map((it) => {
+        const badge = badges?.[it.id] ?? 0
+        return (
+          <button
+            key={it.id}
+            className={`act ${view === it.id ? 'active' : ''}`}
+            title={it.label}
+            onClick={() => onChange(it.id)}
+          >
+            {it.icon}
+            {badge > 0 && <span className="act-badge">{badge > 99 ? '99+' : badge}</span>}
+          </button>
+        )
+      })}
       <div style={{ flex: 1 }} />
       <button className="act" title="Kommandopalett (Ctrl+Shift+P)" onClick={onOpenPalette}>
         ⌘

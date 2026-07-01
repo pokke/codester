@@ -263,4 +263,9 @@ export function registerIpc(): void {
   handle('git:checkoutPr', (number: number, branch: string) =>
     git.checkoutPullRequest(number, branch)
   )
+  handle('github:notifications', () => github.listNotifications())
+  handle('github:notificationCount', () => github.notificationCount())
+  handle('github:markNotifRead', (id: string) => github.markNotificationRead(id))
+  handle('github:searchRepos', (q: string) => github.searchRepositories(q))
+  handle('github:searchIssues', (q: string) => github.searchIssuesPrs(q))
 }

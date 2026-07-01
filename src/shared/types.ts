@@ -135,6 +135,36 @@ export interface NewPullRequest {
   base: string
 }
 
+export interface GhNotification {
+  id: string
+  title: string
+  type: string // PullRequest | Issue | Commit | Release | Discussion …
+  repo: string // owner/name
+  reason: string
+  url: string // härledd html-url
+  updatedAt: string
+}
+
+export interface SearchRepoResult {
+  fullName: string
+  description: string | null
+  stars: number
+  language: string | null
+  htmlUrl: string
+  cloneUrl: string
+  private: boolean
+}
+
+export interface SearchIssueResult {
+  number: number
+  title: string
+  repo: string
+  state: string
+  isPr: boolean
+  htmlUrl: string
+  author: string
+}
+
 export interface SearchHit {
   file: string
   line: number

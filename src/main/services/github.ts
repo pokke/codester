@@ -2,13 +2,16 @@ import type {
   CheckState,
   CheckStatus,
   DeviceCodeInfo,
+  GhNotification,
   GitHubRepo,
   GitHubUser,
   Issue,
   NewPullRequest,
   PrFile,
   PullRequest,
-  PullRequestDetail
+  PullRequestDetail,
+  SearchIssueResult,
+  SearchRepoResult
 } from '../../shared/types'
 import {
   loadToken,
@@ -372,6 +375,100 @@ export async function setIssueState(
   state: 'open' | 'closed'
 ): Promise<void> {
   await ghReq('PATCH', `/repos/${owner}/${repo}/issues/${number}`, { state })
+}
+
+// --- Notiser ---
+
+function notifHtml(subjectUrl: string | null, type: string, repoHtml: string): string {
+  const m = subjectUrl?.match(/\/(\d+)$/)
+  const n = m ? m[1] : null
+  if (type === 'PullRequest' && n) return `${repoHtml}/pull/${n}`
+  if (type === 'Issue' && n) return `${repoHtml}/issues/${n}`
+  return repoHtml
+}
+
+export async function listNotifications(): Promise<GhNotification[]> {
+  const items = await gh<
+    Array<{
+      id: string
+      reason: string
+      updated_at: string
+      subject: { title: string; url: string | null; type: string }
+      repository: { full_name: string; html_url: string }
+    }>
+  >('/notifications?all=false&per_page=30')
+  return items.map((n) => ({
+    id: n.id,
+    title: n.subject.title,
+    type: n.subject.type,
+    repo: n.repository.full_name,
+    reason: n.reason,
+    url: notifHtml(n.subject.url, n.subject.type, n.repository.html_url),
+    updatedAt: n.updated_at
+  }))
+}
+
+export async function notificationCount(): Promise<number> {
+  try {
+    const items = await gh<unknown[]>('/notifications?all=false&per_page=50')
+    return items.length
+  } catch {
+    return 0
+  }
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await ghReq('PATCH', `/notifications/threads/${id}`)
+}
+
+// --- Sök ---
+
+export async function searchRepositories(q: string): Promise<SearchRepoResult[]> {
+  if (!q.trim()) return []
+  const r = await gh<{
+    items: Array<{
+      full_name: string
+      description: string | null
+      stargazers_count: number
+      language: string | null
+      html_url: string
+      clone_url: string
+      private: boolean
+    }>
+  }>(`/search/repositories?q=${encodeURIComponent(q)}&per_page=25`)
+  return r.items.map((i) => ({
+    fullName: i.full_name,
+    description: i.description,
+    stars: i.stargazers_count,
+    language: i.language,
+    htmlUrl: i.html_url,
+    cloneUrl: i.clone_url,
+    private: i.private
+  }))
+}
+
+export async function searchIssuesPrs(q: string): Promise<SearchIssueResult[]> {
+  if (!q.trim()) return []
+  const r = await gh<{
+    items: Array<{
+      number: number
+      title: string
+      state: string
+      html_url: string
+      user: { login: string }
+      pull_request?: unknown
+      repository_url: string
+    }>
+  }>(`/search/issues?q=${encodeURIComponent(q)}&per_page=25`)
+  return r.items.map((i) => ({
+    number: i.number,
+    title: i.title,
+    repo: i.repository_url.replace('https://api.github.com/repos/', ''),
+    state: i.state,
+    isPr: !!i.pull_request,
+    htmlUrl: i.html_url,
+    author: i.user.login
+  }))
 }
 
 // Sammanställer både "combined status" (legacy) och "check runs" till ett läge.

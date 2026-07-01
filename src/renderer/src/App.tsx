@@ -40,6 +40,30 @@ export function App(): JSX.Element {
     () => Number(localStorage.getItem('codester.panelHeight')) || 240
   )
   const [version, setVersion] = useState('0.1.0')
+  const [ghUnread, setGhUnread] = useState(0)
+
+  // Polla GitHub-notiser (om inloggad) för badge på activitybaren
+  useEffect(() => {
+    let stopped = false
+    const tick = async (): Promise<void> => {
+      const has = await window.api.github.hasToken()
+      if (has.ok && has.data) {
+        const c = await window.api.github.notificationCount()
+        if (!stopped && c.ok) setGhUnread(c.data)
+      } else if (!stopped) setGhUnread(0)
+    }
+    tick()
+    const id = setInterval(tick, 180000)
+    const onFocus = (): void => {
+      tick()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      stopped = true
+      clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
 
   const togglePanel = (tab: 'terminal' | 'problems'): void =>
     setPanelTab((cur) => (cur === tab ? null : tab))
@@ -164,6 +188,7 @@ export function App(): JSX.Element {
           }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPalette={() => setShowPalette(true)}
+          badges={{ github: ghUnread }}
         />
         <div className="main-area">
         <div className="workbench">

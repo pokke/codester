@@ -5,8 +5,10 @@ import { useToast } from '../ui/Toast'
 import { Icon } from '../ui/Icon'
 import { GitHubPullRequests } from './GitHubPullRequests'
 import { GitHubIssues } from './GitHubIssues'
+import { GitHubNotifications } from './GitHubNotifications'
+import { GitHubSearch } from './GitHubSearch'
 
-type GhTab = 'repos' | 'pulls' | 'issues'
+type GhTab = 'repos' | 'pulls' | 'issues' | 'notifs' | 'search'
 
 type RepoSort = 'updated' | 'name' | 'stars'
 
@@ -253,7 +255,9 @@ export function GitHubPanel(): JSX.Element {
           [
             ['repos', 'Repon'],
             ['pulls', 'Pull requests'],
-            ['issues', 'Issues']
+            ['issues', 'Issues'],
+            ['notifs', 'Notiser'],
+            ['search', 'Sök']
           ] as const
         ).map(([v, l]) => (
           <button key={v} className={ghTab === v ? 'active' : ''} onClick={() => setGhTab(v)}>
@@ -265,6 +269,8 @@ export function GitHubPanel(): JSX.Element {
       <div className="gh-body">
         {ghTab === 'pulls' && <GitHubPullRequests />}
         {ghTab === 'issues' && <GitHubIssues />}
+        {ghTab === 'notifs' && <GitHubNotifications />}
+        {ghTab === 'search' && <GitHubSearch />}
         {ghTab === 'repos' && (
         <section>
           <div className="repo-list-head">

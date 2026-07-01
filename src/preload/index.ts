@@ -7,6 +7,7 @@ import type {
   DiffResult,
   FileChange,
   CheckStatus,
+  GhNotification,
   GitHubRepo,
   GitHubUser,
   Issue,
@@ -16,6 +17,8 @@ import type {
   PullRequest,
   PullRequestDetail,
   RepoInfo,
+  SearchIssueResult,
+  SearchRepoResult,
   RepoStatus,
   Result,
   SearchHit,
@@ -212,7 +215,12 @@ const api = {
     issueComment: (number: number, body: string) =>
       invoke<void>('github:issueComment', number, body),
     setIssueState: (number: number, state: 'open' | 'closed') =>
-      invoke<void>('github:setIssueState', number, state)
+      invoke<void>('github:setIssueState', number, state),
+    notifications: () => invoke<GhNotification[]>('github:notifications'),
+    notificationCount: () => invoke<number>('github:notificationCount'),
+    markNotifRead: (id: string) => invoke<void>('github:markNotifRead', id),
+    searchRepos: (q: string) => invoke<SearchRepoResult[]>('github:searchRepos', q),
+    searchIssues: (q: string) => invoke<SearchIssueResult[]>('github:searchIssues', q)
   }
 }
 

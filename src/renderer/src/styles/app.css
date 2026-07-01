@@ -680,6 +680,38 @@
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
+.activitybar .act {
+  position: relative;
+}
+.act-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--git-deleted);
+  color: #fff;
+  font-size: 9px;
+  line-height: 15px;
+  text-align: center;
+  font-weight: 700;
+}
+.notif-row {
+  align-items: flex-start;
+}
+.notif-main {
+  min-width: 0;
+}
+.gh-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+.gh-search section {
+  margin-top: var(--space);
+}
 
 /* ── Sidofält: fil- och branchrader ── */
 .file-row {
