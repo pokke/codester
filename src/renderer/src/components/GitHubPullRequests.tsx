@@ -5,6 +5,7 @@ import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
 import { Markdown } from '../ui/Markdown'
 import { Conversation } from './GitHubConversation'
+import { Loading, Empty } from '../ui/States'
 import type {
   CheckStatus,
   GhComment,
@@ -399,8 +400,8 @@ export function GitHubPullRequests(): JSX.Element {
           + Ny PR
         </button>
       </div>
-      {loading && <div className="hint">Hämtar…</div>}
-      {!loading && prs.length === 0 && <div className="hint">Inga pull requests</div>}
+      {loading && <Loading />}
+      {!loading && prs.length === 0 && <Empty>Inga pull requests</Empty>}
       {prs.map((p) => (
         <div
           key={p.number}

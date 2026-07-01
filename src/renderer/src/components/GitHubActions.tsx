@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
+import { Loading, Empty } from '../ui/States'
 import type { WorkflowJob, WorkflowRun } from '../../../shared/types'
 
 function statusIcon(status: string, conclusion: string | null): { label: string; cls: string } {
@@ -109,8 +110,8 @@ export function GitHubActions(): JSX.Element {
           Uppdatera
         </button>
       </div>
-      {loading && <div className="hint">Hämtar…</div>}
-      {!loading && runs.length === 0 && <div className="hint">Inga körningar</div>}
+      {loading && <Loading />}
+      {!loading && runs.length === 0 && <Empty>Inga körningar</Empty>}
       {runs.map((run) => {
         const st = statusIcon(run.status, run.conclusion)
         const open = expanded === run.id

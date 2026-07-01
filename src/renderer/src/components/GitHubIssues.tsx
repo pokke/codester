@@ -3,6 +3,7 @@ import { useToast } from '../ui/Toast'
 import { rowA11y } from '../ui/a11y'
 import { Markdown } from '../ui/Markdown'
 import { Conversation } from './GitHubConversation'
+import { Loading, Empty } from '../ui/States'
 import type { GhComment, Issue } from '../../../shared/types'
 
 type IssueFilter = 'open' | 'closed' | 'all' | 'mine'
@@ -301,8 +302,8 @@ export function GitHubIssues(): JSX.Element {
           + Nytt
         </button>
       </div>
-      {loading && <div className="hint">Hämtar…</div>}
-      {!loading && issues.length === 0 && <div className="hint">Inga issues</div>}
+      {loading && <Loading />}
+      {!loading && issues.length === 0 && <Empty>Inga issues</Empty>}
       {issues.map((i) => (
         <div
           key={i.number}

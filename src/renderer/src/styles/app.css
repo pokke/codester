@@ -850,11 +850,29 @@
 .markdown h6 {
   margin: 10px 0 6px;
 }
-.markdown ul {
+.markdown ul,
+.markdown ol {
   margin: 0 0 8px;
   padding-left: 20px;
 }
 .markdown li {
+  margin: 2px 0;
+}
+.markdown li.task {
+  list-style: none;
+  margin-left: -18px;
+}
+.markdown li.task input {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.markdown blockquote {
+  margin: 0 0 8px;
+  padding: 2px 10px;
+  border-left: 3px solid var(--border);
+  color: var(--text-muted);
+}
+.markdown blockquote p {
   margin: 2px 0;
 }
 .markdown code {
@@ -1142,6 +1160,20 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space);
+}
+.state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  padding: 10px 2px;
+  font-size: 13px;
+}
+.state-empty {
+  color: var(--text-muted);
+  padding: 16px 2px;
+  font-size: 13px;
+  text-align: center;
 }
 .gh-list-head h3 {
   margin: 0;

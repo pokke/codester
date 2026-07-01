@@ -3,12 +3,16 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { rowA11y } from '../ui/a11y'
 import { Icon } from '../ui/Icon'
+import { Loading, Empty } from '../ui/States'
 import type { SearchIssueResult, SearchRepoResult } from '../../../shared/types'
+
+type SearchType = 'all' | 'repos' | 'issues'
 
 export function GitHubSearch(): JSX.Element {
   const { cloneAndOpen } = useRepo()
   const { notify } = useToast()
   const [q, setQ] = useState('')
+  const [type, setType] = useState<SearchType>('all')
   const [repos, setRepos] = useState<SearchRepoResult[]>([])
   const [issues, setIssues] = useState<SearchIssueResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -17,14 +21,16 @@ export function GitHubSearch(): JSX.Element {
   const run = async (): Promise<void> => {
     if (!q.trim() || loading) return
     setLoading(true)
+    const wantRepos = type === 'all' || type === 'repos'
+    const wantIssues = type === 'all' || type === 'issues'
     const [r, i] = await Promise.all([
-      window.api.github.searchRepos(q),
-      window.api.github.searchIssues(q)
+      wantRepos ? window.api.github.searchRepos(q) : Promise.resolve(null),
+      wantIssues ? window.api.github.searchIssues(q) : Promise.resolve(null)
     ])
-    setRepos(r.ok ? r.data : [])
-    setIssues(i.ok ? i.data : [])
-    if (!r.ok) notify(r.error, 'error')
-    else if (!i.ok) notify(i.error, 'error')
+    setRepos(r && r.ok ? r.data : [])
+    setIssues(i && i.ok ? i.data : [])
+    if (r && !r.ok) notify(r.error, 'error')
+    else if (i && !i.ok) notify(i.error, 'error')
     setLoading(false)
     setRan(true)
   }
@@ -34,18 +40,28 @@ export function GitHubSearch(): JSX.Element {
       <div className="welcome-clone">
         <input
           autoFocus
-          placeholder="Sök repon, issues, pull requests på GitHub…"
+          placeholder="Sök på GitHub…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && run()}
         />
+        <select
+          className="gh-filter"
+          value={type}
+          onChange={(e) => setType(e.target.value as SearchType)}
+        >
+          <option value="all">Allt</option>
+          <option value="repos">Repositories</option>
+          <option value="issues">Issues &amp; PR</option>
+        </select>
         <button className="btn" disabled={!q.trim() || loading} onClick={run}>
           {loading ? 'Söker…' : 'Sök'}
         </button>
       </div>
 
+      {loading && <Loading label="Söker…" />}
       {ran && !loading && repos.length === 0 && issues.length === 0 && (
-        <div className="hint">Inga träffar</div>
+        <Empty>Inga träffar</Empty>
       )}
 
       {repos.length > 0 && (

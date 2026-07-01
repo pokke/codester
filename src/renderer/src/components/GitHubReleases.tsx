@@ -3,6 +3,7 @@ import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
 import { Markdown } from '../ui/Markdown'
+import { Loading, Empty } from '../ui/States'
 import type { Release } from '../../../shared/types'
 
 function fmtBytes(n: number): string {
@@ -279,8 +280,8 @@ export function GitHubReleases(): JSX.Element {
           + Ny release
         </button>
       </div>
-      {loading && <div className="hint">Hämtar…</div>}
-      {!loading && items.length === 0 && <div className="hint">Inga releaser</div>}
+      {loading && <Loading />}
+      {!loading && items.length === 0 && <Empty>Inga releaser</Empty>}
       {items.map((r) => (
         <div
           key={r.id}
