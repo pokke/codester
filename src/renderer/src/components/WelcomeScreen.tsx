@@ -13,7 +13,7 @@ export function WelcomeScreen(): JSX.Element {
         <p className="muted">Koppla mot GitHub, överblicka branches och committa – enkelt.</p>
 
         <div className="welcome-actions">
-          <button className="btn primary" onClick={() => openDialog()}>
+          <button className="btn primary" disabled={busy} onClick={() => openDialog()}>
             📂 Öppna lokalt repo
           </button>
         </div>

@@ -392,6 +392,20 @@
 .statusbar .spacer {
   flex: 1;
 }
+.statusbar .seg.branch {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  line-height: 24px;
+}
+/* Dölj lågprioriterade segment i smala fönster */
+@media (max-width: 860px) {
+  .statusbar .seg.optional {
+    display: none;
+  }
+}
 
 /* Commit-ruta i inspektören */
 .commit-box {
@@ -1235,11 +1249,35 @@ code {
 }
 
 /* ── Sökträffar ── */
+.search-group {
+  margin-bottom: 4px;
+}
+.search-file-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px var(--space);
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  z-index: 1;
+}
+.search-file-header .search-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+}
 .search-hit {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
   height: auto;
+  padding-left: calc(var(--space) * 1.5);
+}
+.search-hit .hit-line {
+  flex-shrink: 0;
+  font-size: 11px;
+  min-width: 24px;
 }
 .hit-loc {
   display: flex;

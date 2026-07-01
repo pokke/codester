@@ -79,7 +79,11 @@ export function MultiRepoChanges({ onOpenEditor }: { onOpenEditor: () => void })
   }
 
   const openFile = async (root: string, file: string, pin: boolean): Promise<void> => {
-    if (root !== repo?.path) await switchRepo(root)
+    if (root !== repo?.path) {
+      await switchRepo(root)
+      const name = repos.find((r) => r.path === root)?.name ?? root
+      notify(`Aktivt repo: ${name}`, 'info')
+    }
     pin ? selectPath(file) : previewFile(file)
     onOpenEditor()
   }

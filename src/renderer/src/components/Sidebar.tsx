@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
@@ -70,6 +70,17 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     selectPath(hit.file, hit.line)
     onOpenEditor()
   }
+
+  // Gruppera sökträffar per fil
+  const groupedHits = useMemo(() => {
+    const m = new Map<string, SearchHit[]>()
+    for (const h of results) {
+      const arr = m.get(h.file)
+      if (arr) arr.push(h)
+      else m.set(h.file, [h])
+    }
+    return [...m.entries()]
+  }, [results])
 
   const doReplace = async (): Promise<void> => {
     if (!query.trim()) return
@@ -290,18 +301,24 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
             {!searching && query.trim() && results.length === 0 && (
               <div className="hint">Inga träffar</div>
             )}
-            {results.map((hit, i) => (
-              <div
-                key={`${hit.file}:${hit.line}:${i}`}
-                className="row search-hit"
-                onClick={() => openHit(hit)}
-                title={`${hit.file}:${hit.line}`}
-              >
-                <div className="hit-loc">
-                  <span className="fname">{hit.file.split('/').pop()}</span>
-                  <span className="path-dim">:{hit.line}</span>
+            {groupedHits.map(([file, hits]) => (
+              <div key={file} className="search-group">
+                <div className="search-file-header" title={file}>
+                  <span className="fname">{file.split('/').pop()}</span>
+                  <span className="path-dim">{file.split('/').slice(0, -1).join('/')}</span>
+                  <span className="search-count">{hits.length}</span>
                 </div>
-                <code className="hit-text">{hit.text.trim().slice(0, 120)}</code>
+                {hits.map((hit, i) => (
+                  <div
+                    key={`${hit.line}:${i}`}
+                    className="row search-hit"
+                    onClick={() => openHit(hit)}
+                    title={`${file}:${hit.line}`}
+                  >
+                    <span className="path-dim hit-line">{hit.line}</span>
+                    <code className="hit-text">{hit.text.trim().slice(0, 120)}</code>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

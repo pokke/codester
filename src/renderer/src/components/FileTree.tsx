@@ -266,7 +266,11 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   }
 
   const openFile = async (root: string, rel: string, pin: boolean): Promise<void> => {
-    if (root !== repo?.path) await switchRepo(root)
+    if (root !== repo?.path) {
+      await switchRepo(root)
+      const name = rootsData.find((r) => r.path === root)?.name ?? root
+      notify(`Aktivt repo: ${name}`, 'info')
+    }
     pin ? selectPath(rel) : previewFile(rel)
     onOpenEditor()
   }

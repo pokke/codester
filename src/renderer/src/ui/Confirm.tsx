@@ -40,11 +40,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }): JSX.Elem
     []
   )
 
-  // Enter bekräftar, Escape avbryter
+  // Escape avbryter alltid. Enter bekräftar bara för icke-destruktiva dialoger
+  // (destruktiva kräver ett medvetet klick).
   useEffect(() => {
     if (!state) return
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Enter') close(true)
+      if (e.key === 'Enter' && !state.danger) close(true)
       else if (e.key === 'Escape') close(false)
     }
     window.addEventListener('keydown', onKey)
@@ -61,12 +62,16 @@ export function ConfirmProvider({ children }: { children: ReactNode }): JSX.Elem
             <div className="modal-body">
               <p>{state.message}</p>
               <div className="dialog-actions">
-                <button className="btn ghost" onClick={() => close(false)}>
+                <button
+                  className="btn ghost"
+                  autoFocus={state.danger}
+                  onClick={() => close(false)}
+                >
                   {state.cancelLabel ?? 'Avbryt'}
                 </button>
                 <button
                   className={`btn ${state.danger ? 'danger-btn' : 'primary'}`}
-                  autoFocus
+                  autoFocus={!state.danger}
                   onClick={() => close(true)}
                 >
                   {state.confirmLabel ?? 'OK'}

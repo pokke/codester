@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useSettings } from '../settings/SettingsContext'
 import { themes } from '../themes/themes'
@@ -68,6 +68,11 @@ export function CommandPalette({
     c.label.toLowerCase().includes(query.toLowerCase())
   )
 
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    listRef.current?.querySelector('.palette-item.active')?.scrollIntoView({ block: 'nearest' })
+  }, [sel])
+
   const exec = (cmd: Command | undefined): void => {
     if (!cmd) return
     cmd.run()
@@ -92,7 +97,7 @@ export function CommandPalette({
             if (e.key === 'Escape') onClose()
           }}
         />
-        <div className="palette-list">
+        <div className="palette-list" ref={listRef}>
           {filtered.map((c, i) => (
             <div
               key={c.id}

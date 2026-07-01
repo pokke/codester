@@ -77,7 +77,7 @@ export function LangServersSettings(): JSX.Element {
           </div>
         ))}
       </div>
-      {installingId && (
+      {(installingId || log) && (
         <pre className="ls-log" ref={logRef}>
           {log || 'Startar…'}
         </pre>

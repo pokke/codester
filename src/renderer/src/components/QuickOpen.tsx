@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 
 interface Props {
@@ -24,6 +24,11 @@ export function QuickOpen({ onClose, onPick }: Props): JSX.Element {
     onClose()
   }
 
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    listRef.current?.querySelector('.palette-item.active')?.scrollIntoView({ block: 'nearest' })
+  }, [sel])
+
   return (
     <div className="overlay palette-overlay" onClick={onClose}>
       <div className="palette" onClick={(e) => e.stopPropagation()}>
@@ -42,7 +47,7 @@ export function QuickOpen({ onClose, onPick }: Props): JSX.Element {
             if (e.key === 'Escape') onClose()
           }}
         />
-        <div className="palette-list">
+        <div className="palette-list" ref={listRef}>
           {results.map((path, i) => (
             <div
               key={path}

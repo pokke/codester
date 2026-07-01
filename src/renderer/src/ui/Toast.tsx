@@ -12,23 +12,49 @@ interface ToastCtx {
 }
 
 const Ctx = createContext<ToastCtx | null>(null)
+const MAX_TOASTS = 4
 
 export function ToastProvider({ children }: { children: ReactNode }): JSX.Element {
   const [toasts, setToasts] = useState<Toast[]>([])
   const idRef = useRef(0)
+  const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
 
-  const notify = useCallback((message: string, kind: ToastKind = 'info') => {
-    const id = ++idRef.current
-    setToasts((t) => [...t, { id, kind, message }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000)
+  const dismiss = useCallback((id: number) => {
+    setToasts((t) => t.filter((x) => x.id !== id))
+    const timer = timers.current.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      timers.current.delete(id)
+    }
   }, [])
+
+  const notify = useCallback(
+    (message: string, kind: ToastKind = 'info') => {
+      const id = ++idRef.current
+      // Tak: behåll de senaste, släpp äldsta
+      setToasts((t) => [...t, { id, kind, message }].slice(-MAX_TOASTS))
+      // Fel visas längre (mer att läsa/agera på)
+      const ttl = kind === 'error' ? 7000 : 4000
+      timers.current.set(
+        id,
+        setTimeout(() => dismiss(id), ttl)
+      )
+    },
+    [dismiss]
+  )
 
   return (
     <Ctx.Provider value={{ notify }}>
       {children}
       <div className="toast-stack">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.kind}`}>
+          <div
+            key={t.id}
+            className={`toast ${t.kind}`}
+            role="status"
+            title="Klicka för att stänga"
+            onClick={() => dismiss(t.id)}
+          >
             {t.message}
           </div>
         ))}

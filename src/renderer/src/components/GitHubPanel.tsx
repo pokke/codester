@@ -15,6 +15,7 @@ export function GitHubPanel(): JSX.Element {
   const [clientIdInput, setClientIdInput] = useState('')
   const [showCfg, setShowCfg] = useState(false)
   const [device, setDevice] = useState<DeviceCodeInfo | null>(null)
+  const [reposLoading, setReposLoading] = useState(false)
 
   const loadUser = async (): Promise<void> => {
     const cid = await window.api.github.getClientId()
@@ -58,8 +59,10 @@ export function GitHubPanel(): JSX.Element {
   }
 
   const loadRepos = async (): Promise<void> => {
+    setReposLoading(true)
     const r = await window.api.github.repos()
     if (r.ok) setRepos(r.data)
+    setReposLoading(false)
   }
 
   const loadPulls = async (): Promise<void> => {
@@ -217,6 +220,10 @@ export function GitHubPanel(): JSX.Element {
             onChange={(e) => setFilter(e.target.value)}
             style={{ width: '100%', marginBottom: 8 }}
           />
+          {reposLoading && repos.length === 0 && <div className="hint">Hämtar repon…</div>}
+          {!reposLoading && repos.length === 0 && (
+            <div className="hint">Inga repon hittades</div>
+          )}
           {filtered.map((r) => (
             <div key={r.fullName} className="row repo-row">
               <span className="icon">{r.private ? '🔒' : '📦'}</span>

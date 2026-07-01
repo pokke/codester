@@ -21,33 +21,39 @@ export function StatusBar({
     <footer className="statusbar">
       {repo ? (
         <>
-          <span className="seg">⎇ {status?.current ?? '–'}</span>
+          <span className="seg branch" title={status?.current ?? ''}>
+            ⎇ {status?.current ?? '–'}
+          </span>
           <span className="seg">
             ↑{status?.ahead ?? 0} ↓{status?.behind ?? 0}
           </span>
           <span className="seg">● {changeCount} ändringar</span>
-          {busy && <span className="seg">⟳ arbetar…</span>}
+          {busy && (
+            <span className="seg">
+              <span className="spinner">⟳</span> arbetar…
+            </span>
+          )}
         </>
       ) : (
         <span className="seg">Inget repo öppnat</span>
       )}
       <span className="spacer" />
-      <span
+      <button
         className={`seg clickable ${panelTab === 'terminal' ? 'on' : ''}`}
         title="Terminal (Ctrl+`)"
         onClick={onShowTerminal}
       >
         {'>_'} Terminal
-      </span>
-      <span
+      </button>
+      <button
         className={`seg clickable ${panelTab === 'problems' ? 'on' : ''}`}
         title="Problem (Ctrl+Shift+M)"
         onClick={onShowProblems}
       >
         ✖ {errors} ⚠ {warnings}
-      </span>
-      <span className="seg">UTF-8</span>
-      <span className="seg">Codester v{version}</span>
+      </button>
+      <span className="seg optional">UTF-8</span>
+      <span className="seg optional">Codester v{version}</span>
     </footer>
   )
 }
