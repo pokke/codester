@@ -1,5 +1,6 @@
 import { useSettings, type Density } from '../settings/SettingsContext'
 import { themes } from '../themes/themes'
+import { LangServersSettings } from './LangServersSettings'
 
 const ACCENTS = ['#0e639c', '#0a7ea4', '#7c3aed', '#bd93f9', '#e06c75', '#2ea043', '#d29922']
 const DENSITIES: Density[] = ['compact', 'comfortable', 'spacious']
@@ -147,6 +148,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               ))}
             </div>
           </div>
+
+          <LangServersSettings />
 
           <button className="btn full" onClick={reset}>
             Återställ till standard

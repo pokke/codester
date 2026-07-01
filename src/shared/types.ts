@@ -82,6 +82,17 @@ export interface SearchHit {
   text: string
 }
 
+export interface LangServerStatus {
+  id: string
+  name: string
+  description: string
+  installCmd: string | null
+  manualHint: string | null
+  installed: boolean
+  prereqOk: boolean
+  prereq: string | null
+}
+
 export interface TsProject {
   compilerOptions: Record<string, unknown>
   files: { path: string; content: string }[]

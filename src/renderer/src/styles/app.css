@@ -1241,3 +1241,68 @@ code {
 .tree-row.selected.active {
   background: color-mix(in srgb, var(--accent) 32%, transparent);
 }
+
+/* ── Språkservrar i inställningar ── */
+.langserver-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+.langserver {
+  display: flex;
+  gap: var(--space);
+  align-items: flex-start;
+  padding: var(--space);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.ls-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ls-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.ls-badge.ok {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--added) 25%, transparent);
+  color: var(--text);
+}
+.ls-cmd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+.ls-warn {
+  color: var(--git-modified);
+}
+.ls-action {
+  flex-shrink: 0;
+}
+.ls-check {
+  color: var(--added);
+  font-size: 18px;
+}
+.ls-log {
+  margin-top: var(--space);
+  max-height: 160px;
+  overflow: auto;
+  padding: var(--space);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+}

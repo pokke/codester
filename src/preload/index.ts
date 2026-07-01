@@ -8,6 +8,7 @@ import type {
   FileChange,
   GitHubRepo,
   GitHubUser,
+  LangServerStatus,
   LineChange,
   PullRequest,
   RepoInfo,
@@ -100,6 +101,17 @@ const api = {
 
   lang: {
     tsProject: () => invoke<TsProject | null>('lang:tsProject')
+  },
+
+  langServers: {
+    list: () => invoke<LangServerStatus[]>('langserver:list'),
+    install: (id: string): Promise<{ ok: boolean; code: number }> =>
+      ipcRenderer.invoke('langserver:install', id),
+    onOutput: (cb: (d: { id: string; text: string }) => void): (() => void) => {
+      const listener = (_e: unknown, d: { id: string; text: string }): void => cb(d)
+      ipcRenderer.on('langserver:output', listener)
+      return () => ipcRenderer.removeListener('langserver:output', listener)
+    }
   },
 
   lsp: {

@@ -7,6 +7,7 @@ import * as watcher from './services/watcher'
 import * as files from './services/files'
 import * as lang from './services/lang'
 import * as lsp from './services/lsp'
+import * as langservers from './services/langservers'
 
 function watchRepo(path: string): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -114,6 +115,10 @@ export function registerIpc(): void {
     lsp.didChange(langId, uri, text, version)
   )
   ipcMain.on('lsp:didClose', (_e, langId: string, uri: string) => lsp.didClose(langId, uri))
+
+  // --- Installation av språkservrar ---
+  handle('langserver:list', () => langservers.list())
+  ipcMain.handle('langserver:install', (e, id: string) => langservers.install(id, e.sender))
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
   ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))
