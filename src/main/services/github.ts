@@ -15,9 +15,30 @@ const API = 'https://api.github.com'
 let token: string | null = loadToken()
 let clientId: string | null = loadClientId()
 
+// fetch med timeout – annars kan ett anrop pendra för evigt (proxy/DNS/offline)
+// och få appen att verka låst.
+async function timedFetch(
+  url: string,
+  init: RequestInit = {},
+  ms = 15000
+): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Tidsgräns nådd – kunde inte nå GitHub')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function gh<T>(path: string): Promise<T> {
   if (!token) throw new Error('Ingen GitHub-token angiven')
-  const res = await fetch(`${API}${path}`, {
+  const res = await timedFetch(`${API}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
@@ -64,7 +85,7 @@ export function setClientId(id: string): void {
 
 export async function deviceStart(): Promise<DeviceCodeInfo> {
   if (!clientId) throw new Error('Inget client ID konfigurerat')
-  const res = await fetch('https://github.com/login/device/code', {
+  const res = await timedFetch('https://github.com/login/device/code', {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: clientId, scope: 'repo read:user' })
@@ -93,7 +114,7 @@ export async function devicePoll(deviceCode: string, interval: number): Promise<
 
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, wait * 1000))
-    const res = await fetch('https://github.com/login/oauth/access_token', {
+    const res = await timedFetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({

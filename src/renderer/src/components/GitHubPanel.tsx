@@ -60,6 +60,7 @@ export function GitHubPanel(): JSX.Element {
   const [device, setDevice] = useState<DeviceCodeInfo | null>(null)
   const [reposLoading, setReposLoading] = useState(false)
   const [authed, setAuthed] = useState(false)
+  const [connecting, setConnecting] = useState(false)
   const [sortBy, setSortBy] = useState<RepoSort>('updated')
 
   const loadUser = async (): Promise<void> => {
@@ -130,15 +131,21 @@ export function GitHubPanel(): JSX.Element {
   }, [authed, repo])
 
   const connect = async (): Promise<void> => {
-    const res = await window.api.github.setToken(token)
-    if (res.ok) {
-      setUser(res.data)
-      setAuthed(true)
-      setToken('')
-      notify(`Inloggad som ${res.data.login}`, 'success')
-      loadRepos()
-    } else {
-      notify(`Inloggning misslyckades: ${res.error}`, 'error')
+    if (connecting || !token.trim()) return
+    setConnecting(true)
+    try {
+      const res = await window.api.github.setToken(token)
+      if (res.ok) {
+        setUser(res.data)
+        setAuthed(true)
+        setToken('')
+        notify(`Inloggad som ${res.data.login}`, 'success')
+        loadRepos()
+      } else {
+        notify(`Inloggning misslyckades: ${res.error}`, 'error')
+      }
+    } finally {
+      setConnecting(false)
     }
   }
 
@@ -190,11 +197,12 @@ export function GitHubPanel(): JSX.Element {
                     type="password"
                     placeholder="ghp_…"
                     value={token}
+                    disabled={connecting}
                     onChange={(e) => setToken(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && token && connect()}
                   />
-                  <button className="btn" disabled={!token} onClick={connect}>
-                    Anslut
+                  <button className="btn" disabled={!token || connecting} onClick={connect}>
+                    {connecting ? 'Ansluter…' : 'Anslut'}
                   </button>
                 </div>
               </div>
