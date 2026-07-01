@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import type { CommitLogEntry } from '../../../shared/types'
 import { FileHistoryModal } from './FileHistoryModal'
@@ -12,18 +12,24 @@ export function TimelineView(): JSX.Element {
   const [commits, setCommits] = useState<CommitLogEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [modalRev, setModalRev] = useState<string | null>(null)
+  const loadedPathRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!activePath || !open) {
       setCommits([])
+      loadedPathRef.current = null
       return
     }
     let cancelled = false
-    setLoading(true)
+    // Visa "Läser historik…" bara vid genuint filbyte – inte vid varje
+    // revision-bump (filbevakaren), då uppdaterar vi tyst utan flimmer.
+    const isNewFile = loadedPathRef.current !== activePath
+    if (isNewFile) setLoading(true)
     window.api.git.fileLog(activePath).then((r) => {
       if (cancelled) return
       setCommits(r.ok ? r.data : [])
       setLoading(false)
+      loadedPathRef.current = activePath
     })
     return () => {
       cancelled = true
