@@ -135,25 +135,30 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
   const setRepo = useCallback(
     async (repo: RepoInfo) => {
       localStorage.setItem('codester.lastRepo', repo.path)
+      // Läs sparade flikar FÖRE nollställningen – annars hinner spara-effekten
+      // skriva över dem med tomt innan vi återställer.
+      let saved: { openTabs?: unknown; activePath?: unknown } | null = null
+      try {
+        const raw = localStorage.getItem(`codester.tabs.${repo.path}`)
+        saved = raw ? JSON.parse(raw) : null
+      } catch {
+        saved = null
+      }
       setState((s) => ({ ...s, repo, activePath: null, openTabs: [], previewPath: null }))
       await loadRepoData()
       await refreshRepos()
       // Återställ tidigare öppna flikar för detta repo (om filerna finns kvar)
-      try {
-        const raw = localStorage.getItem(`codester.tabs.${repo.path}`)
-        const saved = raw ? JSON.parse(raw) : null
-        if (saved && Array.isArray(saved.openTabs)) {
-          setState((s) => {
-            const valid = saved.openTabs.filter((p: string) => s.files.includes(p))
-            const active = valid.includes(saved.activePath) ? saved.activePath : (valid[0] ?? null)
-            return { ...s, openTabs: valid, activePath: active }
-          })
-        }
-      } catch {
-        // ignorera trasig data
+      if (saved && Array.isArray(saved.openTabs)) {
+        const savedTabs = saved.openTabs as string[]
+        const savedActive = saved.activePath as string | null
+        setState((s) => {
+          const valid = savedTabs.filter((p) => s.files.includes(p))
+          const active = savedActive && valid.includes(savedActive) ? savedActive : (valid[0] ?? null)
+          return { ...s, openTabs: valid, activePath: active }
+        })
       }
     },
-    [loadRepoData]
+    [loadRepoData, refreshRepos]
   )
 
   // Spara öppna flikar per repo
