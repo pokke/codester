@@ -125,7 +125,10 @@ export async function deviceStart(): Promise<DeviceCodeInfo> {
   const res = await timedFetch('https://github.com/login/device/code', {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId, scope: 'repo read:user' })
+    body: JSON.stringify({
+      client_id: clientId,
+      scope: 'repo read:user notifications gist workflow'
+    })
   })
   if (!res.ok) throw new Error(`Device flow ${res.status}`)
   const d = (await res.json()) as {

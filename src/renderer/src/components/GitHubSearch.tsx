@@ -24,6 +24,7 @@ export function GitHubSearch(): JSX.Element {
     setRepos(r.ok ? r.data : [])
     setIssues(i.ok ? i.data : [])
     if (!r.ok) notify(r.error, 'error')
+    else if (!i.ok) notify(i.error, 'error')
     setLoading(false)
     setRan(true)
   }
@@ -84,9 +85,10 @@ export function GitHubSearch(): JSX.Element {
               {...rowA11y(() => window.open(i.htmlUrl))}
               onClick={() => window.open(i.htmlUrl)}
             >
-              <span className="pr-num">
-                {i.isPr ? 'PR' : 'issue'} #{i.number}
+              <span className={`repo-badge ${i.isPr ? 'is-pr' : 'is-issue'}`}>
+                {i.isPr ? 'PR' : 'issue'}
               </span>
+              <span className="pr-num">#{i.number}</span>
               <span className="pr-title">{i.title}</span>
               <span className="path-dim">
                 {i.repo} · {i.state} · @{i.author}

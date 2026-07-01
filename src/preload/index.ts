@@ -50,6 +50,7 @@ const api = {
     add: (path: string) => invoke<RepoInfo>('repo:add', path),
     addDialog: () => invoke<RepoInfo | null>('repo:addDialog'),
     list: () => invoke<RepoInfo[]>('repo:list'),
+    remote: () => invoke<{ owner: string; repo: string } | null>('repo:remote'),
     setActive: (path: string) => invoke<RepoInfo | null>('repo:setActive', path),
     close: (path: string) => invoke<void>('repo:close', path)
   },

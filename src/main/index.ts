@@ -85,9 +85,17 @@ function createWindow(): void {
     }
   })
 
-  // Öppna externa länkar i systemets webbläsare, inte i appen
+  // Öppna externa länkar i systemets webbläsare, inte i appen. Endast säkra
+  // scheman (skydd mot file:// m.m. från renderad markdown/GitHub-innehåll).
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const scheme = new URL(details.url).protocol
+      if (scheme === 'https:' || scheme === 'http:' || scheme === 'mailto:') {
+        shell.openExternal(details.url)
+      }
+    } catch {
+      /* ogiltig URL – ignorera */
+    }
     return { action: 'deny' }
   })
 

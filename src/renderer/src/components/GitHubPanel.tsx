@@ -11,18 +11,12 @@ import { GitHubReleases } from './GitHubReleases'
 import { GitHubActions } from './GitHubActions'
 import { GitHubGists } from './GitHubGists'
 import { GitHubInsights } from './GitHubInsights'
+import { RepoScopeGuard } from './RepoScopeGuard'
 import type { RateLimit } from '../../../shared/types'
 
-type GhTab =
-  | 'repos'
-  | 'pulls'
-  | 'issues'
-  | 'notifs'
-  | 'search'
-  | 'releases'
-  | 'actions'
-  | 'insights'
-  | 'gists'
+type Scope = 'account' | 'repo'
+type AccountTab = 'repos' | 'search' | 'notifs' | 'gists'
+type RepoTab = 'overview' | 'pulls' | 'issues' | 'actions' | 'releases'
 
 type RepoSort = 'updated' | 'name' | 'stars'
 
@@ -66,12 +60,15 @@ function relativeTime(iso: string): string {
 }
 
 export function GitHubPanel(): JSX.Element {
-  const { cloneAndOpen } = useRepo()
+  const { cloneAndOpen, repo, repos: workspaceRepos, switchRepo } = useRepo()
   const { notify } = useToast()
   const [user, setUser] = useState<GitHubUser | null>(null)
   const [token, setToken] = useState('')
   const [repos, setRepos] = useState<GitHubRepo[]>([])
-  const [ghTab, setGhTab] = useState<GhTab>('repos')
+  const [scope, setScope] = useState<Scope>('repo')
+  const [accountTab, setAccountTab] = useState<AccountTab>('repos')
+  const [repoTab, setRepoTab] = useState<RepoTab>('overview')
+  const [remote, setRemote] = useState<{ owner: string; repo: string } | null>(null)
   const [filter, setFilter] = useState('')
   const [clientId, setClientId] = useState<string | null>(null)
   const [clientIdInput, setClientIdInput] = useState('')
@@ -138,6 +135,15 @@ export function GitHubPanel(): JSX.Element {
     loadUser()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Hämta aktivt repos GitHub owner/namn (för repo-scope-etiketten)
+  useEffect(() => {
+    if (!repo) {
+      setRemote(null)
+      return
+    }
+    window.api.repo.remote().then((r) => setRemote(r.ok ? r.data : null))
+  }, [repo])
 
   const connect = async (): Promise<void> => {
     if (connecting || !token.trim()) return
@@ -271,36 +277,106 @@ export function GitHubPanel(): JSX.Element {
         </button>
       </div>
 
-      <div className="gh-subtabs">
-        {(
-          [
-            ['repos', 'Repon'],
-            ['pulls', 'Pull requests'],
-            ['issues', 'Issues'],
-            ['releases', 'Releaser'],
-            ['actions', 'Actions'],
-            ['insights', 'Insikter'],
-            ['gists', 'Gists'],
-            ['notifs', 'Notiser'],
-            ['search', 'Sök']
-          ] as const
-        ).map(([v, l]) => (
-          <button key={v} className={ghTab === v ? 'active' : ''} onClick={() => setGhTab(v)}>
-            {l}
-          </button>
-        ))}
+      <div className="gh-scopebar" role="tablist" aria-label="Omfattning">
+        <button
+          role="tab"
+          aria-selected={scope === 'account'}
+          className={`gh-scope ${scope === 'account' ? 'active' : ''}`}
+          onClick={() => setScope('account')}
+        >
+          Mitt konto
+        </button>
+        <button
+          role="tab"
+          aria-selected={scope === 'repo'}
+          className={`gh-scope ${scope === 'repo' ? 'active' : ''}`}
+          onClick={() => setScope('repo')}
+        >
+          Detta repo
+        </button>
+        {scope === 'repo' && (
+          <span className="gh-repo-ctx">
+            <span className="muted">▸</span>
+            {workspaceRepos.length > 1 ? (
+              <select
+                className="gh-repo-select"
+                value={repo?.path ?? ''}
+                onChange={(e) => switchRepo(e.target.value)}
+                title="Byt aktivt repo"
+              >
+                {workspaceRepos.map((r) => (
+                  <option key={r.path} value={r.path}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong>{remote ? `${remote.owner}/${remote.repo}` : repo?.name ?? 'inget repo'}</strong>
+            )}
+            {workspaceRepos.length > 1 && remote && (
+              <span className="muted small">
+                {remote.owner}/{remote.repo}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+
+      <div className="gh-subtabs" role="tablist">
+        {scope === 'account'
+          ? (
+              [
+                ['repos', 'Repositories'],
+                ['search', 'Sök'],
+                ['notifs', 'Notiser'],
+                ['gists', 'Gists']
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={accountTab === v}
+                className={accountTab === v ? 'active' : ''}
+                onClick={() => setAccountTab(v)}
+              >
+                {l}
+              </button>
+            ))
+          : (
+              [
+                ['overview', 'Översikt'],
+                ['pulls', 'Pull requests'],
+                ['issues', 'Issues'],
+                ['actions', 'Actions'],
+                ['releases', 'Releaser']
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={repoTab === v}
+                className={repoTab === v ? 'active' : ''}
+                onClick={() => setRepoTab(v)}
+              >
+                {l}
+              </button>
+            ))}
       </div>
 
       <div className="gh-body">
-        {ghTab === 'pulls' && <GitHubPullRequests />}
-        {ghTab === 'issues' && <GitHubIssues />}
-        {ghTab === 'releases' && <GitHubReleases />}
-        {ghTab === 'actions' && <GitHubActions />}
-        {ghTab === 'insights' && <GitHubInsights />}
-        {ghTab === 'gists' && <GitHubGists />}
-        {ghTab === 'notifs' && <GitHubNotifications />}
-        {ghTab === 'search' && <GitHubSearch />}
-        {ghTab === 'repos' && (
+        {scope === 'repo' && (
+          <RepoScopeGuard key={repo?.path ?? 'none'}>
+            {repoTab === 'overview' && <GitHubInsights />}
+            {repoTab === 'pulls' && <GitHubPullRequests />}
+            {repoTab === 'issues' && <GitHubIssues />}
+            {repoTab === 'actions' && <GitHubActions />}
+            {repoTab === 'releases' && <GitHubReleases />}
+          </RepoScopeGuard>
+        )}
+        {scope === 'account' && accountTab === 'search' && <GitHubSearch />}
+        {scope === 'account' && accountTab === 'notifs' && <GitHubNotifications />}
+        {scope === 'account' && accountTab === 'gists' && <GitHubGists />}
+        {scope === 'account' && accountTab === 'repos' && (
         <section>
           <div className="repo-list-head">
             <h3>Dina repon {repos.length > 0 && <span className="muted small">({repos.length})</span>}</h3>

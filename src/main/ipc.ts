@@ -65,6 +65,7 @@ export function registerIpc(): void {
     return info
   })
   handle('repo:list', () => git.listRepos())
+  handle('repo:remote', () => git.remoteOwnerRepo())
   handle('repo:setActive', (path: string) => {
     const info = git.setActiveRepo(path)
     return info
