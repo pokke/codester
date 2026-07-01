@@ -60,6 +60,13 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     termRef.current = term
     fitRef.current = fit
 
+    // Ladda pipe-lägets kommandohistorik för just denna terminal
+    try {
+      history.current = JSON.parse(localStorage.getItem(`codester.termhist.${id}`) || '[]')
+    } catch {
+      history.current = []
+    }
+
     const unsubData = window.api.terminal.onData((d) => {
       if (d.id === id) term.write(d.text)
     })
@@ -120,7 +127,14 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     const cmd = input
     termRef.current?.write(`\r\n\x1b[36m❯\x1b[0m ${cmd}\r\n`)
     window.api.terminal.input(id, `${cmd}\n`)
-    if (cmd.trim()) history.current.unshift(cmd)
+    if (cmd.trim()) {
+      history.current.unshift(cmd)
+      try {
+        localStorage.setItem(`codester.termhist.${id}`, JSON.stringify(history.current.slice(0, 100)))
+      } catch {
+        /* ignorera */
+      }
+    }
     histPos.current = -1
     setInput('')
   }

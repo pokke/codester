@@ -1,6 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { homedir } from 'os'
-import type { WebContents } from 'electron'
+import { join } from 'path'
+import { mkdirSync } from 'fs'
+import { app, type WebContents } from 'electron'
 
 // Flera terminaler samtidigt: varje terminal är en egen session (pty eller
 // pipe-fallback) nycklad på ett id. Utdata taggas med id:t så renderern kan
@@ -25,6 +27,18 @@ interface Session {
 
 const sessions = new Map<string, Session>()
 
+// Egen PSReadLine-historikfil per terminal-id → pil-upp blir separat per
+// terminal och sparas mellan körningar (id kodar repo+nummer, se renderern).
+function historyFile(id: string): string {
+  const dir = join(app.getPath('userData'), 'term-history')
+  try {
+    mkdirSync(dir, { recursive: true })
+  } catch {
+    /* ignorera */
+  }
+  return join(dir, `${id.replace(/[^a-z0-9_-]/gi, '_')}.txt`)
+}
+
 function spawnSession(id: string, sender: WebContents, cwd: string | null): void {
   const dir = cwd ?? homedir()
   const send = (channel: string, payload: unknown): void => {
@@ -33,7 +47,11 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
 
   if (ptyLib) {
     try {
-      const pty = ptyLib.spawn('powershell.exe', [], {
+      const hist = historyFile(id).replace(/'/g, "''")
+      const pty = ptyLib.spawn(
+        'powershell.exe',
+        ['-NoExit', '-Command', `try { Set-PSReadLineOption -HistorySavePath '${hist}' } catch {}`],
+        {
         name: 'xterm-256color',
         cols: 80,
         rows: 24,
