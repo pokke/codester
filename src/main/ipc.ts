@@ -5,6 +5,7 @@ import * as github from './services/github'
 import * as terminal from './services/terminal'
 import * as watcher from './services/watcher'
 import * as files from './services/files'
+import * as config from './services/config'
 import * as lang from './services/lang'
 import * as lsp from './services/lsp'
 import * as langservers from './services/langservers'
@@ -139,6 +140,11 @@ export function registerIpc(): void {
   handle('fs:copy', (srcRel: string, destRel: string, root?: string) =>
     files.copyPath(srcRel, destRel, root)
   )
+
+  // --- Config (settings.json/keybindings.json/snippets) ---
+  handle('config:read', (name: string) => config.readConfig(name))
+  handle('config:write', (name: string, content: string) => config.writeConfig(name, content))
+  handle('config:dir', () => config.configDir())
 
   // --- Språkintelligens ---
   handle('lang:tsProject', () => lang.tsProject())

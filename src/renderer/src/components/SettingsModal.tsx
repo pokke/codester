@@ -1,6 +1,8 @@
-import { useSettings, type Density } from '../settings/SettingsContext'
+import { useEffect, useState } from 'react'
+import { useSettings, type Density, SETTINGS_FILE } from '../settings/SettingsContext'
 import { themes } from '../themes/themes'
 import { LangServersSettings } from './LangServersSettings'
+import { useToast } from '../ui/Toast'
 
 const ACCENTS = ['#0e639c', '#0a7ea4', '#7c3aed', '#bd93f9', '#e06c75', '#2ea043', '#d29922']
 const DENSITIES: Density[] = ['compact', 'comfortable', 'spacious']
@@ -11,7 +13,41 @@ const DENSITY_LABEL: Record<Density, string> = {
 }
 
 export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
-  const { settings, update, reset } = useSettings()
+  const { settings, update, replace, reset } = useSettings()
+  const { notify } = useToast()
+  const [showJson, setShowJson] = useState(false)
+  const [jsonText, setJsonText] = useState('')
+  const [jsonError, setJsonError] = useState<string | null>(null)
+  const [dir, setDir] = useState('')
+
+  // Ladda filens innehåll när JSON-vyn öppnas
+  useEffect(() => {
+    if (!showJson) return
+    window.api.config.read(SETTINGS_FILE).then((r) => {
+      setJsonText(r.ok && r.data ? r.data : JSON.stringify(settings, null, 2))
+    })
+    window.api.config.dir().then((r) => {
+      if (r.ok) setDir(r.data)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showJson])
+
+  const saveJson = (): void => {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(jsonText)
+    } catch (e) {
+      setJsonError(e instanceof Error ? e.message : 'Ogiltig JSON')
+      return
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      setJsonError('JSON måste vara ett objekt')
+      return
+    }
+    setJsonError(null)
+    replace(parsed as Partial<typeof settings>)
+    notify('settings.json sparad', 'success')
+  }
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -150,6 +186,46 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
           </div>
 
           <LangServersSettings />
+
+          {/* Redigerbar settings.json */}
+          <div className="field">
+            <label>
+              <button
+                className="btn ghost small"
+                onClick={() => setShowJson((v) => !v)}
+                style={{ padding: '2px 8px' }}
+              >
+                {showJson ? '▾' : '▸'} settings.json
+              </button>
+            </label>
+            {showJson && (
+              <>
+                {dir && <p className="muted small">{dir}\settings.json</p>}
+                <textarea
+                  className="json-editor"
+                  spellCheck={false}
+                  value={jsonText}
+                  onChange={(e) => setJsonText(e.target.value)}
+                />
+                {jsonError && <p className="error-text small">{jsonError}</p>}
+                <div style={{ display: 'flex', gap: 'var(--space)' }}>
+                  <button
+                    className="btn"
+                    onClick={() =>
+                      window.api.config
+                        .read(SETTINGS_FILE)
+                        .then((r) => setJsonText(r.ok && r.data ? r.data : ''))
+                    }
+                  >
+                    Läs om
+                  </button>
+                  <button className="btn primary" onClick={saveJson}>
+                    Spara JSON
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           <button className="btn full" onClick={reset}>
             Återställ till standard

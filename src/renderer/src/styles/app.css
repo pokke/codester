@@ -177,6 +177,26 @@
 .commit-box.compact textarea {
   min-height: 48px;
 }
+
+/* Redigerbar JSON-config i inställningar */
+.json-editor {
+  width: 100%;
+  min-height: 220px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+.error-text {
+  color: var(--git-deleted, #e06c75);
+}
 .btn.full.small {
   padding: 3px 8px;
   font-size: 11px;

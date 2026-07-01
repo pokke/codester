@@ -117,6 +117,12 @@ const api = {
     tsProject: () => invoke<TsProject | null>('lang:tsProject')
   },
 
+  config: {
+    read: (name: string) => invoke<string | null>('config:read', name),
+    write: (name: string, content: string) => invoke<void>('config:write', name, content),
+    dir: () => invoke<string>('config:dir')
+  },
+
   langServers: {
     list: () => invoke<LangServerStatus[]>('langserver:list'),
     install: (id: string): Promise<{ ok: boolean; code: number }> =>

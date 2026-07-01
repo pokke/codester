@@ -49,8 +49,11 @@ const densityScale: Record<Density, number> = {
 interface SettingsContextValue {
   settings: Settings
   update: (patch: Partial<Settings>) => void
+  replace: (next: Partial<Settings>) => void
   reset: () => void
 }
+
+export const SETTINGS_FILE = 'settings.json'
 
 const SettingsContext = createContext<SettingsContextValue | null>(null)
 
@@ -88,17 +91,38 @@ export function SettingsProvider({ children }: { children: ReactNode }): JSX.Ele
     root.dataset.themeType = theme.type
   }, [settings])
 
-  // Spara vid varje ändring
+  // Ladda settings.json (källan) vid start – localStorage är bara snabb cache
+  // för att undvika flimmer. Saknas filen skrivs nuvarande som utgångsläge.
+  useEffect(() => {
+    ;(async () => {
+      const r = await window.api.config.read(SETTINGS_FILE)
+      if (r.ok && r.data) {
+        try {
+          const parsed = JSON.parse(r.data)
+          setSettings((s) => ({ ...DEFAULTS, ...s, ...parsed }))
+        } catch {
+          // trasig fil – behåll cache
+        }
+      } else {
+        window.api.config.write(SETTINGS_FILE, JSON.stringify(loadSettings(), null, 2))
+      }
+    })()
+  }, [])
+
+  // Spara vid varje ändring – både snabb cache och den redigerbara filen
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    window.api.config.write(SETTINGS_FILE, JSON.stringify(settings, null, 2))
   }, [settings])
 
   const update = (patch: Partial<Settings>): void =>
     setSettings((prev) => ({ ...prev, ...patch }))
+  // Full ersättning (från JSON-redigeraren): borttagna nycklar återgår till standard
+  const replace = (next: Partial<Settings>): void => setSettings({ ...DEFAULTS, ...next })
   const reset = (): void => setSettings(DEFAULTS)
 
   return (
-    <SettingsContext.Provider value={{ settings, update, reset }}>
+    <SettingsContext.Provider value={{ settings, update, replace, reset }}>
       {children}
     </SettingsContext.Provider>
   )
