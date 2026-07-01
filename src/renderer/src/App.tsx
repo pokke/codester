@@ -6,7 +6,6 @@ import { HistoryView } from './components/HistoryView'
 import { GitHubPanel } from './components/GitHubPanel'
 import { TerminalView } from './components/TerminalView'
 import { ProblemsView } from './components/ProblemsView'
-import { Inspector } from './components/Inspector'
 import { Resizer } from './components/Resizer'
 import { StatusBar } from './components/StatusBar'
 import { SettingsModal } from './components/SettingsModal'
@@ -30,7 +29,6 @@ export function App(): JSX.Element {
   const [showAbout, setShowAbout] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
-  const [showInspector, setShowInspector] = useState(true)
   const [sidebarHidden, setSidebarHidden] = useState(false)
   const [panelTab, setPanelTab] = useState<'terminal' | 'problems' | null>(null)
   const [panelHeight, setPanelHeight] = useState<number>(
@@ -121,7 +119,6 @@ export function App(): JSX.Element {
   }
 
   const showSidebar = repo && !sidebarHidden && (view === 'editor' || view === 'history')
-  const showInspectorPanel = repo && showInspector && view === 'editor'
 
   return (
     <div className="app">
@@ -131,15 +128,6 @@ export function App(): JSX.Element {
           Codester{repo ? ` — ${repo.name}` : ''}
         </span>
         <span className="spacer" />
-        {view === 'editor' && repo && (
-          <button
-            className="btn ghost icon"
-            title="Visa/dölj commit-panel"
-            onClick={() => setShowInspector((v) => !v)}
-          >
-            ▦
-          </button>
-        )}
       </div>
 
       <div className="body">
@@ -163,17 +151,6 @@ export function App(): JSX.Element {
             </>
           )}
           <div className="pane center-pane">{renderCenter()}</div>
-          {showInspectorPanel && (
-            <>
-              <Resizer side="inspector" />
-              <div
-                className="pane inspector-pane"
-                style={{ width: 'var(--inspector-w, 280px)' }}
-              >
-                <Inspector />
-              </div>
-            </>
-          )}
         </div>
 
         {panelTab && (

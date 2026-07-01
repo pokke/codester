@@ -1578,3 +1578,10 @@ code {
   flex-direction: column;
   min-height: 0;
 }
+
+/* ── Commit-box i sidofältet ── */
+.commit-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

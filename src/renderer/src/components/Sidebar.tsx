@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { FileTree } from './FileTree'
+import { CommitBox } from './CommitBox'
 import type { FileChange, SearchHit } from '../../../shared/types'
 
 function statusClass(status: string): string {
@@ -274,6 +275,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
         </div>
       ) : (
         <>
+          <CommitBox />
           {conflicted.size > 0 && (
             <>
               <div className="panel-header conflict-header">
