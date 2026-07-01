@@ -36,7 +36,7 @@ function JsonConfigSection({
       if (r.ok) setDir(r.data)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, file])
 
   const save = async (): Promise<void> => {
     let parsed: unknown
@@ -283,7 +283,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             </select>
           </div>
           <JsonConfigSection
-            key={snipLang}
             file={`snippets/${snipLang}.json`}
             title={`snippets/${snipLang}.json`}
             fallback={defaultSnippetsJson()}

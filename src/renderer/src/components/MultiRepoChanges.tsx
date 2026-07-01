@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
-import type { FileChange, RepoStatus } from '../../../shared/types'
+import type { BranchInfo, FileChange, RepoStatus } from '../../../shared/types'
 
 // Simultana per-repo källkontroll-sektioner (multi-root). En sektion per repo
 // med egna ändringar + commit-ruta. Riktar git-anrop mot rätt rot.
@@ -19,26 +19,43 @@ export function MultiRepoChanges({ onOpenEditor }: { onOpenEditor: () => void })
   const confirm = useConfirm()
 
   const [statuses, setStatuses] = useState<Record<string, RepoStatus | null>>({})
+  const [branchesByRepo, setBranchesByRepo] = useState<Record<string, BranchInfo[]>>({})
   const [messages, setMessages] = useState<Record<string, string>>({})
   const [amends, setAmends] = useState<Record<string, boolean>>({})
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState<Set<string>>(new Set())
+  const [creatingBranch, setCreatingBranch] = useState<string | null>(null)
+  const [newBranch, setNewBranch] = useState('')
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       const entries = await Promise.all(
         repos.map(async (r) => {
-          const s = await window.api.git.status(r.path)
-          return [r.path, s.ok ? s.data : null] as const
+          const [s, b] = await Promise.all([
+            window.api.git.status(r.path),
+            window.api.git.branches(r.path)
+          ])
+          return { path: r.path, status: s.ok ? s.data : null, branches: b.ok ? b.data : [] }
         })
       )
-      if (!cancelled) setStatuses(Object.fromEntries(entries))
+      if (!cancelled) {
+        setStatuses(Object.fromEntries(entries.map((e) => [e.path, e.status])))
+        setBranchesByRepo(Object.fromEntries(entries.map((e) => [e.path, e.branches])))
+      }
     })()
     return () => {
       cancelled = true
     }
   }, [repos, revision])
+
+  const submitBranch = async (root: string): Promise<void> => {
+    const name = newBranch.trim()
+    setCreatingBranch(null)
+    setNewBranch('')
+    if (!name) return
+    await run(window.api.git.createBranch(name, root))
+  }
 
   const run = async (p: Promise<{ ok: boolean; error?: string }>): Promise<void> => {
     const r = await p
@@ -187,6 +204,49 @@ export function MultiRepoChanges({ onOpenEditor }: { onOpenEditor: () => void })
 
             {!isCollapsed && (
               <div className="repo-section-body">
+                <div className="repo-branch-row">
+                  <span className="icon">⎇</span>
+                  <select
+                    className="branch-select"
+                    value={st?.current ?? ''}
+                    onChange={(e) => run(window.api.git.checkout(e.target.value, r.path))}
+                  >
+                    {(branchesByRepo[r.path] ?? []).map((b) => (
+                      <option key={b.name} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                    {st?.current &&
+                      !(branchesByRepo[r.path] ?? []).some((b) => b.name === st.current) && (
+                        <option value={st.current}>{st.current}</option>
+                      )}
+                  </select>
+                  <button
+                    className="btn ghost icon"
+                    title="Ny branch"
+                    onClick={() => {
+                      setCreatingBranch(r.path)
+                      setNewBranch('')
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+                {creatingBranch === r.path && (
+                  <div className="row">
+                    <input
+                      autoFocus
+                      placeholder="ny-branch"
+                      value={newBranch}
+                      onChange={(e) => setNewBranch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') submitBranch(r.path)
+                        if (e.key === 'Escape') setCreatingBranch(null)
+                      }}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
                 {conflicted.size > 0 && (
                   <div
                     className="row file-row conflict"

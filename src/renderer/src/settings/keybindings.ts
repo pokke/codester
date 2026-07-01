@@ -20,7 +20,10 @@ export const COMMANDS: CommandDef[] = [
   { id: 'toggleTerminal', label: 'Terminal-panel', default: 'Ctrl+`' },
   { id: 'toggleProblems', label: 'Problem-panel', default: 'Ctrl+Shift+M' },
   { id: 'splitEditor', label: 'Dela editor', default: 'Ctrl+\\' },
-  { id: 'closeTab', label: 'Stäng flik', default: 'Ctrl+W' }
+  { id: 'closeTab', label: 'Stäng flik', default: 'Ctrl+W' },
+  // Hanteras av Monaco (i editorn) via comboToMonaco vid mount
+  { id: 'save', label: 'Spara', default: 'Ctrl+S' },
+  { id: 'formatDocument', label: 'Formatera dokument', default: 'Shift+Alt+F' }
 ]
 
 const DEFAULTS: Record<string, string> = Object.fromEntries(
@@ -73,6 +76,62 @@ export function matches(e: KeyboardEvent, id: string): boolean {
 
 export function currentBindings(): Record<string, string> {
   return { ...bindings }
+}
+
+export function bindingFor(id: string): string {
+  return bindings[id] ?? ''
+}
+
+// Översätter en bindning ("Ctrl+S") till Monacos numeriska keybinding, för
+// kommandon som körs inuti editorn (ed.addCommand). m = monaco-namespace.
+export function comboToMonaco(
+  m: { KeyMod: Record<string, number>; KeyCode: Record<string, number> },
+  combo: string
+): number | null {
+  if (!combo) return null
+  let mod = 0
+  let keyCode: number | null = null
+  for (const raw of combo.split('+').map((s) => s.trim()).filter(Boolean)) {
+    const low = raw.toLowerCase()
+    if (low === 'ctrl' || low === 'cmd' || low === 'meta' || low === 'control') mod |= m.KeyMod.CtrlCmd
+    else if (low === 'shift') mod |= m.KeyMod.Shift
+    else if (low === 'alt' || low === 'option') mod |= m.KeyMod.Alt
+    else keyCode = keyToCode(m, raw)
+  }
+  return keyCode == null ? null : mod | keyCode
+}
+
+function keyToCode(
+  m: { KeyCode: Record<string, number> },
+  key: string
+): number | null {
+  if (key.length === 1) {
+    const up = key.toUpperCase()
+    if (up >= 'A' && up <= 'Z') return m.KeyCode['Key' + up] ?? null
+    if (up >= '0' && up <= '9') return m.KeyCode['Digit' + up] ?? null
+    const sym: Record<string, string> = {
+      ',': 'Comma',
+      '.': 'Period',
+      '/': 'Slash',
+      ';': 'Semicolon',
+      "'": 'Quote',
+      '[': 'BracketLeft',
+      ']': 'BracketRight',
+      '\\': 'Backslash',
+      '`': 'Backquote',
+      '-': 'Minus',
+      '=': 'Equal'
+    }
+    if (sym[key]) return m.KeyCode[sym[key]] ?? null
+  }
+  const named: Record<string, string> = {
+    tab: 'Tab',
+    enter: 'Enter',
+    escape: 'Escape',
+    space: 'Space'
+  }
+  const n = named[key.toLowerCase()]
+  return n ? (m.KeyCode[n] ?? null) : null
 }
 
 // Läser keybindings.json och slår ihop med standardvärden. Anropas vid start

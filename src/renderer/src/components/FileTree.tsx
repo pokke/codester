@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
+import type { RepoStatus } from '../../../shared/types'
 
 interface TreeNode {
   name: string
@@ -36,65 +37,122 @@ function sortedChildren(node: TreeNode): TreeNode[] {
   })
 }
 
-type Creating = { parent: string; type: 'file' | 'folder' } | null
-type Clipboard = { paths: string[]; op: 'cut' | 'copy' } | null
-type Row = { kind: 'node'; node: TreeNode; depth: number } | { kind: 'create'; depth: number }
+function statusMaps(status: RepoStatus | null): {
+  byPath: Map<string, 'added' | 'modified' | 'deleted'>
+  dirtyDirs: Set<string>
+} {
+  const byPath = new Map<string, 'added' | 'modified' | 'deleted'>()
+  const dirtyDirs = new Set<string>()
+  for (const f of status?.files ?? []) {
+    const t = f.status.includes('D')
+      ? 'deleted'
+      : f.status.includes('A') || f.status.includes('?')
+        ? 'added'
+        : 'modified'
+    byPath.set(f.path, t)
+    const parts = f.path.split('/')
+    for (let i = 1; i < parts.length; i++) dirtyDirs.add(parts.slice(0, i).join('/'))
+  }
+  return { byPath, dirtyDirs }
+}
 
-const ROW_H = 24 // fast radhöjd för virtualiseringen
+interface RootData {
+  path: string
+  name: string
+  files: string[]
+  status: RepoStatus | null
+}
+
+type Creating = { root: string; parent: string; type: 'file' | 'folder' } | null
+type Clipboard = { root: string; paths: string[]; op: 'cut' | 'copy' } | null
+type Row =
+  | { kind: 'root'; root: string; name: string }
+  | { kind: 'node'; root: string; node: TreeNode; depth: number }
+  | { kind: 'create'; root: string; depth: number }
+
+const ROW_H = 24
 const OVERSCAN = 6
+const SEP = '\n' // radbrytning – förekommer ej i git-spårade sökvägar
+const ck = (root: string, p: string): string => `${root}${SEP}${p}`
+const badgeLetter: Record<'added' | 'modified' | 'deleted', string> = {
+  added: 'A',
+  modified: 'M',
+  deleted: 'D'
+}
 
+// Virtualiserat, multi-root filträd. En rot per repo i arbetsytan (rot-rubrik
+// visas bara när fler än en). Fullt stöd: multi-select, drag-flytt (inom rot),
+// kontextmenyer (skapa/byt namn/radera/klipp ut/kopiera/klistra in), git-status.
 export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
-  const { files, activePath, selectPath, previewFile, refresh, status } = useRepo()
+  const { repos, repo, revision, switchRepo, previewFile, selectPath, activePath, refresh } =
+    useRepo()
   const { notify } = useToast()
   const confirm = useConfirm()
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [renaming, setRenaming] = useState<string | null>(null)
+
+  const [rootsData, setRootsData] = useState<RootData[]>([])
+  const [expanded, setExpanded] = useState<Set<string>>(new Set()) // ck(root, folder)
+  const [expandedRoots, setExpandedRoots] = useState<Set<string>>(() => new Set())
+  const [renaming, setRenaming] = useState<string | null>(null) // ck(root, path)
   const [draft, setDraft] = useState('')
   const [creating, setCreating] = useState<Creating>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [clipboard, setClipboard] = useState<Clipboard>(null)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(new Set()) // ck-nycklar
   const anchorRef = useRef<string | null>(null)
-  const dragRef = useRef<string | null>(null)
+  const selRootRef = useRef<string | null>(null) // roten som urvalet tillhör
+  const dragRef = useRef<{ root: string; path: string } | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportH, setViewportH] = useState(600)
 
-  const tree = useMemo(() => buildTree(files), [files])
+  const showHeaders = rootsData.length > 1
 
-  // Platt lista av synliga rader (respekterar expanderade mappar) för virtualisering
-  const rows = useMemo(() => {
-    const out: Row[] = []
-    if (creating?.parent === '') out.push({ kind: 'create', depth: 0 })
-    const walk = (node: TreeNode, depth: number): void => {
-      for (const c of sortedChildren(node)) {
-        out.push({ kind: 'node', node: c, depth })
-        if (!c.isFile && expanded.has(c.path)) {
-          if (creating?.parent === c.path) out.push({ kind: 'create', depth: depth + 1 })
-          walk(c, depth + 1)
-        }
-      }
-    }
-    walk(tree, 0)
-    return out
-  }, [tree, expanded, creating])
-
-  const visiblePaths = useMemo(
-    () => rows.filter((r): r is { kind: 'node'; node: TreeNode; depth: number } => r.kind === 'node').map((r) => r.node.path),
-    [rows]
-  )
-
+  // Hämta filer + status per rot (uppdateras vid repo-lista/revision)
   useEffect(() => {
-    if (!activePath) return
+    let cancelled = false
+    ;(async () => {
+      const data = await Promise.all(
+        repos.map(async (r) => {
+          const [f, s] = await Promise.all([
+            window.api.git.listFiles(r.path),
+            window.api.git.status(r.path)
+          ])
+          return {
+            path: r.path,
+            name: r.name,
+            files: f.ok ? f.data : [],
+            status: s.ok ? s.data : null
+          }
+        })
+      )
+      if (!cancelled) setRootsData(data)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [repos, revision])
+
+  // Nya rötter börjar expanderade
+  useEffect(() => {
+    setExpandedRoots((prev) => {
+      const next = new Set(prev)
+      for (const r of repos) if (!prev.has(r.path)) next.add(r.path)
+      return next
+    })
+  }, [repos])
+
+  // Auto-expandera mappar upp till aktiv fil (i aktiva repot)
+  useEffect(() => {
+    if (!activePath || !repo) return
     const parts = activePath.split('/')
     if (parts.length < 2) return
     setExpanded((prev) => {
       const next = new Set(prev)
-      for (let i = 1; i < parts.length; i++) next.add(parts.slice(0, i).join('/'))
+      for (let i = 1; i < parts.length; i++) next.add(ck(repo.path, parts.slice(0, i).join('/')))
       return next
     })
-  }, [activePath])
+  }, [activePath, repo])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -105,62 +163,114 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     return () => ro.disconnect()
   }, [])
 
-  const { statusByPath, dirtyDirs } = useMemo(() => {
-    const map = new Map<string, 'added' | 'modified' | 'deleted'>()
-    const dirs = new Set<string>()
-    for (const f of status?.files ?? []) {
-      const t = f.status.includes('D')
-        ? 'deleted'
-        : f.status.includes('A') || f.status.includes('?')
-          ? 'added'
-          : 'modified'
-      map.set(f.path, t)
-      const parts = f.path.split('/')
-      for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/'))
+  const trees = useMemo(() => {
+    const m = new Map<string, TreeNode>()
+    for (const rd of rootsData) m.set(rd.path, buildTree(rd.files))
+    return m
+  }, [rootsData])
+
+  const maps = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof statusMaps>>()
+    for (const rd of rootsData) m.set(rd.path, statusMaps(rd.status))
+    return m
+  }, [rootsData])
+
+  // Platt lista över synliga rader (för virtualisering)
+  const rows = useMemo(() => {
+    const out: Row[] = []
+    for (const rd of rootsData) {
+      if (showHeaders) out.push({ kind: 'root', root: rd.path, name: rd.name })
+      const open = !showHeaders || expandedRoots.has(rd.path)
+      if (!open) continue
+      const base = showHeaders ? 1 : 0
+      if (creating?.root === rd.path && creating.parent === '')
+        out.push({ kind: 'create', root: rd.path, depth: base })
+      const tree = trees.get(rd.path)
+      if (!tree) continue
+      const walk = (node: TreeNode, depth: number): void => {
+        for (const c of sortedChildren(node)) {
+          out.push({ kind: 'node', root: rd.path, node: c, depth })
+          if (!c.isFile && expanded.has(ck(rd.path, c.path))) {
+            if (creating?.root === rd.path && creating.parent === c.path)
+              out.push({ kind: 'create', root: rd.path, depth: depth + 1 })
+            walk(c, depth + 1)
+          }
+        }
+      }
+      walk(tree, base)
     }
-    return { statusByPath: map, dirtyDirs: dirs }
-  }, [status])
+    return out
+  }, [rootsData, trees, expanded, expandedRoots, creating, showHeaders])
 
-  const badgeLetter: Record<'added' | 'modified' | 'deleted', string> = {
-    added: 'A',
-    modified: 'M',
-    deleted: 'D'
-  }
+  const visibleKeys = useMemo(
+    () =>
+      rows
+        .filter(
+          (r): r is { kind: 'node'; root: string; node: TreeNode; depth: number } =>
+            r.kind === 'node'
+        )
+        .map((r) => ck(r.root, r.node.path)),
+    [rows]
+  )
 
-  const toggle = (p: string): void =>
+  const totalFiles = rootsData.reduce((n, rd) => n + rd.files.length, 0)
+
+  const toggle = (root: string, p: string): void =>
     setExpanded((prev) => {
-      const next = new Set(prev)
-      next.has(p) ? next.delete(p) : next.add(p)
-      return next
+      const key = ck(root, p)
+      const n = new Set(prev)
+      n.has(key) ? n.delete(key) : n.add(key)
+      return n
+    })
+  const toggleRoot = (root: string): void =>
+    setExpandedRoots((prev) => {
+      const n = new Set(prev)
+      n.has(root) ? n.delete(root) : n.add(root)
+      return n
     })
 
-  const handleSelectClick = (path: string, e: React.MouseEvent): boolean => {
+  // Multi-select hålls inom EN rot (byte av rot nollställer urvalet)
+  const handleSelectClick = (root: string, path: string, e: React.MouseEvent): boolean => {
+    const key = ck(root, path)
     if (e.ctrlKey || e.metaKey) {
-      setSelected((prev) => {
-        const n = new Set(prev)
-        n.has(path) ? n.delete(path) : n.add(path)
-        return n
-      })
-      anchorRef.current = path
+      if (selRootRef.current && selRootRef.current !== root) {
+        setSelected(new Set([key]))
+      } else {
+        setSelected((prev) => {
+          const n = new Set(prev)
+          n.has(key) ? n.delete(key) : n.add(key)
+          return n
+        })
+      }
+      selRootRef.current = root
+      anchorRef.current = key
       return true
     }
-    if (e.shiftKey && anchorRef.current) {
-      const a = visiblePaths.indexOf(anchorRef.current)
-      const b = visiblePaths.indexOf(path)
+    if (e.shiftKey && anchorRef.current && selRootRef.current === root) {
+      const a = visibleKeys.indexOf(anchorRef.current)
+      const b = visibleKeys.indexOf(key)
       if (a >= 0 && b >= 0) {
         const [lo, hi] = a < b ? [a, b] : [b, a]
-        setSelected(new Set(visiblePaths.slice(lo, hi + 1)))
+        setSelected(new Set(visibleKeys.slice(lo, hi + 1)))
       }
       return true
     }
-    setSelected(new Set([path]))
-    anchorRef.current = path
+    setSelected(new Set([key]))
+    selRootRef.current = root
+    anchorRef.current = key
     return false
   }
 
-  const startCreate = (parent: string, type: 'file' | 'folder'): void => {
-    if (parent) setExpanded((p) => new Set(p).add(parent))
-    setCreating({ parent, type })
+  const openFile = async (root: string, rel: string, pin: boolean): Promise<void> => {
+    if (root !== repo?.path) await switchRepo(root)
+    pin ? selectPath(rel) : previewFile(rel)
+    onOpenEditor()
+  }
+
+  const startCreate = (root: string, parent: string, type: 'file' | 'folder'): void => {
+    if (parent) setExpanded((p) => new Set(p).add(ck(root, parent)))
+    setExpandedRoots((p) => new Set(p).add(root))
+    setCreating({ root, parent, type })
     setDraft('')
   }
   const submitCreate = async (): Promise<void> => {
@@ -168,35 +278,35 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       setCreating(null)
       return
     }
-    const rel = creating.parent ? `${creating.parent}/${draft.trim()}` : draft.trim()
+    const { root, parent, type } = creating
+    const rel = parent ? `${parent}/${draft.trim()}` : draft.trim()
     const res =
-      creating.type === 'file'
-        ? await window.api.fs.createFile(rel)
-        : await window.api.fs.createFolder(rel)
+      type === 'file'
+        ? await window.api.fs.createFile(rel, root)
+        : await window.api.fs.createFolder(rel, root)
     setCreating(null)
     if (res.ok) {
       await refresh()
-      if (creating.type === 'file') {
-        selectPath(rel)
-        onOpenEditor()
-      }
+      if (type === 'file') openFile(root, rel, true)
     } else notify(res.error, 'error')
   }
-  const submitRename = async (oldPath: string): Promise<void> => {
+
+  const startRename = (root: string, path: string, name: string): void => {
+    setRenaming(ck(root, path))
+    setDraft(name)
+  }
+  const submitRename = async (root: string, oldPath: string): Promise<void> => {
     const name = draft.trim()
     setRenaming(null)
     if (!name || name === oldPath.split('/').pop()) return
     const dir = oldPath.split('/').slice(0, -1).join('/')
     const newRel = dir ? `${dir}/${name}` : name
-    const res = await window.api.fs.rename(oldPath, newRel)
+    const res = await window.api.fs.rename(oldPath, newRel, root)
     if (res.ok) await refresh()
     else notify(res.error, 'error')
   }
-  const startRename = (path: string, name: string): void => {
-    setRenaming(path)
-    setDraft(name)
-  }
-  const delMany = async (paths: string[]): Promise<void> => {
+
+  const delMany = async (root: string, paths: string[]): Promise<void> => {
     if (paths.length === 0) return
     const ok = await confirm({
       message: paths.length === 1 ? `Radera ${paths[0]}?` : `Radera ${paths.length} objekt?`,
@@ -205,13 +315,14 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     })
     if (!ok) return
     for (const p of paths) {
-      const res = await window.api.fs.delete(p)
+      const res = await window.api.fs.delete(p, root)
       if (!res.ok) notify(res.error, 'error')
     }
     setSelected(new Set())
     await refresh()
   }
-  const moveInto = async (src: string, destFolder: string): Promise<void> => {
+
+  const moveInto = async (root: string, src: string, destFolder: string): Promise<void> => {
     const name = src.split('/').pop()!
     const dest = destFolder ? `${destFolder}/${name}` : name
     if (dest === src) return
@@ -219,89 +330,124 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       notify('Kan inte flytta en mapp in i sig själv', 'error')
       return
     }
-    const res = await window.api.fs.rename(src, dest)
+    const res = await window.api.fs.rename(src, dest, root)
     if (res.ok) await refresh()
     else notify(res.error, 'error')
   }
-  const pasteInto = async (destFolder: string): Promise<void> => {
+
+  const pasteInto = async (root: string, destFolder: string): Promise<void> => {
     if (!clipboard) return
+    if (clipboard.root !== root) {
+      notify('Klistra in stöds inom samma repo', 'error')
+      return
+    }
     for (const src of clipboard.paths) {
       const name = src.split('/').pop()!
       const dest = destFolder ? `${destFolder}/${name}` : name
       if (dest === src) continue
       const res =
         clipboard.op === 'cut'
-          ? await window.api.fs.rename(src, dest)
-          : await window.api.fs.copy(src, dest)
+          ? await window.api.fs.rename(src, dest, root)
+          : await window.api.fs.copy(src, dest, root)
       if (!res.ok) notify(res.error, 'error')
     }
     if (clipboard.op === 'cut') setClipboard(null)
     await refresh()
   }
 
-  const targetsFor = (path: string): string[] => {
-    if (selected.has(path) && selected.size > 1) return [...selected]
-    setSelected(new Set([path]))
+  // Markerade sökvägar i en rot (eller bara den klickade)
+  const targetsFor = (root: string, path: string): string[] => {
+    const key = ck(root, path)
+    if (selected.has(key) && selected.size > 1) {
+      return [...selected]
+        .filter((k) => k.startsWith(root + SEP))
+        .map((k) => k.slice(root.length + 1))
+    }
+    setSelected(new Set([key]))
     return [path]
   }
+
   const openMenu = (e: React.MouseEvent, items: MenuState['items']): void => {
     e.preventDefault()
     e.stopPropagation()
     setMenu({ x: e.clientX, y: e.clientY, items })
   }
-  const fileMenu = (node: TreeNode) => (e: React.MouseEvent): void => {
-    const t = targetsFor(node.path)
+  const fileMenu = (root: string, node: TreeNode) => (e: React.MouseEvent): void => {
+    const t = targetsFor(root, node.path)
     openMenu(e, [
       ...(t.length === 1
-        ? [{ label: 'Öppna', onClick: () => { selectPath(node.path); onOpenEditor() } }, { separator: true }]
+        ? [{ label: 'Öppna', onClick: () => openFile(root, node.path, true) }, { separator: true }]
         : []),
-      { label: t.length > 1 ? `Klipp ut (${t.length})` : 'Klipp ut', onClick: () => setClipboard({ paths: t, op: 'cut' }) },
-      { label: t.length > 1 ? `Kopiera (${t.length})` : 'Kopiera', onClick: () => setClipboard({ paths: t, op: 'copy' }) },
+      { label: t.length > 1 ? `Klipp ut (${t.length})` : 'Klipp ut', onClick: () => setClipboard({ root, paths: t, op: 'cut' }) },
+      { label: t.length > 1 ? `Kopiera (${t.length})` : 'Kopiera', onClick: () => setClipboard({ root, paths: t, op: 'copy' }) },
       { separator: true },
-      ...(t.length === 1 ? [{ label: 'Byt namn', onClick: () => startRename(node.path, node.name) }] : []),
-      { label: t.length > 1 ? `Radera (${t.length})` : 'Radera', danger: true, onClick: () => delMany(t) }
+      ...(t.length === 1 ? [{ label: 'Byt namn', onClick: () => startRename(root, node.path, node.name) }] : []),
+      { label: t.length > 1 ? `Radera (${t.length})` : 'Radera', danger: true, onClick: () => delMany(root, t) }
     ])
   }
-  const folderMenu = (node: TreeNode) => (e: React.MouseEvent): void => {
-    const t = targetsFor(node.path)
+  const folderMenu = (root: string, node: TreeNode) => (e: React.MouseEvent): void => {
+    const t = targetsFor(root, node.path)
     openMenu(e, [
-      { label: 'Ny fil', onClick: () => startCreate(node.path, 'file') },
-      { label: 'Ny mapp', onClick: () => startCreate(node.path, 'folder') },
+      { label: 'Ny fil', onClick: () => startCreate(root, node.path, 'file') },
+      { label: 'Ny mapp', onClick: () => startCreate(root, node.path, 'folder') },
       { separator: true },
-      { label: t.length > 1 ? `Klipp ut (${t.length})` : 'Klipp ut', onClick: () => setClipboard({ paths: t, op: 'cut' }) },
-      { label: t.length > 1 ? `Kopiera (${t.length})` : 'Kopiera', onClick: () => setClipboard({ paths: t, op: 'copy' }) },
-      ...(clipboard ? [{ label: 'Klistra in', onClick: () => pasteInto(node.path) }] : []),
+      { label: t.length > 1 ? `Klipp ut (${t.length})` : 'Klipp ut', onClick: () => setClipboard({ root, paths: t, op: 'cut' }) },
+      { label: t.length > 1 ? `Kopiera (${t.length})` : 'Kopiera', onClick: () => setClipboard({ root, paths: t, op: 'copy' }) },
+      ...(clipboard ? [{ label: 'Klistra in', onClick: () => pasteInto(root, node.path) }] : []),
       { separator: true },
-      ...(t.length === 1 ? [{ label: 'Byt namn', onClick: () => startRename(node.path, node.name) }] : []),
-      { label: t.length > 1 ? `Radera (${t.length})` : 'Radera', danger: true, onClick: () => delMany(t) }
+      ...(t.length === 1 ? [{ label: 'Byt namn', onClick: () => startRename(root, node.path, node.name) }] : []),
+      { label: t.length > 1 ? `Radera (${t.length})` : 'Radera', danger: true, onClick: () => delMany(root, t) }
     ])
   }
-  const rootMenu = (e: React.MouseEvent): void =>
+  const rootMenu = (root: string) => (e: React.MouseEvent): void =>
     openMenu(e, [
-      { label: 'Ny fil', onClick: () => startCreate('', 'file') },
-      { label: 'Ny mapp', onClick: () => startCreate('', 'folder') },
-      ...(clipboard ? [{ separator: true }, { label: 'Klistra in', onClick: () => pasteInto('') }] : [])
+      { label: 'Ny fil', onClick: () => startCreate(root, '', 'file') },
+      { label: 'Ny mapp', onClick: () => startCreate(root, '', 'folder') },
+      ...(clipboard ? [{ separator: true }, { label: 'Klistra in', onClick: () => pasteInto(root, '') }] : [])
     ])
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (selected.size === 0 && e.key !== 'v') return
+    const root = selRootRef.current
+    if (selected.size === 0 || !root) return
+    const paths = [...selected]
+      .filter((k) => k.startsWith(root + SEP))
+      .map((k) => k.slice(root.length + 1))
     if (e.key === 'Delete') {
       e.preventDefault()
-      delMany([...selected])
+      delMany(root, paths)
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
-      setClipboard({ paths: [...selected], op: 'cut' })
+      setClipboard({ root, paths, op: 'cut' })
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-      setClipboard({ paths: [...selected], op: 'copy' })
+      setClipboard({ root, paths, op: 'copy' })
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-      const sel = [...selected]
-      let dest = ''
-      if (sel.length >= 1) {
-        const p = sel[0]
-        dest = files.includes(p) ? p.split('/').slice(0, -1).join('/') : p
-      }
-      pasteInto(dest)
+      const first = paths[0]
+      const dest = first
+        ? rootsData.find((r) => r.path === root)?.files.includes(first)
+          ? first.split('/').slice(0, -1).join('/')
+          : first
+        : ''
+      pasteInto(root, dest)
     }
   }
+
+  const renderInput = (
+    placeholder: string,
+    onSubmit: () => void,
+    onCancel: () => void
+  ): JSX.Element => (
+    <input
+      autoFocus
+      placeholder={placeholder}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={onSubmit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onSubmit()
+        if (e.key === 'Escape') onCancel()
+      }}
+      style={{ width: '100%' }}
+    />
+  )
 
   const renderRow = (row: Row, index: number): JSX.Element => {
     const style: React.CSSProperties = {
@@ -310,70 +456,75 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       left: 0,
       right: 0,
       height: ROW_H,
-      paddingLeft: 8 + row.depth * 12
+      paddingLeft: 8 + (row.kind === 'root' ? 0 : row.depth) * 12
+    }
+
+    if (row.kind === 'root') {
+      const isOpen = expandedRoots.has(row.root)
+      return (
+        <div
+          key={`root:${row.root}`}
+          className="row tree-row ws-root-header"
+          style={style}
+          title={row.root}
+          onClick={() => toggleRoot(row.root)}
+          onContextMenu={rootMenu(row.root)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (dragRef.current?.root === row.root) moveInto(row.root, dragRef.current.path, '')
+            dragRef.current = null
+          }}
+        >
+          <span className="icon">{isOpen ? '▾' : '▸'}</span>
+          <span className="fname">{row.name}</span>
+          {row.root === repo?.path && <span className="ws-active-badge">aktiv</span>}
+        </div>
+      )
     }
 
     if (row.kind === 'create') {
       return (
         <div className="row tree-row" style={style} key={`create-${index}`}>
           <span className="icon">{creating?.type === 'folder' ? '📁' : '📄'}</span>
-          <input
-            autoFocus
-            placeholder={creating?.type === 'folder' ? 'mappnamn' : 'filnamn.ext'}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={submitCreate}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitCreate()
-              if (e.key === 'Escape') setCreating(null)
-            }}
-            style={{ width: '100%' }}
-          />
+          {renderInput(
+            creating?.type === 'folder' ? 'mappnamn' : 'filnamn.ext',
+            submitCreate,
+            () => setCreating(null)
+          )}
         </div>
       )
     }
 
-    const node = row.node
-    if (renaming === node.path) {
+    const { root, node } = row
+    const m = maps.get(root)
+    if (renaming === ck(root, node.path)) {
       return (
-        <div className="row tree-row" style={style} key={node.path}>
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => submitRename(node.path)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitRename(node.path)
-              if (e.key === 'Escape') setRenaming(null)
-            }}
-            style={{ width: '100%' }}
-          />
+        <div className="row tree-row" style={style} key={ck(root, node.path)}>
+          {renderInput(node.name, () => submitRename(root, node.path), () => setRenaming(null))}
         </div>
       )
     }
 
-    const isSel = selected.has(node.path)
+    const isSel = selected.has(ck(root, node.path))
     if (node.isFile) {
-      const gs = statusByPath.get(node.path)
+      const gs = m?.byPath.get(node.path)
       return (
         <div
-          key={node.path}
-          className={`row tree-row file-row ${activePath === node.path ? 'active' : ''} ${isSel ? 'selected' : ''}`}
+          key={ck(root, node.path)}
+          className={`row tree-row file-row ${
+            activePath === node.path && root === repo?.path ? 'active' : ''
+          } ${isSel ? 'selected' : ''}`}
           style={style}
           title={node.path}
           onClick={(e) => {
-            if (!handleSelectClick(node.path, e)) {
-              previewFile(node.path)
-              onOpenEditor()
-            }
+            if (!handleSelectClick(root, node.path, e)) openFile(root, node.path, false)
           }}
-          onDoubleClick={() => {
-            selectPath(node.path)
-            onOpenEditor()
-          }}
-          onContextMenu={fileMenu(node)}
+          onDoubleClick={() => openFile(root, node.path, true)}
+          onContextMenu={fileMenu(root, node)}
           draggable
-          onDragStart={() => (dragRef.current = node.path)}
+          onDragStart={() => (dragRef.current = { root, path: node.path })}
         >
           <span className="icon">📄</span>
           <span className={`fname ${gs ? `git-${gs}` : ''}`}>{node.name}</span>
@@ -382,40 +533,44 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       )
     }
 
-    const isOpen = expanded.has(node.path)
+    const isOpen = expanded.has(ck(root, node.path))
     return (
       <div
-        key={node.path}
+        key={ck(root, node.path)}
         className={`row tree-row ${isSel ? 'selected' : ''}`}
         style={style}
         onClick={(e) => {
-          if (!handleSelectClick(node.path, e)) toggle(node.path)
+          if (!handleSelectClick(root, node.path, e)) toggle(root, node.path)
         }}
-        onContextMenu={folderMenu(node)}
+        onContextMenu={folderMenu(root, node)}
         draggable
         onDragStart={(e) => {
           e.stopPropagation()
-          dragRef.current = node.path
+          dragRef.current = { root, path: node.path }
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (dragRef.current) moveInto(dragRef.current, node.path)
+          const d = dragRef.current
+          if (d && d.root === root) moveInto(root, d.path, node.path)
+          else if (d) notify('Flytt mellan repon stöds ej', 'error')
           dragRef.current = null
         }}
       >
         <span className="icon">{isOpen ? '▾' : '▸'}</span>
-        <span className={`fname ${dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>{node.name}</span>
-        {dirtyDirs.has(node.path) && <span className="git-dot" />}
+        <span className={`fname ${m?.dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>
+          {node.name}
+        </span>
+        {m?.dirtyDirs.has(node.path) && <span className="git-dot" />}
       </div>
     )
   }
 
-  const start = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN)
-  const end = Math.min(rows.length, Math.ceil((scrollTop + viewportH) / ROW_H) + OVERSCAN)
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN)
+  const endIdx = Math.min(rows.length, Math.ceil((scrollTop + viewportH) / ROW_H) + OVERSCAN)
   const slice: JSX.Element[] = []
-  for (let i = start; i < end; i++) slice.push(renderRow(rows[i], i))
+  for (let i = startIdx; i < endIdx; i++) slice.push(renderRow(rows[i], i))
 
   return (
     <div
@@ -424,14 +579,9 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       ref={scrollRef}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       onKeyDown={onKeyDown}
-      onContextMenu={rootMenu}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={() => {
-        if (dragRef.current) moveInto(dragRef.current, '')
-        dragRef.current = null
-      }}
+      onContextMenu={repo ? rootMenu(repo.path) : undefined}
     >
-      {files.length === 0 && !creating ? (
+      {totalFiles === 0 && !creating ? (
         <div className="hint">Högerklicka för att skapa filer</div>
       ) : (
         <div style={{ height: rows.length * ROW_H, position: 'relative' }}>{slice}</div>

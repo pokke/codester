@@ -12,6 +12,7 @@ import { useSettings } from '../settings/SettingsContext'
 import { getTheme } from '../themes/themes'
 import { useToast } from '../ui/Toast'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
+import { bindingFor, comboToMonaco } from '../settings/keybindings'
 
 type Mode = 'diff' | 'edit' | 'hunks'
 
@@ -476,13 +477,17 @@ export function EditorGroup({
             changesRef.current = null
             blameCol.current = null
             ed.onDidFocusEditorText(() => onFocus())
-            // Ctrl+S sparar (som i VS Code) – ingen synlig spara-knapp
-            ed.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => saveRef.current())
-            // Shift+Alt+F → formatera dokumentet
-            ed.addCommand(
-              monacoApi.KeyMod.Shift | monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyF,
-              () => formatDocRef.current()
-            )
+            // Spara / formatera – tangenter från keybindings.json (default
+            // Ctrl+S resp. Shift+Alt+F). Läses vid mount; ändring gäller efter
+            // att filen öppnats på nytt.
+            const saveKb =
+              comboToMonaco(monacoApi, bindingFor('save')) ??
+              (monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS)
+            ed.addCommand(saveKb, () => saveRef.current())
+            const fmtKb =
+              comboToMonaco(monacoApi, bindingFor('formatDocument')) ??
+              (monacoApi.KeyMod.Shift | monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyF)
+            ed.addCommand(fmtKb, () => formatDocRef.current())
             // Auto-spara vid fokusbyte
             ed.onDidBlurEditorText(() => {
               if (autoSaveRef.current === 'onFocusChange') saveRef.current()

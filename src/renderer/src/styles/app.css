@@ -169,6 +169,22 @@
 .repo-section-body {
   padding-bottom: var(--space);
 }
+.repo-branch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--space);
+}
+.repo-branch-row .branch-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  font-size: 12px;
+}
 .commit-box.compact {
   border-top: none;
   padding: var(--space) calc(var(--space) * 1.5);
