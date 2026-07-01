@@ -268,4 +268,24 @@ export function registerIpc(): void {
   handle('github:markNotifRead', (id: string) => github.markNotificationRead(id))
   handle('github:searchRepos', (q: string) => github.searchRepositories(q))
   handle('github:searchIssues', (q: string) => github.searchIssuesPrs(q))
+  handle('github:releases', async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listReleases(or.owner, or.repo)
+  })
+  handle('github:createRelease', async (rel: import('../shared/types').NewRelease) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.createRelease(or.owner, or.repo, rel)
+  })
+  handle('github:runs', async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listWorkflowRuns(or.owner, or.repo)
+  })
+  handle('github:rerun', async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.rerunWorkflow(or.owner, or.repo, runId)
+  })
 }

@@ -7,8 +7,10 @@ import { GitHubPullRequests } from './GitHubPullRequests'
 import { GitHubIssues } from './GitHubIssues'
 import { GitHubNotifications } from './GitHubNotifications'
 import { GitHubSearch } from './GitHubSearch'
+import { GitHubReleases } from './GitHubReleases'
+import { GitHubActions } from './GitHubActions'
 
-type GhTab = 'repos' | 'pulls' | 'issues' | 'notifs' | 'search'
+type GhTab = 'repos' | 'pulls' | 'issues' | 'notifs' | 'search' | 'releases' | 'actions'
 
 type RepoSort = 'updated' | 'name' | 'stars'
 
@@ -256,6 +258,8 @@ export function GitHubPanel(): JSX.Element {
             ['repos', 'Repon'],
             ['pulls', 'Pull requests'],
             ['issues', 'Issues'],
+            ['releases', 'Releaser'],
+            ['actions', 'Actions'],
             ['notifs', 'Notiser'],
             ['search', 'Sök']
           ] as const
@@ -269,6 +273,8 @@ export function GitHubPanel(): JSX.Element {
       <div className="gh-body">
         {ghTab === 'pulls' && <GitHubPullRequests />}
         {ghTab === 'issues' && <GitHubIssues />}
+        {ghTab === 'releases' && <GitHubReleases />}
+        {ghTab === 'actions' && <GitHubActions />}
         {ghTab === 'notifs' && <GitHubNotifications />}
         {ghTab === 'search' && <GitHubSearch />}
         {ghTab === 'repos' && (

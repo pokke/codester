@@ -13,12 +13,15 @@ import type {
   Issue,
   LangServerStatus,
   LineChange,
+  NewRelease,
   PrFile,
   PullRequest,
   PullRequestDetail,
+  Release,
   RepoInfo,
   SearchIssueResult,
   SearchRepoResult,
+  WorkflowRun,
   RepoStatus,
   Result,
   SearchHit,
@@ -220,7 +223,11 @@ const api = {
     notificationCount: () => invoke<number>('github:notificationCount'),
     markNotifRead: (id: string) => invoke<void>('github:markNotifRead', id),
     searchRepos: (q: string) => invoke<SearchRepoResult[]>('github:searchRepos', q),
-    searchIssues: (q: string) => invoke<SearchIssueResult[]>('github:searchIssues', q)
+    searchIssues: (q: string) => invoke<SearchIssueResult[]>('github:searchIssues', q),
+    releases: () => invoke<Release[]>('github:releases'),
+    createRelease: (rel: NewRelease) => invoke<Release>('github:createRelease', rel),
+    runs: () => invoke<WorkflowRun[]>('github:runs'),
+    rerun: (runId: number) => invoke<void>('github:rerun', runId)
   }
 }
 

@@ -165,6 +165,39 @@ export interface SearchIssueResult {
   author: string
 }
 
+export interface Release {
+  id: number
+  tagName: string
+  name: string
+  body: string | null
+  draft: boolean
+  prerelease: boolean
+  htmlUrl: string
+  publishedAt: string | null
+  author: string
+}
+
+export interface NewRelease {
+  tagName: string
+  name: string
+  body: string
+  draft: boolean
+  prerelease: boolean
+  target?: string
+}
+
+export interface WorkflowRun {
+  id: number
+  name: string
+  status: string // queued | in_progress | completed
+  conclusion: string | null // success | failure | cancelled | ...
+  branch: string
+  event: string
+  htmlUrl: string
+  createdAt: string
+  runNumber: number
+}
+
 export interface SearchHit {
   file: string
   line: number

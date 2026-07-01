@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
+import { Markdown } from '../ui/Markdown'
 import type { CheckStatus, PrFile, PullRequest, PullRequestDetail } from '../../../shared/types'
 
 // Renderar en unified-diff-patch med färgade rader (samma stil som HunkView).
@@ -196,7 +197,11 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
             </div>
           )}
 
-          {pr.body && <div className="pr-body">{pr.body}</div>}
+          {pr.body && (
+            <div className="pr-body">
+              <Markdown text={pr.body} />
+            </div>
+          )}
           <div className="pr-files">
             {files.map((f) => {
               const open = openFile === f.filename

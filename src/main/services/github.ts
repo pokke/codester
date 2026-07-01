@@ -7,11 +7,14 @@ import type {
   GitHubUser,
   Issue,
   NewPullRequest,
+  NewRelease,
   PrFile,
   PullRequest,
   PullRequestDetail,
+  Release,
   SearchIssueResult,
-  SearchRepoResult
+  SearchRepoResult,
+  WorkflowRun
 } from '../../shared/types'
 import {
   loadToken,
@@ -445,6 +448,100 @@ export async function searchRepositories(q: string): Promise<SearchRepoResult[]>
     cloneUrl: i.clone_url,
     private: i.private
   }))
+}
+
+// --- Releaser ---
+
+export async function listReleases(owner: string, repo: string): Promise<Release[]> {
+  const rs = await gh<
+    Array<{
+      id: number
+      tag_name: string
+      name: string | null
+      body: string | null
+      draft: boolean
+      prerelease: boolean
+      html_url: string
+      published_at: string | null
+      author: { login: string } | null
+    }>
+  >(`/repos/${owner}/${repo}/releases?per_page=30`)
+  return rs.map((r) => ({
+    id: r.id,
+    tagName: r.tag_name,
+    name: r.name || r.tag_name,
+    body: r.body,
+    draft: r.draft,
+    prerelease: r.prerelease,
+    htmlUrl: r.html_url,
+    publishedAt: r.published_at,
+    author: r.author?.login ?? ''
+  }))
+}
+
+export async function createRelease(owner: string, repo: string, rel: NewRelease): Promise<Release> {
+  const r = await ghReq<{
+    id: number
+    tag_name: string
+    name: string | null
+    body: string | null
+    draft: boolean
+    prerelease: boolean
+    html_url: string
+    published_at: string | null
+    author: { login: string } | null
+  }>('POST', `/repos/${owner}/${repo}/releases`, {
+    tag_name: rel.tagName,
+    name: rel.name || rel.tagName,
+    body: rel.body,
+    draft: rel.draft,
+    prerelease: rel.prerelease,
+    ...(rel.target ? { target_commitish: rel.target } : {})
+  })
+  return {
+    id: r.id,
+    tagName: r.tag_name,
+    name: r.name || r.tag_name,
+    body: r.body,
+    draft: r.draft,
+    prerelease: r.prerelease,
+    htmlUrl: r.html_url,
+    publishedAt: r.published_at,
+    author: r.author?.login ?? ''
+  }
+}
+
+// --- Actions / workflow-körningar ---
+
+export async function listWorkflowRuns(owner: string, repo: string): Promise<WorkflowRun[]> {
+  const res = await gh<{
+    workflow_runs: Array<{
+      id: number
+      name: string | null
+      status: string
+      conclusion: string | null
+      head_branch: string
+      event: string
+      html_url: string
+      created_at: string
+      run_number: number
+    }>
+  }>(`/repos/${owner}/${repo}/actions/runs?per_page=25`)
+  return res.workflow_runs.map((r) => ({
+    id: r.id,
+    name: r.name || 'Workflow',
+    status: r.status,
+    conclusion: r.conclusion,
+    branch: r.head_branch,
+    event: r.event,
+    htmlUrl: r.html_url,
+    createdAt: r.created_at,
+    runNumber: r.run_number
+  }))
+}
+
+export async function rerunWorkflow(owner: string, repo: string, runId: number): Promise<void> {
+  await ghReq('POST', `/repos/${owner}/${repo}/actions/runs/${runId}/rerun`)
 }
 
 export async function searchIssuesPrs(q: string): Promise<SearchIssueResult[]> {

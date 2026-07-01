@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useToast } from '../ui/Toast'
 import { rowA11y } from '../ui/a11y'
+import { Markdown } from '../ui/Markdown'
 import type { Issue } from '../../../shared/types'
 
 function contrastText(hex: string): string {
@@ -96,7 +97,9 @@ function IssueDetail({ number, onBack }: { number: number; onBack: () => void })
             <Labels labels={issue.labels} />
           </div>
           {issue.body ? (
-            <div className="pr-body">{issue.body}</div>
+            <div className="pr-body">
+              <Markdown text={issue.body} />
+            </div>
           ) : (
             <div className="hint">Ingen beskrivning</div>
           )}
