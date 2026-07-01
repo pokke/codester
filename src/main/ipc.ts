@@ -192,4 +192,49 @@ export function registerIpc(): void {
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.listPullRequests(or.owner, or.repo)
   })
+  handle('github:pr', async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getPullRequest(or.owner, or.repo, number)
+  })
+  handle('github:prFiles', async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getPullRequestFiles(or.owner, or.repo, number)
+  })
+  handle('github:checks', async (ref: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getChecks(or.owner, or.repo, ref)
+  })
+  handle('github:createPr', async (title: string, body: string, base?: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    const status = await git.status()
+    const head = status.current
+    if (!head || head === '(detached)') throw new Error('Ingen aktuell branch att skapa PR från')
+    const baseBranch = base || (await github.getRepoDefaultBranch(or.owner, or.repo))
+    if (head === baseBranch) throw new Error(`Head och bas är samma branch (${head})`)
+    return github.createPullRequest(or.owner, or.repo, { title, body, head, base: baseBranch })
+  })
+  handle('github:defaultBranch', async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getRepoDefaultBranch(or.owner, or.repo)
+  })
+  handle('github:issues', async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listIssues(or.owner, or.repo)
+  })
+  handle('github:issue', async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getIssue(or.owner, or.repo, number)
+  })
+  handle('github:createIssue', async (title: string, body: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.createIssue(or.owner, or.repo, title, body)
+  })
 }

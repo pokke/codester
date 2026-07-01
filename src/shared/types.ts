@@ -78,6 +78,61 @@ export interface PullRequest {
   url: string
   headRef: string
   baseRef: string
+  draft?: boolean
+}
+
+export interface PullRequestDetail extends PullRequest {
+  body: string | null
+  merged: boolean
+  mergeable: boolean | null
+  headSha: string
+  additions: number
+  deletions: number
+  changedFiles: number
+  comments: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PrFile {
+  filename: string
+  previousFilename: string | null
+  status: string // added | modified | removed | renamed
+  additions: number
+  deletions: number
+  patch: string | null
+}
+
+export type CheckState = 'success' | 'failure' | 'pending' | 'none'
+export interface CheckStatus {
+  state: CheckState
+  passed: number
+  failed: number
+  pending: number
+  total: number
+}
+
+export interface IssueLabel {
+  name: string
+  color: string
+}
+export interface Issue {
+  number: number
+  title: string
+  body: string | null
+  author: string
+  state: string
+  url: string
+  comments: number
+  createdAt: string
+  labels: IssueLabel[]
+}
+
+export interface NewPullRequest {
+  title: string
+  body: string
+  head: string
+  base: string
 }
 
 export interface SearchHit {

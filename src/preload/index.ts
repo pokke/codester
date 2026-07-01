@@ -6,11 +6,15 @@ import type {
   DeviceCodeInfo,
   DiffResult,
   FileChange,
+  CheckStatus,
   GitHubRepo,
   GitHubUser,
+  Issue,
   LangServerStatus,
   LineChange,
+  PrFile,
   PullRequest,
+  PullRequestDetail,
   RepoInfo,
   RepoStatus,
   Result,
@@ -188,7 +192,17 @@ const api = {
       invoke<GitHubUser>('github:devicePoll', deviceCode, interval),
     user: () => invoke<GitHubUser>('github:user'),
     repos: () => invoke<GitHubRepo[]>('github:repos'),
-    pulls: () => invoke<PullRequest[]>('github:pulls')
+    pulls: () => invoke<PullRequest[]>('github:pulls'),
+    pr: (number: number) => invoke<PullRequestDetail>('github:pr', number),
+    prFiles: (number: number) => invoke<PrFile[]>('github:prFiles', number),
+    checks: (ref: string) => invoke<CheckStatus>('github:checks', ref),
+    createPr: (title: string, body: string, base?: string) =>
+      invoke<PullRequest>('github:createPr', title, body, base),
+    defaultBranch: () => invoke<string>('github:defaultBranch'),
+    issues: () => invoke<Issue[]>('github:issues'),
+    issue: (number: number) => invoke<Issue>('github:issue', number),
+    createIssue: (title: string, body: string) =>
+      invoke<Issue>('github:createIssue', title, body)
   }
 }
 

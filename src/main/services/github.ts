@@ -1,4 +1,15 @@
-import type { DeviceCodeInfo, GitHubRepo, GitHubUser, PullRequest } from '../../shared/types'
+import type {
+  CheckState,
+  CheckStatus,
+  DeviceCodeInfo,
+  GitHubRepo,
+  GitHubUser,
+  Issue,
+  NewPullRequest,
+  PrFile,
+  PullRequest,
+  PullRequestDetail
+} from '../../shared/types'
 import {
   loadToken,
   saveToken,
@@ -36,21 +47,37 @@ async function timedFetch(
   }
 }
 
-async function gh<T>(path: string): Promise<T> {
+async function ghReq<T>(method: string, path: string, body?: unknown): Promise<T> {
   if (!token) throw new Error('Ingen GitHub-token angiven')
   const res = await timedFetch(`${API}${path}`, {
+    method,
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'Codester'
-    }
+      'User-Agent': 'Codester',
+      ...(body ? { 'Content-Type': 'application/json' } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
   })
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`GitHub ${res.status}: ${body.slice(0, 200)}`)
+    const text = await res.text()
+    // GitHub returnerar ofta { message, errors[] } – plocka ut något läsbart
+    let msg = text.slice(0, 300)
+    try {
+      const j = JSON.parse(text)
+      msg = j.message + (j.errors ? `: ${j.errors.map((e: { message?: string }) => e.message).filter(Boolean).join(', ')}` : '')
+    } catch {
+      /* behåll rå text */
+    }
+    throw new Error(`GitHub ${res.status}: ${msg}`)
   }
+  if (res.status === 204) return undefined as T
   return (await res.json()) as T
+}
+
+function gh<T>(path: string): Promise<T> {
+  return ghReq<T>('GET', path)
 }
 
 export function hasToken(): boolean {
@@ -199,4 +226,198 @@ export async function listPullRequests(owner: string, repo: string): Promise<Pul
     headRef: p.head.ref,
     baseRef: p.base.ref
   }))
+}
+
+export async function getPullRequest(
+  owner: string,
+  repo: string,
+  number: number
+): Promise<PullRequestDetail> {
+  const p = await gh<{
+    number: number
+    title: string
+    body: string | null
+    user: { login: string }
+    state: string
+    html_url: string
+    draft: boolean
+    merged: boolean
+    mergeable: boolean | null
+    head: { ref: string; sha: string }
+    base: { ref: string }
+    additions: number
+    deletions: number
+    changed_files: number
+    comments: number
+    created_at: string
+    updated_at: string
+  }>(`/repos/${owner}/${repo}/pulls/${number}`)
+  return {
+    number: p.number,
+    title: p.title,
+    body: p.body,
+    author: p.user.login,
+    state: p.state,
+    url: p.html_url,
+    draft: p.draft,
+    merged: p.merged,
+    mergeable: p.mergeable,
+    headRef: p.head.ref,
+    headSha: p.head.sha,
+    baseRef: p.base.ref,
+    additions: p.additions,
+    deletions: p.deletions,
+    changedFiles: p.changed_files,
+    comments: p.comments,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at
+  }
+}
+
+export async function getPullRequestFiles(
+  owner: string,
+  repo: string,
+  number: number
+): Promise<PrFile[]> {
+  const files = await gh<
+    Array<{
+      filename: string
+      previous_filename?: string
+      status: string
+      additions: number
+      deletions: number
+      patch?: string
+    }>
+  >(`/repos/${owner}/${repo}/pulls/${number}/files?per_page=100`)
+  return files.map((f) => ({
+    filename: f.filename,
+    previousFilename: f.previous_filename ?? null,
+    status: f.status,
+    additions: f.additions,
+    deletions: f.deletions,
+    patch: f.patch ?? null
+  }))
+}
+
+export async function createPullRequest(
+  owner: string,
+  repo: string,
+  pr: NewPullRequest
+): Promise<PullRequest> {
+  const p = await ghReq<{
+    number: number
+    title: string
+    user: { login: string }
+    state: string
+    html_url: string
+    head: { ref: string }
+    base: { ref: string }
+  }>('POST', `/repos/${owner}/${repo}/pulls`, {
+    title: pr.title,
+    body: pr.body,
+    head: pr.head,
+    base: pr.base
+  })
+  return {
+    number: p.number,
+    title: p.title,
+    author: p.user.login,
+    state: p.state,
+    url: p.html_url,
+    headRef: p.head.ref,
+    baseRef: p.base.ref
+  }
+}
+
+export async function getRepoDefaultBranch(owner: string, repo: string): Promise<string> {
+  const r = await gh<{ default_branch: string }>(`/repos/${owner}/${repo}`)
+  return r.default_branch
+}
+
+// Sammanställer både "combined status" (legacy) och "check runs" till ett läge.
+export async function getChecks(owner: string, repo: string, ref: string): Promise<CheckStatus> {
+  let passed = 0
+  let failed = 0
+  let pending = 0
+  try {
+    const status = await gh<{
+      statuses: { state: string }[]
+    }>(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}/status`)
+    for (const s of status.statuses ?? []) {
+      if (s.state === 'success') passed++
+      else if (s.state === 'failure' || s.state === 'error') failed++
+      else pending++
+    }
+  } catch {
+    /* ref saknas på remote e.d. */
+  }
+  try {
+    const runs = await gh<{
+      check_runs: { status: string; conclusion: string | null }[]
+    }>(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}/check-runs`)
+    for (const c of runs.check_runs ?? []) {
+      if (c.status !== 'completed') pending++
+      else if (c.conclusion === 'success' || c.conclusion === 'neutral' || c.conclusion === 'skipped')
+        passed++
+      else if (c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'cancelled')
+        failed++
+      else pending++
+    }
+  } catch {
+    /* inga check runs */
+  }
+  const total = passed + failed + pending
+  const state: CheckState =
+    total === 0 ? 'none' : failed > 0 ? 'failure' : pending > 0 ? 'pending' : 'success'
+  return { state, passed, failed, pending, total }
+}
+
+function mapIssue(i: {
+  number: number
+  title: string
+  body: string | null
+  user: { login: string }
+  state: string
+  html_url: string
+  comments: number
+  created_at: string
+  labels: { name: string; color: string }[]
+}): Issue {
+  return {
+    number: i.number,
+    title: i.title,
+    body: i.body,
+    author: i.user.login,
+    state: i.state,
+    url: i.html_url,
+    comments: i.comments,
+    createdAt: i.created_at,
+    labels: (i.labels ?? []).map((l) => ({ name: l.name, color: l.color }))
+  }
+}
+
+export async function listIssues(owner: string, repo: string): Promise<Issue[]> {
+  // Filtrera bort pull requests (GitHub listar PRs som issues)
+  const issues = await gh<
+    Array<Parameters<typeof mapIssue>[0] & { pull_request?: unknown }>
+  >(`/repos/${owner}/${repo}/issues?state=open&per_page=50`)
+  return issues.filter((i) => !i.pull_request).map(mapIssue)
+}
+
+export async function getIssue(owner: string, repo: string, number: number): Promise<Issue> {
+  const i = await gh<Parameters<typeof mapIssue>[0]>(`/repos/${owner}/${repo}/issues/${number}`)
+  return mapIssue(i)
+}
+
+export async function createIssue(
+  owner: string,
+  repo: string,
+  title: string,
+  body: string
+): Promise<Issue> {
+  const i = await ghReq<Parameters<typeof mapIssue>[0]>('POST', `/repos/${owner}/${repo}/issues`, {
+    title,
+    body
+  })
+  return mapIssue(i)
 }

@@ -874,6 +874,162 @@
   padding: 3px 10px;
 }
 
+/* GitHub-undertabbar + PR/issue-vyer */
+.gh-subtabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 calc(var(--space) * 2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.gh-subtabs button {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+}
+.gh-subtabs button:hover {
+  color: var(--text);
+}
+.gh-subtabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.gh-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space);
+}
+.gh-list-head h3 {
+  margin: 0;
+}
+.pr-detail,
+.pr-create {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+.pr-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+.pr-detail-head .spacer {
+  flex: 1;
+}
+.pr-detail-title {
+  font-size: 17px;
+  margin: 0;
+}
+.pr-detail-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+}
+.pr-state {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  color: #fff;
+}
+.pr-state.open {
+  background: var(--git-added);
+}
+.pr-state.draft {
+  background: var(--text-muted);
+}
+.pr-state.merged {
+  background: #8957e5;
+}
+.add {
+  color: var(--git-added);
+}
+.del {
+  color: var(--git-deleted);
+}
+.pr-body {
+  white-space: pre-wrap;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  max-height: 40vh;
+  overflow: auto;
+}
+.pr-files {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pr-file {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.pr-file-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: var(--bg-elevated);
+}
+.pr-file-head:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.pr-file-head .spacer {
+  flex: 1;
+}
+.pr-file-head .fname {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.check-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.check-badge.success {
+  color: var(--git-added);
+  background: color-mix(in srgb, var(--git-added) 18%, transparent);
+}
+.check-badge.failure {
+  color: var(--git-deleted);
+  background: color-mix(in srgb, var(--git-deleted) 18%, transparent);
+}
+.check-badge.pending {
+  color: var(--git-modified);
+  background: color-mix(in srgb, var(--git-modified) 18%, transparent);
+}
+.field-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 4px;
+}
+.pr-create-body {
+  min-height: 120px;
+  resize: vertical;
+  font-family: var(--font-ui);
+}
+.issue-labels {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.issue-label {
+  font-size: 10px;
+  padding: 0 6px;
+  border-radius: 8px;
+  line-height: 16px;
+}
+
 /* Repo-kort (GitHub-vy) */
 .repo-list-head {
   display: flex;

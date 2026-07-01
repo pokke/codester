@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import type { DeviceCodeInfo, GitHubRepo, GitHubUser, PullRequest } from '../../../shared/types'
+import type { DeviceCodeInfo, GitHubRepo, GitHubUser } from '../../../shared/types'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { Icon } from '../ui/Icon'
-import { rowA11y } from '../ui/a11y'
+import { GitHubPullRequests } from './GitHubPullRequests'
+import { GitHubIssues } from './GitHubIssues'
+
+type GhTab = 'repos' | 'pulls' | 'issues'
 
 type RepoSort = 'updated' | 'name' | 'stars'
 
@@ -47,12 +50,12 @@ function relativeTime(iso: string): string {
 }
 
 export function GitHubPanel(): JSX.Element {
-  const { cloneAndOpen, repo } = useRepo()
+  const { cloneAndOpen } = useRepo()
   const { notify } = useToast()
   const [user, setUser] = useState<GitHubUser | null>(null)
   const [token, setToken] = useState('')
   const [repos, setRepos] = useState<GitHubRepo[]>([])
-  const [pulls, setPulls] = useState<PullRequest[]>([])
+  const [ghTab, setGhTab] = useState<GhTab>('repos')
   const [filter, setFilter] = useState('')
   const [clientId, setClientId] = useState<string | null>(null)
   const [clientIdInput, setClientIdInput] = useState('')
@@ -113,22 +116,10 @@ export function GitHubPanel(): JSX.Element {
     setReposLoading(false)
   }
 
-  const loadPulls = async (): Promise<void> => {
-    if (!repo) return
-    const p = await window.api.github.pulls()
-    if (p.ok) setPulls(p.data)
-    else notify(p.error, 'error')
-  }
-
   useEffect(() => {
     loadUser()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (authed && repo) loadPulls()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed, repo])
 
   const connect = async (): Promise<void> => {
     if (connecting || !token.trim()) return
@@ -154,7 +145,6 @@ export function GitHubPanel(): JSX.Element {
     setUser(null)
     setAuthed(false)
     setRepos([])
-    setPulls([])
   }
 
   if (!authed) {
@@ -258,28 +248,24 @@ export function GitHubPanel(): JSX.Element {
         </button>
       </div>
 
-      <div className="gh-body">
-        {repo && (
-          <section>
-            <h3>Öppna pull requests</h3>
-            {pulls.length === 0 && <p className="muted small">Inga öppna PR (eller ingen remote).</p>}
-            {pulls.map((p) => (
-              <div
-                key={p.number}
-                className="row pr-row"
-                {...rowA11y(() => window.open(p.url))}
-                onClick={() => window.open(p.url)}
-              >
-                <span className="pr-num">#{p.number}</span>
-                <span className="pr-title">{p.title}</span>
-                <span className="path-dim">
-                  {p.headRef} → {p.baseRef} · @{p.author}
-                </span>
-              </div>
-            ))}
-          </section>
-        )}
+      <div className="gh-subtabs">
+        {(
+          [
+            ['repos', 'Repon'],
+            ['pulls', 'Pull requests'],
+            ['issues', 'Issues']
+          ] as const
+        ).map(([v, l]) => (
+          <button key={v} className={ghTab === v ? 'active' : ''} onClick={() => setGhTab(v)}>
+            {l}
+          </button>
+        ))}
+      </div>
 
+      <div className="gh-body">
+        {ghTab === 'pulls' && <GitHubPullRequests />}
+        {ghTab === 'issues' && <GitHubIssues />}
+        {ghTab === 'repos' && (
         <section>
           <div className="repo-list-head">
             <h3>Dina repon {repos.length > 0 && <span className="muted small">({repos.length})</span>}</h3>
@@ -348,6 +334,7 @@ export function GitHubPanel(): JSX.Element {
             ))}
           </div>
         </section>
+        )}
       </div>
     </main>
   )
