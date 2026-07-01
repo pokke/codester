@@ -132,7 +132,7 @@ export function App(): JSX.Element {
 
       <div className="body">
         <ActivityBar
-          view={panelTab ?? view}
+          view={view}
           onChange={(id) => {
             if (id === 'terminal' || id === 'problems') togglePanel(id)
             else setView(id)
@@ -211,7 +211,12 @@ export function App(): JSX.Element {
 
       <UpdateBanner />
 
-      <StatusBar version={version} onShowProblems={() => setPanelTab('problems')} />
+      <StatusBar
+        version={version}
+        panelTab={panelTab}
+        onToggleTerminal={() => togglePanel('terminal')}
+        onToggleProblems={() => togglePanel('problems')}
+      />
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showAbout && <AboutModal version={version} onClose={() => setShowAbout(false)} />}

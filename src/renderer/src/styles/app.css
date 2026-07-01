@@ -1365,9 +1365,15 @@ code {
 }
 .statusbar .clickable {
   cursor: pointer;
+  padding: 0 4px;
+  border-radius: var(--radius);
 }
 .statusbar .clickable:hover {
-  filter: brightness(1.2);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+.statusbar .seg.on {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* ── Hunk-vy (radnivå-staging) ── */
