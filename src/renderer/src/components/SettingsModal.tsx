@@ -6,6 +6,7 @@ import {
   defaultKeybindingsJson,
   COMMANDS
 } from '../settings/keybindings'
+import { SNIPPET_LANGS, defaultSnippetsJson, reloadSnippets } from '../editor/snippets'
 import { themes } from '../themes/themes'
 import { LangServersSettings } from './LangServersSettings'
 import { useToast } from '../ui/Toast'
@@ -108,6 +109,7 @@ const DENSITY_LABEL: Record<Density, string> = {
 
 export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const { settings, update, replace, reset } = useSettings()
+  const [snipLang, setSnipLang] = useState('typescript')
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -263,10 +265,33 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               await loadKeybindings()
             }}
           />
-          <p className="muted small">
-            Kommandon:{' '}
-            {COMMANDS.map((c) => c.id).join(', ')}
-          </p>
+          <p className="muted small">Kommandon: {COMMANDS.map((c) => c.id).join(', ')}</p>
+
+          {/* Snippets per språk */}
+          <div className="field">
+            <label>Snippets (språk)</label>
+            <select
+              value={snipLang}
+              onChange={(e) => setSnipLang(e.target.value)}
+              style={{ width: '100%' }}
+            >
+              {SNIPPET_LANGS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+          <JsonConfigSection
+            key={snipLang}
+            file={`snippets/${snipLang}.json`}
+            title={`snippets/${snipLang}.json`}
+            fallback={defaultSnippetsJson()}
+            onSave={async (_obj, raw) => {
+              await window.api.config.write(`snippets/${snipLang}.json`, raw)
+              reloadSnippets()
+            }}
+          />
 
           <button className="btn full" onClick={reset}>
             Återställ till standard

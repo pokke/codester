@@ -18,6 +18,7 @@ import { useRepo } from './state/RepoContext'
 import { useSettings } from './settings/SettingsContext'
 import { configureTypeScript } from './editor/monaco'
 import { initLsp, setLspRoot } from './editor/lsp'
+import { registerSnippets } from './editor/snippets'
 import { loadKeybindings, matches } from './settings/keybindings'
 import './styles/app.css'
 
@@ -47,6 +48,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
     initLsp() // registrera LSP-providers en gång
+    registerSnippets() // registrera snippet-completion (snippets/<lang>.json)
     loadKeybindings() // läs keybindings.json (annars standard)
   }, [])
 
