@@ -23,6 +23,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # hämta all historik + taggar så vi kan jämföra versioner
+          fetch-tags: true
+
+      - name: Determine if this is the newest tag
+        id: guard
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          current="${GITHUB_REF_NAME}"
+          highest="$(git tag -l 'v*' | sort -V | tail -n1)"
+          echo "Denna tagg: $current — högsta taggen: $highest"
+          if [ "$current" = "$highest" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Hoppar över release: $current är inte den nyaste taggen ($highest finns)."
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -40,7 +58,7 @@ jobs:
         run: npm run build
 
       - name: Package installer (electron-builder)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && steps.guard.outputs.is_latest == 'true'
         shell: bash
         env:
           # Code signing (valfritt): lägg certifikatet som base64 i secrets.
@@ -60,7 +78,7 @@ jobs:
           npx electron-builder --win --publish never
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && steps.guard.outputs.is_latest == 'true'
         uses: softprops/action-gh-release@v2
         with:
           # Installer + manifest (latest.yml) + blockmap krävs för auto-update
