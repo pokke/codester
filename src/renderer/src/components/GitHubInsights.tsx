@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useToast } from '../ui/Toast'
+import { useRepo } from '../state/RepoContext'
 import type { RepoInsights } from '../../../shared/types'
 
 const LANG_COLORS: Record<string, string> = {
@@ -30,25 +31,35 @@ function langColor(name: string, i: number): string {
 
 export function GitHubInsights(): JSX.Element {
   const { notify } = useToast()
+  const { repo } = useRepo()
   const [data, setData] = useState<RepoInsights | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!repo) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     window.api.github.insights().then((r) => {
       if (r.ok) setData(r.data)
       else notify(r.error, 'error')
       setLoading(false)
     })
-  }, [])
+  }, [repo])
 
+  if (!repo)
+    return <div className="hint">Öppna ett repo för att se insikter för det.</div>
   if (loading) return <div className="hint">Hämtar…</div>
-  if (!data) return <div className="hint">Kunde inte hämta insikter</div>
+  if (!data) return <div className="hint">Kunde inte hämta insikter (ingen GitHub-remote?)</div>
 
   const total = data.languages.reduce((n, l) => n + l.bytes, 0) || 1
 
   return (
     <div className="insights">
+      <p className="muted small">
+        Insikter för aktivt repo: <strong>{repo.name}</strong>
+      </p>
       <section>
         <h3>Språk</h3>
         {data.languages.length === 0 ? (
