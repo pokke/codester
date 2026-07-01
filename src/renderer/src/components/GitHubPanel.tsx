@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { DeviceCodeInfo, GitHubRepo, GitHubUser, PullRequest } from '../../../shared/types'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
+import { Icon } from '../ui/Icon'
 
 export function GitHubPanel(): JSX.Element {
   const { cloneAndOpen, repo } = useRepo()
@@ -226,7 +227,9 @@ export function GitHubPanel(): JSX.Element {
           )}
           {filtered.map((r) => (
             <div key={r.fullName} className="row repo-row">
-              <span className="icon">{r.private ? '🔒' : '📦'}</span>
+              <span className="icon">
+                <Icon name={r.private ? 'lock' : 'repo'} size={14} />
+              </span>
               <div className="repo-main">
                 <div className="fname">{r.fullName}</div>
                 {r.description && <div className="path-dim">{r.description}</div>}

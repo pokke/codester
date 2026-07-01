@@ -12,6 +12,7 @@ import { useSettings } from '../settings/SettingsContext'
 import { getTheme } from '../themes/themes'
 import { useToast } from '../ui/Toast'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
+import { Icon } from '../ui/Icon'
 import { bindingFor, comboToMonaco } from '../settings/keybindings'
 
 type Mode = 'diff' | 'edit' | 'hunks'
@@ -219,7 +220,8 @@ export function EditorGroup({
     return (
       <main className={groupClass} onMouseDownCapture={onFocus}>
         <div className="empty-state">
-          <div style={{ fontSize: 40 }}>📄</div>
+          <Icon name="file" size={40} />
+
           <h2>Ingen fil öppen</h2>
           <p>Välj en fil i sidofältet – under "Ändringar" för diff, eller "Filer" för att bläddra.</p>
         </div>
@@ -435,7 +437,7 @@ export function EditorGroup({
               title="Fil-historik"
               onClick={() => setShowHistory(true)}
             >
-              🕘
+              <Icon name="clock" size={15} />
             </button>
           </>
         )}

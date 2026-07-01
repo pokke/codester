@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRepo } from '../state/RepoContext'
+import { Icon } from '../ui/Icon'
 
 export function WelcomeScreen(): JSX.Element {
   const { openDialog, cloneAndOpen, busy } = useRepo()
@@ -13,8 +14,13 @@ export function WelcomeScreen(): JSX.Element {
         <p className="muted">Koppla mot GitHub, överblicka branches och committa – enkelt.</p>
 
         <div className="welcome-actions">
-          <button className="btn primary" disabled={busy} onClick={() => openDialog()}>
-            📂 Öppna lokalt repo
+          <button
+            className="btn primary"
+            disabled={busy}
+            onClick={() => openDialog()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Icon name="folderOpen" size={15} /> Öppna lokalt repo
           </button>
         </div>
 

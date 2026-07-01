@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useProblems, type Problem } from '../editor/markers'
 import { monaco } from '../editor/monaco'
+import { Icon } from '../ui/Icon'
 
 function sevIcon(sev: number): { icon: string; cls: string } {
   if (sev === monaco.MarkerSeverity.Error) return { icon: '✖', cls: 'sev-error' }
@@ -38,7 +39,9 @@ export function ProblemsView({ onOpenFile }: { onOpenFile: () => void }): JSX.El
           {grouped.map(([path, list]) => (
             <div key={path} className="problem-group">
               <div className="problem-file">
-                <span className="icon">📄</span>
+                <span className="icon">
+                  <Icon name="file" size={14} />
+                </span>
                 {path} <span className="badge">{list.length}</span>
               </div>
               {list.map((p, i) => {

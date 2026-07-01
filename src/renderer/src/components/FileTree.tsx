@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
+import { Icon } from '../ui/Icon'
 import type { RepoStatus } from '../../../shared/types'
 
 interface TreeNode {
@@ -495,7 +496,9 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     if (row.kind === 'create') {
       return (
         <div className="row tree-row" style={style} key={`create-${index}`}>
-          <span className="icon">{creating?.type === 'folder' ? '📁' : '📄'}</span>
+          <span className="icon">
+            <Icon name={creating?.type === 'folder' ? 'folder' : 'file'} size={14} />
+          </span>
           {renderInput(
             creating?.type === 'folder' ? 'mappnamn' : 'filnamn.ext',
             submitCreate,
@@ -534,7 +537,9 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
           draggable
           onDragStart={() => (dragRef.current = { root, path: node.path })}
         >
-          <span className="icon">📄</span>
+          <span className="icon">
+            <Icon name="file" size={14} />
+          </span>
           <span className={`fname ${gs ? `git-${gs}` : ''}`}>{node.name}</span>
           {gs && <span className={`git-badge git-${gs}`}>{badgeLetter[gs]}</span>}
         </div>

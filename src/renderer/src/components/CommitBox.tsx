@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRepo } from '../state/RepoContext'
+import { Icon } from '../ui/Icon'
 
 // Källkontrollens commit-ruta. Bor i vänstra sidofältet (Ändringar-fliken),
 // som i VS Code – så höger-panelen inte behövs.
@@ -58,7 +59,7 @@ export function CommitBox(): JSX.Element {
           Amend
         </label>
         <button className="btn ghost icon" title="Föreslå meddelande" onClick={suggest}>
-          ✨
+          <Icon name="sparkle" size={15} />
         </button>
       </div>
       <button

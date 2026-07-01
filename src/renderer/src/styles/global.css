@@ -85,6 +85,12 @@ button:disabled,
   animation: spin 0.8s linear infinite;
 }
 
+/* Inline-SVG-ikoner (ärver textfärg) */
+.icon-svg {
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 input,
 select,
 textarea {

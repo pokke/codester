@@ -6,6 +6,7 @@ import { FileTree } from './FileTree'
 import { TimelineView } from './TimelineView'
 import { MultiRepoChanges } from './MultiRepoChanges'
 import { CommitBox } from './CommitBox'
+import { Icon } from '../ui/Icon'
 import type { FileChange, SearchHit } from '../../../shared/types'
 
 function statusClass(status: string): string {
@@ -418,7 +419,9 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                 </div>
                 {stashes.map((s) => (
                   <div key={s.index} className="row stash-row" title={s.message}>
-                    <span className="icon">📦</span>
+                    <span className="icon">
+                      <Icon name="package" size={14} />
+                    </span>
                     <span className="fname">{s.message}</span>
                     <span className="row-actions">
                       <button

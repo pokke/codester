@@ -28,7 +28,7 @@ const DENSITY_LABEL: Record<Density, string> = {
 
 type Section = 'appearance' | 'editor' | 'keybindings' | 'snippets' | 'langservers' | 'advanced'
 const NAV: { id: Section; label: string; icon: string }[] = [
-  { id: 'appearance', label: 'Utseende', icon: '🎨' },
+  { id: 'appearance', label: 'Utseende', icon: '◑' },
   { id: 'editor', label: 'Editor', icon: '✎' },
   { id: 'keybindings', label: 'Kortkommandon', icon: '⌨' },
   { id: 'snippets', label: 'Snippets', icon: '❯' },
