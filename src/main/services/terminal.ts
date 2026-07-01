@@ -2,9 +2,10 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { homedir } from 'os'
 import type { WebContents } from 'electron'
 
-// Terminal-backend. Föredrar en riktig PTY (@lydell/node-pty, förbyggd ConPTY)
-// → färger, markör, riktig prompt och interaktiva program. Misslyckas den
-// native-laddningen faller vi tillbaka till ett pipe-baserat PowerShell-skal.
+// Flera terminaler samtidigt: varje terminal är en egen session (pty eller
+// pipe-fallback) nycklad på ett id. Utdata taggas med id:t så renderern kan
+// rikta den till rätt xterm. Föredrar riktig PTY (@lydell/node-pty), annars
+// pipe-baserat PowerShell-skal.
 
 type PtyModule = typeof import('@lydell/node-pty')
 type IPty = import('@lydell/node-pty').IPty
@@ -17,76 +18,90 @@ try {
   ptyLib = null
 }
 
-let ptyProc: IPty | null = null
-let pipeProc: ChildProcessWithoutNullStreams | null = null
+interface Session {
+  pty: IPty | null
+  pipe: ChildProcessWithoutNullStreams | null
+}
 
-export function startTerminal(sender: WebContents, cwd: string | null): void {
-  killTerminal()
+const sessions = new Map<string, Session>()
+
+function spawnSession(id: string, sender: WebContents, cwd: string | null): void {
   const dir = cwd ?? homedir()
-  const send = (channel: string, ...args: unknown[]): void => {
-    if (!sender.isDestroyed()) sender.send(channel, ...args)
+  const send = (channel: string, payload: unknown): void => {
+    if (!sender.isDestroyed()) sender.send(channel, payload)
   }
 
   if (ptyLib) {
     try {
-      ptyProc = ptyLib.spawn('powershell.exe', [], {
+      const pty = ptyLib.spawn('powershell.exe', [], {
         name: 'xterm-256color',
         cols: 80,
         rows: 24,
         cwd: dir,
         env: process.env as Record<string, string>
       })
-      ptyProc.onData((d) => send('terminal:data', d))
-      ptyProc.onExit(() => send('terminal:data', '\r\n[skalet avslutades]\r\n'))
-      send('terminal:mode', 'pty')
+      pty.onData((d) => send('terminal:data', { id, text: d }))
+      pty.onExit(() => send('terminal:data', { id, text: '\r\n[skalet avslutades]\r\n' }))
+      sessions.set(id, { pty, pipe: null })
+      send('terminal:mode', { id, mode: 'pty' })
       return
     } catch {
-      ptyProc = null
+      /* faller igenom till pipe */
     }
   }
 
-  // Fallback: pipe-baserat skal (radvis, ingen full interaktivitet)
-  pipeProc = spawn('powershell.exe', ['-NoLogo', '-NoExit', '-Command', '-'], {
+  const pipe = spawn('powershell.exe', ['-NoLogo', '-NoExit', '-Command', '-'], {
     cwd: dir,
     windowsHide: true
   })
-  pipeProc.stdout.on('data', (d: Buffer) => send('terminal:data', d.toString()))
-  pipeProc.stderr.on('data', (d: Buffer) => send('terminal:data', d.toString()))
-  pipeProc.on('exit', (code) => send('terminal:data', `\r\n[skalet avslutades med kod ${code ?? 0}]\r\n`))
-  send('terminal:mode', 'pipe')
-  send('terminal:data', `Codester-terminal · ${dir}\r\n`)
+  pipe.stdout.on('data', (d: Buffer) => send('terminal:data', { id, text: d.toString() }))
+  pipe.stderr.on('data', (d: Buffer) => send('terminal:data', { id, text: d.toString() }))
+  pipe.on('exit', (code) =>
+    send('terminal:data', { id, text: `\r\n[skalet avslutades med kod ${code ?? 0}]\r\n` })
+  )
+  sessions.set(id, { pty: null, pipe })
+  send('terminal:mode', { id, mode: 'pipe' })
+  send('terminal:data', { id, text: `Codester-terminal · ${dir}\r\n` })
 }
 
-export function ensureStarted(sender: WebContents, cwd: string | null): void {
-  if (!ptyProc && !pipeProc) startTerminal(sender, cwd)
+export function ensureTerminal(id: string, sender: WebContents, cwd: string | null): void {
+  if (!sessions.has(id)) spawnSession(id, sender, cwd)
 }
 
-export function writeTerminal(data: string): void {
-  if (ptyProc) ptyProc.write(data)
-  else pipeProc?.stdin.write(data)
+export function startTerminal(id: string, sender: WebContents, cwd: string | null): void {
+  killTerminal(id)
+  spawnSession(id, sender, cwd)
 }
 
-export function resizeTerminal(cols: number, rows: number): void {
-  if (ptyProc && cols > 0 && rows > 0) {
+export function writeTerminal(id: string, data: string): void {
+  const s = sessions.get(id)
+  if (s?.pty) s.pty.write(data)
+  else s?.pipe?.stdin.write(data)
+}
+
+export function resizeTerminal(id: string, cols: number, rows: number): void {
+  const s = sessions.get(id)
+  if (s?.pty && cols > 0 && rows > 0) {
     try {
-      ptyProc.resize(cols, rows)
+      s.pty.resize(cols, rows)
     } catch {
       /* ignorera */
     }
   }
 }
 
-export function killTerminal(): void {
-  if (ptyProc) {
-    try {
-      ptyProc.kill()
-    } catch {
-      /* ignorera */
-    }
-    ptyProc = null
+export function killTerminal(id: string): void {
+  const s = sessions.get(id)
+  if (!s) return
+  try {
+    s.pty?.kill()
+  } catch {
+    /* ignorera */
   }
-  if (pipeProc) {
-    pipeProc.kill()
-    pipeProc = null
-  }
+  s.pipe?.kill()
+  sessions.delete(id)
+}
+
+export function killAllTerminals(): void {
+  for (const id of [...sessions.keys()]) killTerminal(id)
 }

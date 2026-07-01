@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'fs'
 import { registerIpc } from './ipc'
 import { initUpdater, quitAndInstall, checkNow } from './services/updater'
 import { killAll as killLsp } from './services/lsp'
+import { killAllTerminals } from './services/terminal'
 
 // Fönstertillstånd (storlek/position/maximerat) sparas mellan körningar.
 interface WinState {
@@ -125,7 +126,10 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('will-quit', () => killLsp())
+app.on('will-quit', () => {
+  killLsp()
+  killAllTerminals()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

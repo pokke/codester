@@ -78,19 +78,19 @@ const api = {
   },
 
   terminal: {
-    start: (): void => ipcRenderer.send('terminal:start'),
-    ensure: (): void => ipcRenderer.send('terminal:ensure'),
-    input: (data: string): void => ipcRenderer.send('terminal:input', data),
-    resize: (cols: number, rows: number): void =>
-      ipcRenderer.send('terminal:resize', cols, rows),
-    kill: (): void => ipcRenderer.send('terminal:kill'),
-    onData: (cb: (data: string) => void): (() => void) => {
-      const listener = (_e: unknown, data: string): void => cb(data)
+    start: (id: string): void => ipcRenderer.send('terminal:start', id),
+    ensure: (id: string): void => ipcRenderer.send('terminal:ensure', id),
+    input: (id: string, data: string): void => ipcRenderer.send('terminal:input', id, data),
+    resize: (id: string, cols: number, rows: number): void =>
+      ipcRenderer.send('terminal:resize', id, cols, rows),
+    kill: (id: string): void => ipcRenderer.send('terminal:kill', id),
+    onData: (cb: (d: { id: string; text: string }) => void): (() => void) => {
+      const listener = (_e: unknown, d: { id: string; text: string }): void => cb(d)
       ipcRenderer.on('terminal:data', listener)
       return () => ipcRenderer.removeListener('terminal:data', listener)
     },
-    onMode: (cb: (mode: string) => void): (() => void) => {
-      const listener = (_e: unknown, mode: string): void => cb(mode)
+    onMode: (cb: (d: { id: string; mode: string }) => void): (() => void) => {
+      const listener = (_e: unknown, d: { id: string; mode: string }): void => cb(d)
       ipcRenderer.on('terminal:mode', listener)
       return () => ipcRenderer.removeListener('terminal:mode', listener)
     }

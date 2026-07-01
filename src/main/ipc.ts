@@ -126,13 +126,13 @@ export function registerIpc(): void {
   ipcMain.handle('langserver:install', (e, id: string) => langservers.install(id, e.sender))
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
-  ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))
-  ipcMain.on('terminal:ensure', (e) => terminal.ensureStarted(e.sender, git.getRepoPath()))
-  ipcMain.on('terminal:input', (_e, data: string) => terminal.writeTerminal(data))
-  ipcMain.on('terminal:resize', (_e, cols: number, rows: number) =>
-    terminal.resizeTerminal(cols, rows)
+  ipcMain.on('terminal:start', (e, id: string) => terminal.startTerminal(id, e.sender, git.getRepoPath()))
+  ipcMain.on('terminal:ensure', (e, id: string) => terminal.ensureTerminal(id, e.sender, git.getRepoPath()))
+  ipcMain.on('terminal:input', (_e, id: string, data: string) => terminal.writeTerminal(id, data))
+  ipcMain.on('terminal:resize', (_e, id: string, cols: number, rows: number) =>
+    terminal.resizeTerminal(id, cols, rows)
   )
-  ipcMain.on('terminal:kill', () => terminal.killTerminal())
+  ipcMain.on('terminal:kill', (_e, id: string) => terminal.killTerminal(id))
 
   // --- GitHub ---
   handle('github:hasToken', () => github.hasToken())
