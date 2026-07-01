@@ -705,6 +705,8 @@ code {
 /* ── Filträd ── */
 .file-tree {
   font-size: 13px;
+  height: 100%;
+  overflow: auto;
 }
 .tree-row {
   gap: 4px;

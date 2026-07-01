@@ -38,6 +38,10 @@ function sortedChildren(node: TreeNode): TreeNode[] {
 
 type Creating = { parent: string; type: 'file' | 'folder' } | null
 type Clipboard = { paths: string[]; op: 'cut' | 'copy' } | null
+type Row = { kind: 'node'; node: TreeNode; depth: number } | { kind: 'create'; depth: number }
+
+const ROW_H = 24 // fast radhöjd för virtualiseringen
+const OVERSCAN = 6
 
 export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
   const { files, activePath, selectPath, previewFile, refresh, status } = useRepo()
@@ -53,21 +57,33 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const anchorRef = useRef<string | null>(null)
   const dragRef = useRef<string | null>(null)
 
-  const tree = useMemo(() => buildTree(files), [files])
-  const fileSet = useMemo(() => new Set(files), [files])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportH, setViewportH] = useState(600)
 
-  // Synliga rader i visningsordning (för Shift-intervallval)
-  const visiblePaths = useMemo(() => {
-    const out: string[] = []
-    const walk = (node: TreeNode): void => {
+  const tree = useMemo(() => buildTree(files), [files])
+
+  // Platt lista av synliga rader (respekterar expanderade mappar) för virtualisering
+  const rows = useMemo(() => {
+    const out: Row[] = []
+    if (creating?.parent === '') out.push({ kind: 'create', depth: 0 })
+    const walk = (node: TreeNode, depth: number): void => {
       for (const c of sortedChildren(node)) {
-        out.push(c.path)
-        if (!c.isFile && expanded.has(c.path)) walk(c)
+        out.push({ kind: 'node', node: c, depth })
+        if (!c.isFile && expanded.has(c.path)) {
+          if (creating?.parent === c.path) out.push({ kind: 'create', depth: depth + 1 })
+          walk(c, depth + 1)
+        }
       }
     }
-    walk(tree)
+    walk(tree, 0)
     return out
-  }, [tree, expanded])
+  }, [tree, expanded, creating])
+
+  const visiblePaths = useMemo(
+    () => rows.filter((r): r is { kind: 'node'; node: TreeNode; depth: number } => r.kind === 'node').map((r) => r.node.path),
+    [rows]
+  )
 
   useEffect(() => {
     if (!activePath) return
@@ -79,6 +95,15 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       return next
     })
   }, [activePath])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setViewportH(el.clientHeight)
+    const ro = new ResizeObserver(() => setViewportH(el.clientHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const { statusByPath, dirtyDirs } = useMemo(() => {
     const map = new Map<string, 'added' | 'modified' | 'deleted'>()
@@ -109,8 +134,6 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       return next
     })
 
-  // Hantera markering vid klick. Returnerar true om klicket konsumerades
-  // (modifierare) så att anroparen inte ska öppna/fälla ut.
   const handleSelectClick = (path: string, e: React.MouseEvent): boolean => {
     if (e.ctrlKey || e.metaKey) {
       setSelected((prev) => {
@@ -140,7 +163,6 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     setCreating({ parent, type })
     setDraft('')
   }
-
   const submitCreate = async (): Promise<void> => {
     if (!creating || !draft.trim()) {
       setCreating(null)
@@ -158,11 +180,8 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
         selectPath(rel)
         onOpenEditor()
       }
-    } else {
-      notify(res.error, 'error')
-    }
+    } else notify(res.error, 'error')
   }
-
   const submitRename = async (oldPath: string): Promise<void> => {
     const name = draft.trim()
     setRenaming(null)
@@ -173,17 +192,14 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     if (res.ok) await refresh()
     else notify(res.error, 'error')
   }
-
   const startRename = (path: string, name: string): void => {
     setRenaming(path)
     setDraft(name)
   }
-
   const delMany = async (paths: string[]): Promise<void> => {
     if (paths.length === 0) return
     const ok = await confirm({
-      message:
-        paths.length === 1 ? `Radera ${paths[0]}?` : `Radera ${paths.length} objekt?`,
+      message: paths.length === 1 ? `Radera ${paths[0]}?` : `Radera ${paths.length} objekt?`,
       confirmLabel: 'Radera',
       danger: true
     })
@@ -195,7 +211,6 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     setSelected(new Set())
     await refresh()
   }
-
   const moveInto = async (src: string, destFolder: string): Promise<void> => {
     const name = src.split('/').pop()!
     const dest = destFolder ? `${destFolder}/${name}` : name
@@ -208,7 +223,6 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     if (res.ok) await refresh()
     else notify(res.error, 'error')
   }
-
   const pasteInto = async (destFolder: string): Promise<void> => {
     if (!clipboard) return
     for (const src of clipboard.paths) {
@@ -225,13 +239,11 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     await refresh()
   }
 
-  // Vid högerklick: agera på markeringen om objektet ingår i den, annars enbart objektet
   const targetsFor = (path: string): string[] => {
     if (selected.has(path) && selected.size > 1) return [...selected]
     setSelected(new Set([path]))
     return [path]
   }
-
   const openMenu = (e: React.MouseEvent, items: MenuState['items']): void => {
     e.preventDefault()
     e.stopPropagation()
@@ -271,7 +283,6 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       ...(clipboard ? [{ separator: true }, { label: 'Klistra in', onClick: () => pasteInto('') }] : [])
     ])
 
-  // Tangentbord på trädet: Delete, Ctrl+X/C/V
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (selected.size === 0 && e.key !== 'v') return
     if (e.key === 'Delete') {
@@ -282,24 +293,50 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
       setClipboard({ paths: [...selected], op: 'copy' })
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-      // Klistra in i markerad mapp, annars i den markerade filens mapp
       const sel = [...selected]
       let dest = ''
       if (sel.length >= 1) {
         const p = sel[0]
-        dest = fileSet.has(p) ? p.split('/').slice(0, -1).join('/') : p
+        dest = files.includes(p) ? p.split('/').slice(0, -1).join('/') : p
       }
       pasteInto(dest)
     }
   }
 
-  const renderNode = (node: TreeNode, depth: number): JSX.Element => {
-    const pad = { paddingLeft: 8 + depth * 12 }
-    const isSel = selected.has(node.path)
+  const renderRow = (row: Row, index: number): JSX.Element => {
+    const style: React.CSSProperties = {
+      position: 'absolute',
+      top: index * ROW_H,
+      left: 0,
+      right: 0,
+      height: ROW_H,
+      paddingLeft: 8 + row.depth * 12
+    }
 
+    if (row.kind === 'create') {
+      return (
+        <div className="row tree-row" style={style} key={`create-${index}`}>
+          <span className="icon">{creating?.type === 'folder' ? '📁' : '📄'}</span>
+          <input
+            autoFocus
+            placeholder={creating?.type === 'folder' ? 'mappnamn' : 'filnamn.ext'}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={submitCreate}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitCreate()
+              if (e.key === 'Escape') setCreating(null)
+            }}
+            style={{ width: '100%' }}
+          />
+        </div>
+      )
+    }
+
+    const node = row.node
     if (renaming === node.path) {
       return (
-        <div className="row tree-row" style={pad} key={node.path}>
+        <div className="row tree-row" style={style} key={node.path}>
           <input
             autoFocus
             value={draft}
@@ -315,15 +352,14 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       )
     }
 
+    const isSel = selected.has(node.path)
     if (node.isFile) {
       const gs = statusByPath.get(node.path)
       return (
         <div
           key={node.path}
-          className={`row tree-row file-row ${activePath === node.path ? 'active' : ''} ${
-            isSel ? 'selected' : ''
-          }`}
-          style={pad}
+          className={`row tree-row file-row ${activePath === node.path ? 'active' : ''} ${isSel ? 'selected' : ''}`}
+          style={style}
           title={node.path}
           onClick={(e) => {
             if (!handleSelectClick(node.path, e)) {
@@ -348,65 +384,45 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
 
     const isOpen = expanded.has(node.path)
     return (
-      <div key={node.path}>
-        <div
-          className={`row tree-row ${isSel ? 'selected' : ''}`}
-          style={pad}
-          onClick={(e) => {
-            if (!handleSelectClick(node.path, e)) toggle(node.path)
-          }}
-          onContextMenu={folderMenu(node)}
-          draggable
-          onDragStart={(e) => {
-            e.stopPropagation()
-            dragRef.current = node.path
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            if (dragRef.current) moveInto(dragRef.current, node.path)
-            dragRef.current = null
-          }}
-        >
-          <span className="icon">{isOpen ? '▾' : '▸'}</span>
-          <span className={`fname ${dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>
-            {node.name}
-          </span>
-          {dirtyDirs.has(node.path) && <span className="git-dot" />}
-        </div>
-        {isOpen && (
-          <>
-            {creating?.parent === node.path && createInput(depth + 1)}
-            {sortedChildren(node).map((c) => renderNode(c, depth + 1))}
-          </>
-        )}
+      <div
+        key={node.path}
+        className={`row tree-row ${isSel ? 'selected' : ''}`}
+        style={style}
+        onClick={(e) => {
+          if (!handleSelectClick(node.path, e)) toggle(node.path)
+        }}
+        onContextMenu={folderMenu(node)}
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation()
+          dragRef.current = node.path
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (dragRef.current) moveInto(dragRef.current, node.path)
+          dragRef.current = null
+        }}
+      >
+        <span className="icon">{isOpen ? '▾' : '▸'}</span>
+        <span className={`fname ${dirtyDirs.has(node.path) ? 'dirty-folder' : ''}`}>{node.name}</span>
+        {dirtyDirs.has(node.path) && <span className="git-dot" />}
       </div>
     )
   }
 
-  const createInput = (depth: number): JSX.Element => (
-    <div className="row tree-row" style={{ paddingLeft: 8 + depth * 12 }}>
-      <span className="icon">{creating?.type === 'folder' ? '📁' : '📄'}</span>
-      <input
-        autoFocus
-        placeholder={creating?.type === 'folder' ? 'mappnamn' : 'filnamn.ext'}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={submitCreate}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submitCreate()
-          if (e.key === 'Escape') setCreating(null)
-        }}
-        style={{ width: '100%' }}
-      />
-    </div>
-  )
+  const start = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN)
+  const end = Math.min(rows.length, Math.ceil((scrollTop + viewportH) / ROW_H) + OVERSCAN)
+  const slice: JSX.Element[] = []
+  for (let i = start; i < end; i++) slice.push(renderRow(rows[i], i))
 
   return (
     <div
       className="file-tree"
       tabIndex={0}
+      ref={scrollRef}
+      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       onKeyDown={onKeyDown}
       onContextMenu={rootMenu}
       onDragOver={(e) => e.preventDefault()}
@@ -415,9 +431,11 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
         dragRef.current = null
       }}
     >
-      {creating?.parent === '' && createInput(0)}
-      {files.length === 0 && !creating && <div className="hint">Högerklicka för att skapa filer</div>}
-      {sortedChildren(tree).map((c) => renderNode(c, 0))}
+      {files.length === 0 && !creating ? (
+        <div className="hint">Högerklicka för att skapa filer</div>
+      ) : (
+        <div style={{ height: rows.length * ROW_H, position: 'relative' }}>{slice}</div>
+      )}
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </div>
   )
