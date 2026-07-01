@@ -17,6 +17,7 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { useRepo } from './state/RepoContext'
 import { useSettings } from './settings/SettingsContext'
 import { configureTypeScript } from './editor/monaco'
+import { initLsp, setLspRoot } from './editor/lsp'
 import './styles/app.css'
 
 export function App(): JSX.Element {
@@ -34,6 +35,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
+    initLsp() // registrera LSP-providers en gång
   }, [])
 
   // Spåra senast använda flikar (för Ctrl+Tab)
@@ -48,6 +50,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!repo || tsConfiguredRef.current === repo.path) return
     tsConfiguredRef.current = repo.path
+    setLspRoot(repo.path)
     window.api.lang.tsProject().then((r) => {
       if (r.ok && r.data) configureTypeScript(r.data)
     })

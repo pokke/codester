@@ -6,6 +6,7 @@ import * as terminal from './services/terminal'
 import * as watcher from './services/watcher'
 import * as files from './services/files'
 import * as lang from './services/lang'
+import * as lsp from './services/lsp'
 
 function watchRepo(path: string): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -100,6 +101,19 @@ export function registerIpc(): void {
 
   // --- Språkintelligens ---
   handle('lang:tsProject', () => lang.tsProject())
+
+  // --- LSP (språkservrar) ---
+  ipcMain.handle('lsp:ensure', (e, langId: string) => lsp.ensure(langId, e.sender))
+  ipcMain.handle('lsp:request', (_e, langId: string, method: string, params: unknown) =>
+    lsp.request(langId, method, params)
+  )
+  ipcMain.on('lsp:didOpen', (_e, langId: string, uri: string, text: string) =>
+    lsp.didOpen(langId, uri, text)
+  )
+  ipcMain.on('lsp:didChange', (_e, langId: string, uri: string, text: string, version: number) =>
+    lsp.didChange(langId, uri, text, version)
+  )
+  ipcMain.on('lsp:didClose', (_e, langId: string, uri: string) => lsp.didClose(langId, uri))
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
   ipcMain.on('terminal:start', (e) => terminal.startTerminal(e.sender, git.getRepoPath()))

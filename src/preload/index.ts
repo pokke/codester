@@ -102,6 +102,23 @@ const api = {
     tsProject: () => invoke<TsProject | null>('lang:tsProject')
   },
 
+  lsp: {
+    ensure: (langId: string): Promise<boolean> => ipcRenderer.invoke('lsp:ensure', langId),
+    request: (langId: string, method: string, params: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('lsp:request', langId, method, params),
+    didOpen: (langId: string, uri: string, text: string): void =>
+      ipcRenderer.send('lsp:didOpen', langId, uri, text),
+    didChange: (langId: string, uri: string, text: string, version: number): void =>
+      ipcRenderer.send('lsp:didChange', langId, uri, text, version),
+    didClose: (langId: string, uri: string): void =>
+      ipcRenderer.send('lsp:didClose', langId, uri),
+    onDiagnostics: (cb: (d: { uri: string; diagnostics: unknown[] }) => void): (() => void) => {
+      const listener = (_e: unknown, d: { uri: string; diagnostics: unknown[] }): void => cb(d)
+      ipcRenderer.on('lsp:diagnostics', listener)
+      return () => ipcRenderer.removeListener('lsp:diagnostics', listener)
+    }
+  },
+
   onRepoChanged: (cb: () => void): (() => void) => {
     const listener = (): void => cb()
     ipcRenderer.on('repo:changed', listener)
