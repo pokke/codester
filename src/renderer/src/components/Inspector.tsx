@@ -4,13 +4,25 @@ import { useRepo } from '../state/RepoContext'
 export function Inspector(): JSX.Element {
   const { status, commit, push, pull, fetch, busy } = useRepo()
   const [message, setMessage] = useState('')
+  const [amend, setAmend] = useState(false)
 
   const files = status?.files ?? []
   const stagedCount = files.filter((f) => f.staged).length
 
+  const toggleAmend = async (on: boolean): Promise<void> => {
+    setAmend(on)
+    if (on && !message.trim()) {
+      const r = await window.api.git.lastCommitMessage()
+      if (r.ok) setMessage(r.data)
+    }
+  }
+
   const doCommit = async (): Promise<void> => {
-    const ok = await commit(message)
-    if (ok) setMessage('')
+    const ok = await commit(message, amend)
+    if (ok) {
+      setMessage('')
+      setAmend(false)
+    }
   }
 
   // Enkel "AI-liknande" förslagsgenerator utifrån stagade filer (Fas 3).
@@ -53,12 +65,20 @@ export function Inspector(): JSX.Element {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doCommit()
           }}
         />
+        <label className="checkbox-row" style={{ fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={amend}
+            onChange={(e) => toggleAmend(e.target.checked)}
+          />
+          Ändra senaste commit (amend)
+        </label>
         <button
           className="btn primary full"
-          disabled={!message.trim() || stagedCount === 0 || busy}
+          disabled={!message.trim() || (stagedCount === 0 && !amend) || busy}
           onClick={doCommit}
         >
-          Committa {stagedCount > 0 ? `(${stagedCount})` : ''}
+          {amend ? 'Ändra commit' : `Committa ${stagedCount > 0 ? `(${stagedCount})` : ''}`}
         </button>
         <div style={{ display: 'flex', gap: 'var(--space)' }}>
           <button className="btn full" disabled={busy} onClick={() => pull()}>

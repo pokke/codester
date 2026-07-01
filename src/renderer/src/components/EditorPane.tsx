@@ -5,13 +5,14 @@ import type { BlameLine } from '../../../shared/types'
 import { defineMonacoTheme, languageForPath } from '../editor/monaco'
 import { canFormat, formatCode } from '../editor/format'
 import { ConflictResolver } from './ConflictResolver'
+import { HunkView } from './HunkView'
 import { useRepo } from '../state/RepoContext'
 import { useSettings } from '../settings/SettingsContext'
 import { getTheme } from '../themes/themes'
 import { useToast } from '../ui/Toast'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
 
-type Mode = 'diff' | 'edit'
+type Mode = 'diff' | 'edit' | 'hunks'
 
 export function EditorPane(): JSX.Element {
   const {
@@ -385,6 +386,9 @@ export function EditorPane(): JSX.Element {
                 <button className={mode === 'diff' ? 'active' : ''} onClick={() => setMode('diff')}>
                   Diff
                 </button>
+                <button className={mode === 'hunks' ? 'active' : ''} onClick={() => setMode('hunks')}>
+                  Hunkar
+                </button>
                 <button className={mode === 'edit' ? 'active' : ''} onClick={() => setMode('edit')}>
                   Redigera
                 </button>
@@ -401,6 +405,10 @@ export function EditorPane(): JSX.Element {
         <ConflictResolver path={activePath} onResolved={refresh} />
       ) : loading ? (
         <div className="empty-state">Laddar…</div>
+      ) : canDiff && mode === 'hunks' ? (
+        <div className="hunkview-wrap">
+          <HunkView file={activePath} />
+        </div>
       ) : canDiff && mode === 'diff' ? (
         <DiffEditor
           height="100%"

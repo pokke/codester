@@ -1,6 +1,7 @@
 import { simpleGit, type SimpleGit } from 'simple-git'
 import { basename, join } from 'path'
-import { readFile, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { readFile, writeFile, unlink } from 'fs/promises'
 import type {
   BranchInfo,
   BlameLine,
@@ -126,9 +127,70 @@ export async function discard(file: string): Promise<void> {
   await requireGit().checkout(['--', file])
 }
 
-export async function commit(message: string): Promise<string> {
-  const res = await requireGit().commit(message)
+export async function commit(message: string, amend = false): Promise<string> {
+  const res = await requireGit().commit(message, [], amend ? { '--amend': null } : {})
   return res.commit
+}
+
+export async function lastCommitMessage(): Promise<string> {
+  try {
+    return (await requireGit().raw(['log', '-1', '--format=%B'])).trim()
+  } catch {
+    return ''
+  }
+}
+
+// ── Hunk-nivå staging ─────────────────────────────────────────────────
+// Delar upp en fils diff i hunkar och applicerar en enskild hunk mot index
+// (stage/unstage) eller arbetsträdet (discard) via `git apply`.
+
+function splitDiff(patch: string): { header: string; hunks: string[] } {
+  const lines = patch.split('\n')
+  const header: string[] = []
+  let i = 0
+  while (i < lines.length && !lines[i].startsWith('@@')) header.push(lines[i++])
+  const hunks: string[] = []
+  let cur: string[] | null = null
+  for (; i < lines.length; i++) {
+    if (lines[i].startsWith('@@')) {
+      if (cur) hunks.push(cur.join('\n'))
+      cur = [lines[i]]
+    } else if (cur) {
+      cur.push(lines[i])
+    }
+  }
+  if (cur) hunks.push(cur.join('\n'))
+  return { header: header.join('\n'), hunks }
+}
+
+async function applyHunk(
+  file: string,
+  index: number,
+  staged: boolean,
+  flags: string[]
+): Promise<void> {
+  const g = requireGit()
+  const patch = await diff(file, staged)
+  const { header, hunks } = splitDiff(patch.patch)
+  if (index < 0 || index >= hunks.length) throw new Error('Hunk saknas')
+  const content = `${header}\n${hunks[index]}\n`
+  const tmp = join(tmpdir(), `codester-hunk-${Date.now()}.patch`)
+  await writeFile(tmp, content, 'utf-8')
+  try {
+    await g.raw(['apply', ...flags, tmp])
+  } finally {
+    await unlink(tmp).catch(() => {})
+  }
+}
+
+export async function stageHunk(file: string, index: number): Promise<void> {
+  await applyHunk(file, index, false, ['--cached'])
+}
+export async function unstageHunk(file: string, index: number): Promise<void> {
+  await applyHunk(file, index, true, ['--cached', '--reverse'])
+}
+export async function discardHunk(file: string, index: number): Promise<void> {
+  await applyHunk(file, index, false, ['--reverse'])
 }
 
 export async function push(): Promise<void> {

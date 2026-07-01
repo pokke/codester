@@ -1365,3 +1365,58 @@ code {
 .statusbar .clickable:hover {
   filter: brightness(1.2);
 }
+
+/* ── Hunk-vy (radnivå-staging) ── */
+.hunkview-wrap {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.hunkview {
+  padding: var(--space) calc(var(--space) * 1.5);
+}
+.hunk-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.hunk {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: var(--space);
+  overflow: hidden;
+}
+.hunk-actions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+.hunk-actions .btn {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.hunk-body {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+  line-height: 1.45;
+  overflow-x: auto;
+}
+.hl {
+  padding: 0 8px;
+  white-space: pre;
+}
+.hl-head {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.hl-add {
+  background: color-mix(in srgb, var(--added) 16%, transparent);
+}
+.hl-del {
+  background: color-mix(in srgb, var(--removed) 16%, transparent);
+}

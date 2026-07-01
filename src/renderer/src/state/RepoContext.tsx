@@ -64,11 +64,14 @@ interface RepoContextValue extends RepoState {
   unstage: (file: string) => Promise<void>
   stageAll: () => Promise<void>
   discard: (file: string) => Promise<void>
+  stageHunk: (file: string, index: number) => Promise<void>
+  unstageHunk: (file: string, index: number) => Promise<void>
+  discardHunk: (file: string, index: number) => Promise<void>
   resolveSide: (file: string, side: 'ours' | 'theirs') => Promise<void>
   stashSave: (message?: string) => Promise<void>
   stashApply: (index: number, pop: boolean) => Promise<void>
   stashDrop: (index: number) => Promise<void>
-  commit: (message: string) => Promise<boolean>
+  commit: (message: string, amend?: boolean) => Promise<boolean>
   push: () => Promise<void>
   pull: () => Promise<void>
   fetch: () => Promise<void>
@@ -364,16 +367,38 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
   )
 
   const commit = useCallback(
-    async (message: string): Promise<boolean> => {
-      const hash = await unwrap(window.api.git.commit(message), 'Commit')
+    async (message: string, amend = false): Promise<boolean> => {
+      const hash = await unwrap(window.api.git.commit(message, amend), 'Commit')
       if (hash) {
         await loadRepoData()
-        notify(`Committade ${hash.slice(0, 7)}`, 'success')
+        notify(amend ? 'Ändrade senaste commit' : `Committade ${hash.slice(0, 7)}`, 'success')
         return true
       }
       return false
     },
     [unwrap, loadRepoData, notify]
+  )
+
+  const stageHunk = useCallback(
+    async (file: string, index: number) => {
+      await unwrap(window.api.git.stageHunk(file, index), 'Stage hunk')
+      await refresh()
+    },
+    [unwrap, refresh]
+  )
+  const unstageHunk = useCallback(
+    async (file: string, index: number) => {
+      await unwrap(window.api.git.unstageHunk(file, index), 'Unstage hunk')
+      await refresh()
+    },
+    [unwrap, refresh]
+  )
+  const discardHunk = useCallback(
+    async (file: string, index: number) => {
+      await unwrap(window.api.git.discardHunk(file, index), 'Kasta hunk')
+      await refresh()
+    },
+    [unwrap, refresh]
   )
 
   const push = useCallback(async () => {
@@ -416,6 +441,9 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         unstage,
         stageAll,
         discard,
+        stageHunk,
+        unstageHunk,
+        discardHunk,
         resolveSide,
         stashSave,
         stashApply,
