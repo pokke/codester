@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 export function AboutModal({
   version,
   onClose
@@ -5,6 +7,14 @@ export function AboutModal({
   version: string
   onClose: () => void
 }): JSX.Element {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal about" onClick={(e) => e.stopPropagation()}>

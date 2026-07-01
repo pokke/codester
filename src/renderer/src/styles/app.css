@@ -250,6 +250,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Mjuka övergångar på interaktiva ytor för en jämnare känsla */
+.row,
+.tab,
+.act,
+.sidebar-tabs button,
+.seg-toggle button,
+.term-tab,
+.panel-tabs button,
+.settings-nav button,
+.statusbar .clickable,
+.kb-chip {
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
 .row:hover {
   background: color-mix(in srgb, var(--text) 8%, transparent);
 }
@@ -1418,10 +1434,6 @@ code {
 }
 
 /* Dölj badge/dot när radens hover-åtgärder visas */
-.tree-row:hover .git-badge,
-.tree-row:hover .git-dot {
-  display: none;
-}
 
 /* Säkerställ röd prick för borttaget (konflikter/stash) */
 .dot.removed { background: var(--git-deleted); }

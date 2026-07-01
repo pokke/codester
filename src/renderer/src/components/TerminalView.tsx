@@ -64,13 +64,16 @@ export function TerminalView(): JSX.Element {
   const closeTerminal = (id: string): void => {
     window.api.terminal.kill(id)
     setState((s) => {
+      const idx = s.ids.indexOf(id)
       const ids = s.ids.filter((x) => x !== id)
       if (ids.length === 0) {
         const counter = s.counter + 1
         const fresh = `${repoHash(repoPath)}-${counter}`
         return { ids: [fresh], active: fresh, counter }
       }
-      return { ...s, ids, active: s.active === id ? ids[ids.length - 1] : s.active }
+      // Aktivera grannen (föregående om möjligt, annars nästa)
+      const nextActive = s.active === id ? (ids[idx - 1] ?? ids[idx] ?? ids[0]) : s.active
+      return { ...s, ids, active: nextActive }
     })
   }
 

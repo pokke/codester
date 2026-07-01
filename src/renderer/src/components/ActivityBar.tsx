@@ -29,7 +29,7 @@ export function ActivityBar({ view, onChange, onOpenSettings, onOpenPalette }: P
         </button>
       ))}
       <div style={{ flex: 1 }} />
-      <button className="act" title="Kommandopalett (Ctrl+P)" onClick={onOpenPalette}>
+      <button className="act" title="Kommandopalett (Ctrl+Shift+P)" onClick={onOpenPalette}>
         ⌘
       </button>
       <button className="act" title="Inställningar" onClick={onOpenSettings}>

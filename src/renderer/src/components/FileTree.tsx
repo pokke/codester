@@ -105,6 +105,7 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportH, setViewportH] = useState(600)
+  const [loaded, setLoaded] = useState(false)
 
   const showHeaders = rootsData.length > 1
 
@@ -126,7 +127,10 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
           }
         })
       )
-      if (!cancelled) setRootsData(data)
+      if (!cancelled) {
+        setRootsData(data)
+        setLoaded(true)
+      }
     })()
     return () => {
       cancelled = true
@@ -581,7 +585,9 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
       onKeyDown={onKeyDown}
       onContextMenu={repo ? rootMenu(repo.path) : undefined}
     >
-      {totalFiles === 0 && !creating ? (
+      {!loaded ? (
+        <div className="hint">Läser filer…</div>
+      ) : totalFiles === 0 && !creating ? (
         <div className="hint">Högerklicka för att skapa filer</div>
       ) : (
         <div style={{ height: rows.length * ROW_H, position: 'relative' }}>{slice}</div>

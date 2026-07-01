@@ -9,6 +9,7 @@ export function TimelineView(): JSX.Element {
   const { activePath, revision } = useRepo()
   const [open, setOpen] = useState(true)
   const [commits, setCommits] = useState<CommitLogEntry[]>([])
+  const [loading, setLoading] = useState(false)
   const [modalRev, setModalRev] = useState<string | null>(null)
 
   useEffect(() => {
@@ -17,8 +18,11 @@ export function TimelineView(): JSX.Element {
       return
     }
     let cancelled = false
+    setLoading(true)
     window.api.git.fileLog(activePath).then((r) => {
-      if (!cancelled && r.ok) setCommits(r.data)
+      if (cancelled) return
+      setCommits(r.ok ? r.data : [])
+      setLoading(false)
     })
     return () => {
       cancelled = true
@@ -34,7 +38,10 @@ export function TimelineView(): JSX.Element {
       {open && (
         <div className="timeline-body">
           {!activePath && <div className="hint">Ingen fil vald</div>}
-          {activePath && commits.length === 0 && <div className="hint">Ingen historik</div>}
+          {activePath && loading && <div className="hint">Läser historik…</div>}
+          {activePath && !loading && commits.length === 0 && (
+            <div className="hint">Ingen historik</div>
+          )}
           {commits.map((c) => (
             <div
               key={c.hash}

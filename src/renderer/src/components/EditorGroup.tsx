@@ -81,6 +81,7 @@ export function EditorGroup({
   const loadedPathRef = useRef<string | null>(null)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef<() => void>(() => {})
+  const savePathRef = useRef<(p: string) => void>(() => {})
   const formatDocRef = useRef<() => void>(() => {})
   const autoSaveRef = useRef(settings.autoSave)
   autoSaveRef.current = settings.autoSave
@@ -100,10 +101,11 @@ export function EditorGroup({
     monaco.editor.setTheme(defineMonacoTheme(getTheme(settings.themeId)))
   }, [monaco, settings.themeId])
 
-  // Välj förnuftigt standardläge när filen byts
+  // Välj förnuftigt standardläge när filen byts – men behåll "Hunkar" om
+  // användaren valt det (praktiskt vid staging fil för fil).
   useEffect(() => {
     if (isConflicted || !change || activeLine) setMode('edit')
-    else setMode('diff')
+    else setMode((m) => (m === 'hunks' ? 'hunks' : 'diff'))
   }, [activePath, isConflicted, change, activeLine])
 
   // Hoppa till rad (t.ex. från en sökträff)
@@ -238,8 +240,10 @@ export function EditorGroup({
     else buffers.current.delete(activePath)
     markDirty(activePath, isDirty)
     if (autoSaveRef.current === 'afterDelay' && isDirty) {
+      // Fånga sökvägen NU så rätt fil sparas även om man hinner byta flik
+      const path = activePath
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-      autoSaveTimer.current = setTimeout(() => saveRef.current(), 800)
+      autoSaveTimer.current = setTimeout(() => savePathRef.current(path), 800)
     }
   }
 
@@ -279,6 +283,9 @@ export function EditorGroup({
     if (dirty) savePath(activePath)
   }
   saveRef.current = save
+  savePathRef.current = (p: string): void => {
+    savePath(p)
+  }
 
   const discardAndClose = (path: string): void => {
     buffers.current.delete(path)
@@ -413,9 +420,7 @@ export function EditorGroup({
                 </button>
               </div>
             )}
-            {mode === 'edit' && (
-              <span className="muted small">{dirty ? 'Osparat · Ctrl+S' : 'Sparat'}</span>
-            )}
+            <span className="muted small">{dirty ? 'Osparat · Ctrl+S' : 'Sparat'}</span>
             <button
               className="btn ghost icon"
               title="Fil-historik"

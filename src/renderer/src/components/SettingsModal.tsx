@@ -9,12 +9,14 @@ import {
   bindingFor,
   eventToCombo,
   setBinding,
-  resetBinding
+  resetBinding,
+  findConflict
 } from '../settings/keybindings'
 import { SNIPPET_LANGS, defaultSnippetsJson, reloadSnippets } from '../editor/snippets'
 import { themes } from '../themes/themes'
 import { LangServersSettings } from './LangServersSettings'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 
 const ACCENTS = ['#0e639c', '#0a7ea4', '#7c3aed', '#bd93f9', '#e06c75', '#2ea043', '#d29922']
 const DENSITIES: Density[] = ['compact', 'comfortable', 'spacious']
@@ -106,24 +108,40 @@ function JsonConfigEditor({
 }
 
 // En rad i kortkommando-listan: klicka på chippet och tryck tangenter.
-function KeybindingRow({ cmd }: { cmd: CommandDef }): JSX.Element {
+function KeybindingRow({ cmd, onChanged }: { cmd: CommandDef; onChanged: () => void }): JSX.Element {
+  const confirm = useConfirm()
+  const { notify } = useToast()
   const [capturing, setCapturing] = useState(false)
-  const [combo, setCombo] = useState(bindingFor(cmd.id) || cmd.default)
+  const combo = bindingFor(cmd.id) || cmd.default
 
   useEffect(() => {
     if (!capturing) return
-    const onKey = (e: KeyboardEvent): void => {
+    const onKey = async (e: KeyboardEvent): Promise<void> => {
       e.preventDefault()
       e.stopPropagation()
       if (e.key === 'Escape') {
         setCapturing(false)
         return
       }
+      const hasMod = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey
+      if (!hasMod) {
+        notify('Använd minst en modifierare (Ctrl/Alt/Shift)', 'info')
+        return
+      }
       const c = eventToCombo(e)
-      if (!c) return // bara modifierare – vänta på riktig tangent
-      setCombo(c)
+      if (!c) return
       setCapturing(false)
-      setBinding(cmd.id, c)
+      const conflict = findConflict(c, cmd.id)
+      if (conflict) {
+        const other = COMMANDS.find((x) => x.id === conflict)?.label ?? conflict
+        const ok = await confirm({
+          message: `${c} är redan bundet till "${other}". Använd ändå?`,
+          confirmLabel: 'Använd ändå'
+        })
+        if (!ok) return
+      }
+      await setBinding(cmd.id, c)
+      onChanged()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -142,9 +160,10 @@ function KeybindingRow({ cmd }: { cmd: CommandDef }): JSX.Element {
       <button
         className="btn ghost icon"
         title="Återställ till standard"
-        onClick={() => {
-          setCombo(cmd.default)
-          resetBinding(cmd.id)
+        aria-label={`Återställ ${cmd.label}`}
+        onClick={async () => {
+          await resetBinding(cmd.id)
+          onChanged()
         }}
       >
         ↺
@@ -155,8 +174,18 @@ function KeybindingRow({ cmd }: { cmd: CommandDef }): JSX.Element {
 
 export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const { settings, update, replace, reset } = useSettings()
+  const confirm = useConfirm()
   const [section, setSection] = useState<Section>('appearance')
   const [snipLang, setSnipLang] = useState('typescript')
+  const [, setKbVersion] = useState(0) // tvinga om-render av kortkommando-rader
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const renderSection = (): JSX.Element => {
     switch (section) {
@@ -294,7 +323,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             <p className="muted small">Klicka på ett kommando och tryck önskad tangentkombination.</p>
             <div className="kb-list">
               {COMMANDS.map((c) => (
-                <KeybindingRow key={c.id} cmd={c} />
+                <KeybindingRow key={c.id} cmd={c} onChanged={() => setKbVersion((v) => v + 1)} />
               ))}
             </div>
           </div>
@@ -351,8 +380,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                 }}
               />
             </div>
-            <button className="btn full" onClick={reset}>
-              Återställ alla inställningar till standard
+            <button
+              className="btn full"
+              onClick={async () => {
+                if (
+                  await confirm({
+                    message: 'Återställ utseende- och editor-inställningar till standard?',
+                    confirmLabel: 'Återställ',
+                    danger: true
+                  })
+                )
+                  reset()
+              }}
+            >
+              Återställ utseende &amp; editor till standard
             </button>
           </>
         )

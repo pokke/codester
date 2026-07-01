@@ -318,6 +318,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
       ) : (
         <>
           <div className="panel-body changes-list">
+            {!status && <div className="hint">Läser status…</div>}
             {conflicted.size > 0 && (
               <>
                 <div className="panel-header conflict-header">
@@ -347,7 +348,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
             <div className="panel-header">
               <span>Stagade ({staged.length})</span>
             </div>
-            {staged.length === 0 && <div className="hint">Inget stagat</div>}
+            {status && staged.length === 0 && <div className="hint">Inget stagat</div>}
             {staged.map((f) => fileRow(f, true))}
 
             <div className="panel-header">
@@ -369,7 +370,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                 )}
               </span>
             </div>
-            {unstaged.length === 0 && <div className="hint">Inga ändringar</div>}
+            {status && unstaged.length === 0 && <div className="hint">Inga ändringar</div>}
             {unstaged.map((f) => fileRow(f, false))}
 
             {stashes.length > 0 && (

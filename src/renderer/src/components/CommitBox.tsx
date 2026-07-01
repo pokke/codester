@@ -19,7 +19,10 @@ export function CommitBox(): JSX.Element {
     }
   }
 
+  const canCommit = !!message.trim() && (stagedCount > 0 || amend) && !busy
+
   const doCommit = async (): Promise<void> => {
+    if (!canCommit) return
     const ok = await commit(message, amend)
     if (ok) {
       setMessage('')
@@ -60,7 +63,7 @@ export function CommitBox(): JSX.Element {
       </div>
       <button
         className="btn primary full"
-        disabled={!message.trim() || (stagedCount === 0 && !amend) || busy}
+        disabled={!canCommit}
         onClick={doCommit}
       >
         {amend ? 'Ändra commit' : `Committa ${stagedCount > 0 ? `(${stagedCount})` : ''}`}

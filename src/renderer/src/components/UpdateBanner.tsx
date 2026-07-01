@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-type Phase = 'idle' | 'downloading' | 'ready'
+type Phase = 'idle' | 'downloading' | 'ready' | 'error'
 
 export function UpdateBanner(): JSX.Element | null {
   const [phase, setPhase] = useState<Phase>('idle')
@@ -24,33 +24,50 @@ export function UpdateBanner(): JSX.Element | null {
         setVersion(String(e.payload))
         setPhase('ready')
       } else if (e.type === 'update:error') {
-        setPhase('idle')
+        setPhase('error')
       }
     })
   }, [])
 
-  if (phase === 'idle' || version === dismissedVersion) return null
+  if (phase === 'idle') return null
+  if (phase !== 'error' && version === dismissedVersion) return null
 
   return (
     <div className={`update-banner ${phase}`}>
-      <span className="update-icon">↑</span>
-      {phase === 'downloading' ? (
-        <span className="update-text">Laddar ner uppdatering {version}… {percent}%</span>
-      ) : (
+      <span className="update-icon">{phase === 'error' ? '⚠' : '↑'}</span>
+      {phase === 'downloading' && (
+        <span className="update-text">
+          Laddar ner uppdatering {version}… {percent}%
+        </span>
+      )}
+      {phase === 'ready' && (
         <div className="update-text">
           <strong>Version {version} är redo</strong>
           <span className="muted small">Installeras automatiskt när du stänger appen.</span>
         </div>
       )}
+      {phase === 'error' && (
+        <div className="update-text">
+          <strong>Uppdateringen misslyckades</strong>
+          <span className="muted small">Kontrollera nätverket och försök igen.</span>
+        </div>
+      )}
+
       {phase === 'ready' && (
         <button className="btn primary" onClick={() => window.api.update.install()}>
           Starta om nu
         </button>
       )}
+      {phase === 'error' && (
+        <button className="btn" onClick={() => window.api.update.check()}>
+          Försök igen
+        </button>
+      )}
       <button
         className="btn ghost icon"
         title="Dölj"
-        onClick={() => setDismissedVersion(version)}
+        aria-label="Dölj uppdateringsmeddelande"
+        onClick={() => (phase === 'error' ? setPhase('idle') : setDismissedVersion(version))}
       >
         ✕
       </button>

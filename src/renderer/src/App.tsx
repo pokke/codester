@@ -208,7 +208,7 @@ export function App(): JSX.Element {
                 <span className="spacer" />
                 <button
                   className="btn ghost icon"
-                  title="Stäng panel (Ctrl+`)"
+                  title="Stäng panel"
                   onClick={() => setPanelTab(null)}
                 >
                   ✕

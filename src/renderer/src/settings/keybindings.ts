@@ -82,6 +82,15 @@ export function bindingFor(id: string): string {
   return bindings[id] ?? ''
 }
 
+// Returnerar id för ett annat kommando som redan har samma kombination, annars null.
+export function findConflict(combo: string, excludeId: string): string | null {
+  const c = canon(combo)
+  for (const [id, b] of Object.entries(bindings)) {
+    if (id !== excludeId && b && canon(b) === c) return id
+  }
+  return null
+}
+
 // Översätter en bindning ("Ctrl+S") till Monacos numeriska keybinding, för
 // kommandon som körs inuti editorn (ed.addCommand). m = monaco-namespace.
 export function comboToMonaco(

@@ -102,7 +102,10 @@ export function MultiRepoChanges({ onOpenEditor }: { onOpenEditor: () => void })
   const doCommit = async (root: string): Promise<void> => {
     const msg = (messages[root] ?? '').trim()
     const amend = amends[root] ?? false
-    if (!msg) return
+    const st = statuses[root]
+    const conflicted = new Set(st?.conflicted ?? [])
+    const stagedCount = (st?.files ?? []).filter((f) => f.staged && !conflicted.has(f.path)).length
+    if (!msg || (stagedCount === 0 && !amend) || busy.has(root)) return
     const r = await window.api.git.commit(msg, amend, root)
     if (r.ok) {
       setMessages((m) => ({ ...m, [root]: '' }))
