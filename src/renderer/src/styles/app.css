@@ -1013,6 +1013,42 @@
   letter-spacing: 0.4px;
   margin-top: 4px;
 }
+.pr-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.pr-actions .spacer {
+  flex: 1;
+}
+.merge-method {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.pr-review {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pr-review-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn.small.approve {
+  color: var(--git-added);
+  border-color: color-mix(in srgb, var(--git-added) 50%, var(--border));
+}
+.btn.small.request {
+  color: var(--git-modified);
+  border-color: color-mix(in srgb, var(--git-modified) 50%, var(--border));
+}
 .pr-create-body {
   min-height: 120px;
   resize: vertical;

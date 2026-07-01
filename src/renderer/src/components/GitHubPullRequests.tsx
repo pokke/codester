@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
 import type { CheckStatus, PrFile, PullRequest, PullRequestDetail } from '../../../shared/types'
 
@@ -46,12 +47,18 @@ export function CheckBadge({ checks }: { checks: CheckStatus | null }): JSX.Elem
 }
 
 function PrDetail({ number, onBack }: { number: number; onBack: () => void }): JSX.Element {
+  const { notify } = useToast()
+  const { refresh } = useRepo()
+  const confirm = useConfirm()
   const [pr, setPr] = useState<PullRequestDetail | null>(null)
   const [files, setFiles] = useState<PrFile[]>([])
   const [checks, setChecks] = useState<CheckStatus | null>(null)
   const [openFile, setOpenFile] = useState<string | null>(null)
+  const [reviewBody, setReviewBody] = useState('')
+  const [mergeMethod, setMergeMethod] = useState<'merge' | 'squash' | 'rebase'>('merge')
+  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
+  const load = (): void => {
     window.api.github.pr(number).then((r) => {
       if (r.ok) {
         setPr(r.data)
@@ -59,7 +66,46 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
       }
     })
     window.api.github.prFiles(number).then((r) => r.ok && setFiles(r.data))
-  }, [number])
+  }
+  useEffect(load, [number])
+
+  const checkout = async (): Promise<void> => {
+    if (!pr || busy) return
+    setBusy(true)
+    const r = await window.api.git.checkoutPr(pr.number, pr.headRef)
+    setBusy(false)
+    if (r.ok) {
+      notify(`Checkade ut PR #${pr.number} som "${pr.headRef}"`, 'success')
+      refresh()
+    } else notify(r.error, 'error')
+  }
+  const review = async (event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'): Promise<void> => {
+    if (busy) return
+    if (event === 'COMMENT' && !reviewBody.trim()) return
+    setBusy(true)
+    const r = await window.api.github.review(number, event, reviewBody)
+    setBusy(false)
+    if (r.ok) {
+      notify('Review skickad', 'success')
+      setReviewBody('')
+      load()
+    } else notify(r.error, 'error')
+  }
+  const merge = async (): Promise<void> => {
+    if (!pr || busy) return
+    const ok = await confirm({
+      message: `Merga PR #${pr.number} (${mergeMethod}) till ${pr.baseRef}?`,
+      confirmLabel: 'Merga'
+    })
+    if (!ok) return
+    setBusy(true)
+    const r = await window.api.github.mergePr(number, mergeMethod)
+    setBusy(false)
+    if (r.ok) {
+      notify(`PR #${number} merged`, 'success')
+      load()
+    } else notify(r.error, 'error')
+  }
 
   return (
     <div className="pr-detail">
@@ -93,6 +139,63 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
             <span className="del">−{pr.deletions}</span>
             <span className="path-dim">{pr.changedFiles} filer</span>
           </div>
+
+          {!pr.merged && (
+            <div className="pr-actions">
+              <button className="btn small" disabled={busy} onClick={checkout}>
+                Checka ut lokalt
+              </button>
+              <span className="spacer" />
+              <select
+                className="merge-method"
+                value={mergeMethod}
+                onChange={(e) => setMergeMethod(e.target.value as typeof mergeMethod)}
+              >
+                <option value="merge">Merge</option>
+                <option value="squash">Squash</option>
+                <option value="rebase">Rebase</option>
+              </select>
+              <button
+                className="btn primary small"
+                disabled={busy || pr.mergeable === false}
+                title={pr.mergeable === false ? 'Kan inte mergas (konflikter)' : ''}
+                onClick={merge}
+              >
+                Merga
+              </button>
+            </div>
+          )}
+
+          {!pr.merged && (
+            <div className="pr-review">
+              <textarea
+                className="pr-create-body"
+                placeholder="Review-kommentar (valfri för godkänn/begär ändringar)…"
+                value={reviewBody}
+                onChange={(e) => setReviewBody(e.target.value)}
+              />
+              <div className="pr-review-actions">
+                <button className="btn small approve" disabled={busy} onClick={() => review('APPROVE')}>
+                  ✓ Godkänn
+                </button>
+                <button
+                  className="btn small request"
+                  disabled={busy}
+                  onClick={() => review('REQUEST_CHANGES')}
+                >
+                  Begär ändringar
+                </button>
+                <button
+                  className="btn small"
+                  disabled={busy || !reviewBody.trim()}
+                  onClick={() => review('COMMENT')}
+                >
+                  Kommentera
+                </button>
+              </div>
+            </div>
+          )}
+
           {pr.body && <div className="pr-body">{pr.body}</div>}
           <div className="pr-files">
             {files.map((f) => {

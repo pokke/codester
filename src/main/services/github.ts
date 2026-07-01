@@ -334,6 +334,46 @@ export async function getRepoDefaultBranch(owner: string, repo: string): Promise
   return r.default_branch
 }
 
+export async function createReview(
+  owner: string,
+  repo: string,
+  number: number,
+  event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT',
+  body: string
+): Promise<void> {
+  await ghReq('POST', `/repos/${owner}/${repo}/pulls/${number}/reviews`, {
+    event,
+    body: body || undefined
+  })
+}
+
+export async function mergePullRequest(
+  owner: string,
+  repo: string,
+  number: number,
+  method: 'merge' | 'squash' | 'rebase'
+): Promise<void> {
+  await ghReq('PUT', `/repos/${owner}/${repo}/pulls/${number}/merge`, { merge_method: method })
+}
+
+export async function addIssueComment(
+  owner: string,
+  repo: string,
+  number: number,
+  body: string
+): Promise<void> {
+  await ghReq('POST', `/repos/${owner}/${repo}/issues/${number}/comments`, { body })
+}
+
+export async function setIssueState(
+  owner: string,
+  repo: string,
+  number: number,
+  state: 'open' | 'closed'
+): Promise<void> {
+  await ghReq('PATCH', `/repos/${owner}/${repo}/issues/${number}`, { state })
+}
+
 // Sammanställer både "combined status" (legacy) och "check runs" till ett läge.
 export async function getChecks(owner: string, repo: string, ref: string): Promise<CheckStatus> {
   let passed = 0

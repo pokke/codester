@@ -30,10 +30,39 @@ function Labels({ labels }: { labels: Issue['labels'] }): JSX.Element | null {
 }
 
 function IssueDetail({ number, onBack }: { number: number; onBack: () => void }): JSX.Element {
+  const { notify } = useToast()
   const [issue, setIssue] = useState<Issue | null>(null)
-  useEffect(() => {
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const load = (): void => {
     window.api.github.issue(number).then((r) => r.ok && setIssue(r.data))
-  }, [number])
+  }
+  useEffect(load, [number])
+
+  const submitComment = async (): Promise<void> => {
+    if (!comment.trim() || busy) return
+    setBusy(true)
+    const r = await window.api.github.issueComment(number, comment.trim())
+    setBusy(false)
+    if (r.ok) {
+      notify('Kommentar tillagd', 'success')
+      setComment('')
+      load()
+    } else notify(r.error, 'error')
+  }
+  const toggleState = async (): Promise<void> => {
+    if (!issue || busy) return
+    const next = issue.state === 'open' ? 'closed' : 'open'
+    setBusy(true)
+    const r = await window.api.github.setIssueState(number, next)
+    setBusy(false)
+    if (r.ok) {
+      notify(next === 'closed' ? 'Issue stängt' : 'Issue återöppnat', 'success')
+      load()
+    } else notify(r.error, 'error')
+  }
+
   return (
     <div className="pr-detail">
       <div className="pr-detail-head">
@@ -42,9 +71,14 @@ function IssueDetail({ number, onBack }: { number: number; onBack: () => void })
         </button>
         <span className="spacer" />
         {issue && (
-          <button className="btn ghost small" onClick={() => window.open(issue.url)}>
-            Öppna på GitHub
-          </button>
+          <>
+            <button className="btn small" disabled={busy} onClick={toggleState}>
+              {issue.state === 'open' ? 'Stäng issue' : 'Återöppna'}
+            </button>
+            <button className="btn ghost small" onClick={() => window.open(issue.url)}>
+              Öppna på GitHub
+            </button>
+          </>
         )}
       </div>
       {!issue ? (
@@ -55,10 +89,26 @@ function IssueDetail({ number, onBack }: { number: number; onBack: () => void })
             {issue.title} <span className="muted">#{issue.number}</span>
           </h2>
           <div className="pr-detail-meta">
+            <span className={`pr-state ${issue.state === 'open' ? 'open' : 'merged'}`}>
+              {issue.state === 'open' ? 'Öppen' : 'Stängd'}
+            </span>
             <span className="path-dim">@{issue.author}</span>
             <Labels labels={issue.labels} />
           </div>
-          {issue.body ? <div className="pr-body">{issue.body}</div> : <div className="hint">Ingen beskrivning</div>}
+          {issue.body ? (
+            <div className="pr-body">{issue.body}</div>
+          ) : (
+            <div className="hint">Ingen beskrivning</div>
+          )}
+          <textarea
+            className="pr-create-body"
+            placeholder="Skriv en kommentar…"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <button className="btn primary" disabled={!comment.trim() || busy} onClick={submitComment}>
+            Kommentera
+          </button>
         </>
       )}
     </div>
@@ -131,7 +181,16 @@ export function GitHubIssues(): JSX.Element {
         }}
       />
     )
-  if (openIssue != null) return <IssueDetail number={openIssue} onBack={() => setOpenIssue(null)} />
+  if (openIssue != null)
+    return (
+      <IssueDetail
+        number={openIssue}
+        onBack={() => {
+          setOpenIssue(null)
+          load()
+        }}
+      />
+    )
 
   return (
     <>

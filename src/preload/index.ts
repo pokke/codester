@@ -48,6 +48,8 @@ const api = {
     status: (root?: string) => invoke<RepoStatus>('git:status', root),
     branches: (root?: string) => invoke<BranchInfo[]>('git:branches', root),
     checkout: (name: string, root?: string) => invoke<void>('git:checkout', name, root),
+    checkoutPr: (number: number, branch: string) =>
+      invoke<void>('git:checkoutPr', number, branch),
     createBranch: (name: string, root?: string) => invoke<void>('git:createBranch', name, root),
     deleteBranch: (name: string, force: boolean) =>
       invoke<void>('git:deleteBranch', name, force),
@@ -202,7 +204,15 @@ const api = {
     issues: () => invoke<Issue[]>('github:issues'),
     issue: (number: number) => invoke<Issue>('github:issue', number),
     createIssue: (title: string, body: string) =>
-      invoke<Issue>('github:createIssue', title, body)
+      invoke<Issue>('github:createIssue', title, body),
+    review: (number: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body: string) =>
+      invoke<void>('github:review', number, event, body),
+    mergePr: (number: number, method: 'merge' | 'squash' | 'rebase') =>
+      invoke<void>('github:mergePr', number, method),
+    issueComment: (number: number, body: string) =>
+      invoke<void>('github:issueComment', number, body),
+    setIssueState: (number: number, state: 'open' | 'closed') =>
+      invoke<void>('github:setIssueState', number, state)
   }
 }
 

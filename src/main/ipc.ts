@@ -237,4 +237,30 @@ export function registerIpc(): void {
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.createIssue(or.owner, or.repo, title, body)
   })
+  handle(
+    'github:review',
+    async (number: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body: string) => {
+      const or = await git.remoteOwnerRepo()
+      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+      return github.createReview(or.owner, or.repo, number, event, body)
+    }
+  )
+  handle('github:mergePr', async (number: number, method: 'merge' | 'squash' | 'rebase') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.mergePullRequest(or.owner, or.repo, number, method)
+  })
+  handle('github:issueComment', async (number: number, body: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.addIssueComment(or.owner, or.repo, number, body)
+  })
+  handle('github:setIssueState', async (number: number, state: 'open' | 'closed') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.setIssueState(or.owner, or.repo, number, state)
+  })
+  handle('git:checkoutPr', (number: number, branch: string) =>
+    git.checkoutPullRequest(number, branch)
+  )
 }

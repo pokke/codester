@@ -139,6 +139,17 @@ export async function checkout(name: string, root?: string): Promise<void> {
   await requireGit(root).checkout(name)
 }
 
+// Hämtar en pull requests head till en lokal branch och checkar ut den.
+export async function checkoutPullRequest(
+  number: number,
+  branch: string,
+  root?: string
+): Promise<void> {
+  const g = requireGit(root)
+  await g.raw(['fetch', 'origin', `pull/${number}/head:${branch}`])
+  await g.checkout(branch)
+}
+
 export async function createBranch(name: string, root?: string): Promise<void> {
   await requireGit(root).checkoutLocalBranch(name)
 }
