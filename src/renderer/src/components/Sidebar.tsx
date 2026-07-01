@@ -275,13 +275,12 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
         </div>
       ) : (
         <>
-          <CommitBox />
-          {conflicted.size > 0 && (
-            <>
-              <div className="panel-header conflict-header">
-                <span>⚠ Konflikter ({conflicted.size})</span>
-              </div>
-              <div className="panel-body" style={{ flex: '0 1 auto', maxHeight: 160 }}>
+          <div className="panel-body changes-list">
+            {conflicted.size > 0 && (
+              <>
+                <div className="panel-header conflict-header">
+                  <span>⚠ Konflikter ({conflicted.size})</span>
+                </div>
                 {[...conflicted].map((path) => (
                   <div
                     key={path}
@@ -300,48 +299,42 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                     <span className="fname">{path.split('/').pop()}</span>
                   </div>
                 ))}
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          <div className="panel-header">
-            <span>Stagade ({staged.length})</span>
-          </div>
-          <div className="panel-body" style={{ flex: '0 1 auto', maxHeight: 180 }}>
+            <div className="panel-header">
+              <span>Stagade ({staged.length})</span>
+            </div>
             {staged.length === 0 && <div className="hint">Inget stagat</div>}
             {staged.map((f) => fileRow(f, true))}
-          </div>
 
-          <div className="panel-header">
-            <span>Ändringar ({unstaged.length})</span>
-            <span style={{ display: 'flex', gap: 2 }}>
-              {(unstaged.length > 0 || staged.length > 0) && (
-                <button
-                  className="btn ghost icon"
-                  title="Stasha alla ändringar"
-                  onClick={() => stashSave()}
-                >
-                  ⮟
-                </button>
-              )}
-              {unstaged.length > 0 && (
-                <button className="btn ghost icon" title="Stage alla" onClick={() => stageAll()}>
-                  ++
-                </button>
-              )}
-            </span>
-          </div>
-          <div className="panel-body">
+            <div className="panel-header">
+              <span>Ändringar ({unstaged.length})</span>
+              <span style={{ display: 'flex', gap: 2 }}>
+                {(unstaged.length > 0 || staged.length > 0) && (
+                  <button
+                    className="btn ghost icon"
+                    title="Stasha alla ändringar"
+                    onClick={() => stashSave()}
+                  >
+                    ⮟
+                  </button>
+                )}
+                {unstaged.length > 0 && (
+                  <button className="btn ghost icon" title="Stage alla" onClick={() => stageAll()}>
+                    ++
+                  </button>
+                )}
+              </span>
+            </div>
             {unstaged.length === 0 && <div className="hint">Inga ändringar</div>}
             {unstaged.map((f) => fileRow(f, false))}
-          </div>
 
-          {stashes.length > 0 && (
-            <>
-              <div className="panel-header" style={{ borderTop: '1px solid var(--border)' }}>
-                <span>Stash ({stashes.length})</span>
-              </div>
-              <div className="panel-body" style={{ flex: '0 1 auto', maxHeight: 160 }}>
+            {stashes.length > 0 && (
+              <>
+                <div className="panel-header" style={{ borderTop: '1px solid var(--border)' }}>
+                  <span>Stash ({stashes.length})</span>
+                </div>
                 {stashes.map((s) => (
                   <div key={s.index} className="row stash-row" title={s.message}>
                     <span className="icon">📦</span>
@@ -373,9 +366,11 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
                     </span>
                   </div>
                 ))}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
+
+          <CommitBox />
         </>
       )}
     </aside>
