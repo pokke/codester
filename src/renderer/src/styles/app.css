@@ -1420,3 +1420,32 @@ code {
 .hl-del {
   background: color-mix(in srgb, var(--removed) 16%, transparent);
 }
+
+/* ── Fil-historik-modal ── */
+.modal.history-modal {
+  width: 92vw;
+  max-width: 1100px;
+  height: 82vh;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+.history-modal-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.history-commits {
+  width: 300px;
+  flex-shrink: 0;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+  padding: var(--space) calc(var(--space) * 0.5);
+}
+.history-commits .ch-main {
+  min-width: 0;
+}
+.history-diff {
+  flex: 1;
+  min-width: 0;
+}

@@ -77,6 +77,7 @@ export function registerIpc(): void {
   handle('git:pull', () => git.pull())
   handle('git:fetch', () => git.fetchAll())
   handle('git:log', (limit?: number) => git.log(limit))
+  handle('git:fileLog', (file: string) => git.fileLog(file))
   handle('git:fileContent', (file: string) => git.fileContent(file))
   handle('git:headContent', (file: string) => git.headContent(file))
   handle('git:commitFiles', (hash: string) => git.commitFiles(hash))

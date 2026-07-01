@@ -55,6 +55,7 @@ const api = {
     pull: () => invoke<void>('git:pull'),
     fetch: () => invoke<void>('git:fetch'),
     log: (limit?: number) => invoke<CommitLogEntry[]>('git:log', limit),
+    fileLog: (file: string) => invoke<CommitLogEntry[]>('git:fileLog', file),
     fileContent: (file: string) => invoke<string>('git:fileContent', file),
     headContent: (file: string) => invoke<string>('git:headContent', file),
     commitFiles: (hash: string) => invoke<FileChange[]>('git:commitFiles', hash),

@@ -226,6 +226,35 @@ export async function log(limit = 100): Promise<CommitLogEntry[]> {
   }))
 }
 
+export async function fileLog(file: string): Promise<CommitLogEntry[]> {
+  // Commits som rört en viss fil (följer även namnbyten).
+  const SEP = '\x1f'
+  const REC = '\x1e'
+  const fmt = ['%H', '%h', '%s', '%an', '%ae', '%ai', '%D', '%P'].join(SEP) + REC
+  try {
+    const raw = await requireGit().raw(['log', '--follow', `--format=${fmt}`, '-n', '100', '--', file])
+    return raw
+      .split(REC)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((rec) => {
+        const [hash, shortHash, message, author, email, date, refs, parents] = rec.split(SEP)
+        return {
+          hash,
+          shortHash,
+          message,
+          author,
+          email,
+          date,
+          refs,
+          parents: parents ? parents.split(' ').filter(Boolean) : []
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
 export async function fileContent(file: string): Promise<string> {
   if (!repoPath) throw new Error('Inget repo är öppnat')
   return readFile(join(repoPath, file), 'utf-8')

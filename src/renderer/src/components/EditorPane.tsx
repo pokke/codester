@@ -6,6 +6,7 @@ import { defineMonacoTheme, languageForPath } from '../editor/monaco'
 import { canFormat, formatCode } from '../editor/format'
 import { ConflictResolver } from './ConflictResolver'
 import { HunkView } from './HunkView'
+import { FileHistoryModal } from './FileHistoryModal'
 import { useRepo } from '../state/RepoContext'
 import { useSettings } from '../settings/SettingsContext'
 import { getTheme } from '../themes/themes'
@@ -43,6 +44,7 @@ export function EditorPane(): JSX.Element {
   const [dirtyTabs, setDirtyTabs] = useState<Set<string>>(new Set())
   const [closePrompt, setClosePrompt] = useState<string | null>(null)
   const [tabMenu, setTabMenu] = useState<MenuState | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   const editedRef = useRef('')
   const diskRef = useRef('')
@@ -397,6 +399,13 @@ export function EditorPane(): JSX.Element {
             {mode === 'edit' && (
               <span className="muted small">{dirty ? 'Osparat · Ctrl+S' : 'Sparat'}</span>
             )}
+            <button
+              className="btn ghost icon"
+              title="Fil-historik"
+              onClick={() => setShowHistory(true)}
+            >
+              🕘
+            </button>
           </>
         )}
       </div>
@@ -460,6 +469,8 @@ export function EditorPane(): JSX.Element {
           }}
         />
       )}
+
+      {showHistory && <FileHistoryModal file={activePath} onClose={() => setShowHistory(false)} />}
 
       {closePrompt && (
         <div className="overlay" onClick={() => setClosePrompt(null)}>
