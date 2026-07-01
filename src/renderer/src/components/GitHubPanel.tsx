@@ -219,6 +219,25 @@ export function GitHubPanel(): JSX.Element {
                     {connecting ? 'Ansluter…' : 'Anslut'}
                   </button>
                 </div>
+                <div className="gh-scope-help">
+                  <p className="muted small">
+                    Tokenen behöver dessa scopes: <code>repo</code>, <code>read:user</code>,{' '}
+                    <code>notifications</code>, <code>gist</code>{' '}
+                    <span className="muted">(<code>workflow</code> valfritt)</span>.
+                  </p>
+                  <a
+                    href="#"
+                    className="small"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.open(
+                        'https://github.com/settings/tokens/new?description=Codester&scopes=repo,read:user,notifications,gist,workflow'
+                      )
+                    }}
+                  >
+                    Skapa token med rätt scopes förikryssade ↗
+                  </a>
+                </div>
               </div>
 
               {/* Utvecklarinställning: OAuth-app client ID */}
