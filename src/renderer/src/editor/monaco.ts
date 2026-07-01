@@ -196,6 +196,24 @@ function mapCompilerOptions(co: Record<string, unknown>): Record<string, unknown
   }
 }
 
+// Monacos inbyggda TS-motor har inte hela node_modules som riktiga tsserver,
+// så dess *semantiska* analys ger falska "Cannot find module"/typfel. Vi stänger
+// av semantisk validering (behåller syntaxfel) – autocomplete/hover/definition
+// påverkas inte. Riktig typkontroll sker via tsc/CI; LSP-språk har egen korrekt
+// diagnostik.
+function silenceSemanticDiagnostics(): void {
+  try {
+    const tns = (monaco.languages as any).typescript
+    if (!tns) return
+    const opts = { noSemanticValidation: true, noSyntaxValidation: false }
+    tns.typescriptDefaults.setDiagnosticsOptions(opts)
+    tns.javascriptDefaults.setDiagnosticsOptions(opts)
+  } catch {
+    /* tyst */
+  }
+}
+silenceSemanticDiagnostics()
+
 export function configureTypeScript(project: TsProjectLike): void {
   try {
     const tns = (monaco.languages as any).typescript
@@ -205,6 +223,7 @@ export function configureTypeScript(project: TsProjectLike): void {
     tns.javascriptDefaults.setCompilerOptions(opts)
     tns.typescriptDefaults.setEagerModelSync(true)
     tns.javascriptDefaults.setEagerModelSync(true)
+    silenceSemanticDiagnostics()
 
     const codeFiles = project.files.filter(
       (f) => !f.path.startsWith('node_modules/') && CODE_RE.test(f.path)
