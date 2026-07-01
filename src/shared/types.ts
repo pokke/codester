@@ -198,6 +198,31 @@ export interface WorkflowRun {
   runNumber: number
 }
 
+export interface RateLimit {
+  remaining: number
+  limit: number
+  resetAt: number // unix-sekunder
+}
+
+export interface Gist {
+  id: string
+  description: string
+  public: boolean
+  htmlUrl: string
+  files: string[]
+  updatedAt: string
+}
+
+export interface RepoInsights {
+  languages: { name: string; bytes: number }[]
+  contributors: { login: string; avatarUrl: string; contributions: number }[]
+}
+
+export interface RepoLabel {
+  name: string
+  color: string
+}
+
 export interface SearchHit {
   file: string
   line: number

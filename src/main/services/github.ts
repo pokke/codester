@@ -5,13 +5,17 @@ import type {
   GhNotification,
   GitHubRepo,
   GitHubUser,
+  Gist,
   Issue,
   NewPullRequest,
   NewRelease,
   PrFile,
   PullRequest,
   PullRequestDetail,
+  RateLimit,
   Release,
+  RepoInsights,
+  RepoLabel,
   SearchIssueResult,
   SearchRepoResult,
   WorkflowRun
@@ -544,6 +548,88 @@ export async function rerunWorkflow(owner: string, repo: string, runId: number):
   await ghReq('POST', `/repos/${owner}/${repo}/actions/runs/${runId}/rerun`)
 }
 
+// --- Rate limit ---
+
+export async function getRateLimit(): Promise<RateLimit> {
+  const r = await gh<{ resources: { core: { remaining: number; limit: number; reset: number } } }>(
+    '/rate_limit'
+  )
+  const c = r.resources.core
+  return { remaining: c.remaining, limit: c.limit, resetAt: c.reset }
+}
+
+// --- Gists ---
+
+export async function listGists(): Promise<Gist[]> {
+  const gs = await gh<
+    Array<{
+      id: string
+      description: string | null
+      public: boolean
+      html_url: string
+      updated_at: string
+      files: Record<string, unknown>
+    }>
+  >('/gists?per_page=30')
+  return gs.map((g) => ({
+    id: g.id,
+    description: g.description || '(utan beskrivning)',
+    public: g.public,
+    htmlUrl: g.html_url,
+    files: Object.keys(g.files),
+    updatedAt: g.updated_at
+  }))
+}
+
+export async function createGist(
+  description: string,
+  filename: string,
+  content: string,
+  isPublic: boolean
+): Promise<Gist> {
+  const g = await ghReq<{
+    id: string
+    description: string | null
+    public: boolean
+    html_url: string
+    updated_at: string
+    files: Record<string, unknown>
+  }>('POST', '/gists', {
+    description,
+    public: isPublic,
+    files: { [filename || 'gist.txt']: { content } }
+  })
+  return {
+    id: g.id,
+    description: g.description || '(utan beskrivning)',
+    public: g.public,
+    htmlUrl: g.html_url,
+    files: Object.keys(g.files),
+    updatedAt: g.updated_at
+  }
+}
+
+// --- Repo-insikter ---
+
+export async function getRepoInsights(owner: string, repo: string): Promise<RepoInsights> {
+  const [langs, contribs] = await Promise.all([
+    gh<Record<string, number>>(`/repos/${owner}/${repo}/languages`).catch(() => ({})),
+    gh<Array<{ login: string; avatar_url: string; contributions: number }>>(
+      `/repos/${owner}/${repo}/contributors?per_page=10`
+    ).catch(() => [])
+  ])
+  return {
+    languages: Object.entries(langs)
+      .map(([name, bytes]) => ({ name, bytes }))
+      .sort((a, b) => b.bytes - a.bytes),
+    contributors: contribs.map((c) => ({
+      login: c.login,
+      avatarUrl: c.avatar_url,
+      contributions: c.contributions
+    }))
+  }
+}
+
 export async function searchIssuesPrs(q: string): Promise<SearchIssueResult[]> {
   if (!q.trim()) return []
   const r = await gh<{
@@ -647,11 +733,22 @@ export async function createIssue(
   owner: string,
   repo: string,
   title: string,
-  body: string
+  body: string,
+  labels: string[] = [],
+  assignees: string[] = []
 ): Promise<Issue> {
   const i = await ghReq<Parameters<typeof mapIssue>[0]>('POST', `/repos/${owner}/${repo}/issues`, {
     title,
-    body
+    body,
+    ...(labels.length ? { labels } : {}),
+    ...(assignees.length ? { assignees } : {})
   })
   return mapIssue(i)
+}
+
+export async function listLabels(owner: string, repo: string): Promise<RepoLabel[]> {
+  const ls = await gh<Array<{ name: string; color: string }>>(
+    `/repos/${owner}/${repo}/labels?per_page=100`
+  )
+  return ls.map((l) => ({ name: l.name, color: l.color }))
 }

@@ -9,8 +9,20 @@ import { GitHubNotifications } from './GitHubNotifications'
 import { GitHubSearch } from './GitHubSearch'
 import { GitHubReleases } from './GitHubReleases'
 import { GitHubActions } from './GitHubActions'
+import { GitHubGists } from './GitHubGists'
+import { GitHubInsights } from './GitHubInsights'
+import type { RateLimit } from '../../../shared/types'
 
-type GhTab = 'repos' | 'pulls' | 'issues' | 'notifs' | 'search' | 'releases' | 'actions'
+type GhTab =
+  | 'repos'
+  | 'pulls'
+  | 'issues'
+  | 'notifs'
+  | 'search'
+  | 'releases'
+  | 'actions'
+  | 'insights'
+  | 'gists'
 
 type RepoSort = 'updated' | 'name' | 'stars'
 
@@ -68,6 +80,7 @@ export function GitHubPanel(): JSX.Element {
   const [reposLoading, setReposLoading] = useState(false)
   const [authed, setAuthed] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [rate, setRate] = useState<RateLimit | null>(null)
   const [sortBy, setSortBy] = useState<RepoSort>('updated')
 
   const loadUser = async (): Promise<void> => {
@@ -79,6 +92,7 @@ export function GitHubPanel(): JSX.Element {
       // best-effort (kan strula utan att vi ska falla tillbaka till login).
       setAuthed(true)
       loadRepos()
+      window.api.github.rateLimit().then((r) => r.ok && setRate(r.data))
       const u = await window.api.github.user()
       if (u.ok) setUser(u.data)
     }
@@ -247,6 +261,11 @@ export function GitHubPanel(): JSX.Element {
           {user?.avatarUrl && <img className="avatar" src={user.avatarUrl} alt="" />}
           {user ? `${user.name ?? user.login} (@${user.login})` : 'GitHub'}
         </span>
+        {rate && (
+          <span className="gh-rate muted small" title="GitHub API-anrop kvar denna timme">
+            API {rate.remaining}/{rate.limit}
+          </span>
+        )}
         <button className="btn ghost" onClick={signOut}>
           Logga ut
         </button>
@@ -260,6 +279,8 @@ export function GitHubPanel(): JSX.Element {
             ['issues', 'Issues'],
             ['releases', 'Releaser'],
             ['actions', 'Actions'],
+            ['insights', 'Insikter'],
+            ['gists', 'Gists'],
             ['notifs', 'Notiser'],
             ['search', 'Sök']
           ] as const
@@ -275,6 +296,8 @@ export function GitHubPanel(): JSX.Element {
         {ghTab === 'issues' && <GitHubIssues />}
         {ghTab === 'releases' && <GitHubReleases />}
         {ghTab === 'actions' && <GitHubActions />}
+        {ghTab === 'insights' && <GitHubInsights />}
+        {ghTab === 'gists' && <GitHubGists />}
         {ghTab === 'notifs' && <GitHubNotifications />}
         {ghTab === 'search' && <GitHubSearch />}
         {ghTab === 'repos' && (

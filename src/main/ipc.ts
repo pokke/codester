@@ -232,10 +232,18 @@ export function registerIpc(): void {
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.getIssue(or.owner, or.repo, number)
   })
-  handle('github:createIssue', async (title: string, body: string) => {
+  handle(
+    'github:createIssue',
+    async (title: string, body: string, labels?: string[], assignees?: string[]) => {
+      const or = await git.remoteOwnerRepo()
+      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+      return github.createIssue(or.owner, or.repo, title, body, labels, assignees)
+    }
+  )
+  handle('github:labels', async () => {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.createIssue(or.owner, or.repo, title, body)
+    return github.listLabels(or.owner, or.repo)
   })
   handle(
     'github:review',
@@ -287,5 +295,17 @@ export function registerIpc(): void {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.rerunWorkflow(or.owner, or.repo, runId)
+  })
+  handle('github:rateLimit', () => github.getRateLimit())
+  handle('github:gists', () => github.listGists())
+  handle(
+    'github:createGist',
+    (description: string, filename: string, content: string, isPublic: boolean) =>
+      github.createGist(description, filename, content, isPublic)
+  )
+  handle('github:insights', async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getRepoInsights(or.owner, or.repo)
   })
 }

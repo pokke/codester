@@ -718,6 +718,58 @@
   align-items: center;
   gap: 8px;
 }
+.gh-rate {
+  margin-left: auto;
+  margin-right: var(--space);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Insikter */
+.insights section {
+  margin-bottom: calc(var(--space) * 2);
+}
+.lang-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  background: var(--bg-elevated);
+}
+.lang-seg {
+  height: 100%;
+}
+.lang-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.contrib-row {
+  align-items: center;
+  gap: 8px;
+}
+.avatar.sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+/* Label-väljare (issue-skapande) */
+.label-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.label-pick {
+  border: 1px solid var(--border);
+  cursor: pointer;
+  line-height: 18px;
+}
+.label-pick:not(.on) {
+  background: transparent;
+}
 
 /* Markdown-rendering (PR/issue/release-beskrivningar) */
 .markdown {

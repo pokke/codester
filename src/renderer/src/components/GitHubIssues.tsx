@@ -122,17 +122,37 @@ function CreateIssue({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const { notify } = useToast()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [assignees, setAssignees] = useState('')
+  const [repoLabels, setRepoLabels] = useState<{ name: string; color: string }[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    window.api.github.labels().then((r) => r.ok && setRepoLabels(r.data))
+  }, [])
+
+  const toggle = (name: string): void =>
+    setSelected((prev) => {
+      const n = new Set(prev)
+      n.has(name) ? n.delete(name) : n.add(name)
+      return n
+    })
+
   const submit = async (): Promise<void> => {
     if (!title.trim() || busy) return
     setBusy(true)
-    const r = await window.api.github.createIssue(title.trim(), body)
+    const asg = assignees
+      .split(',')
+      .map((s) => s.trim().replace(/^@/, ''))
+      .filter(Boolean)
+    const r = await window.api.github.createIssue(title.trim(), body, [...selected], asg)
     setBusy(false)
     if (r.ok) {
       notify(`Issue #${r.data.number} skapat`, 'success')
       onCreated()
     } else notify(r.error, 'error')
   }
+
   return (
     <div className="pr-create">
       <div className="pr-detail-head">
@@ -150,6 +170,32 @@ function CreateIssue({ onClose, onCreated }: { onClose: () => void; onCreated: (
         onChange={(e) => setBody(e.target.value)}
         placeholder="Detaljer…"
       />
+      {repoLabels.length > 0 && (
+        <>
+          <label className="field-label">Labels</label>
+          <div className="label-picker">
+            {repoLabels.map((l) => {
+              const on = selected.has(l.name)
+              return (
+                <button
+                  key={l.name}
+                  className={`issue-label label-pick ${on ? 'on' : ''}`}
+                  style={
+                    on
+                      ? { background: `#${l.color}`, color: contrastText(l.color) }
+                      : { borderColor: `#${l.color}`, color: 'var(--text)' }
+                  }
+                  onClick={() => toggle(l.name)}
+                >
+                  {l.name}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+      <label className="field-label">Tilldela (kommaseparerade användare, valfri)</label>
+      <input value={assignees} onChange={(e) => setAssignees(e.target.value)} placeholder="octocat, …" />
       <button className="btn primary full" disabled={!title.trim() || busy} onClick={submit}>
         {busy ? 'Skapar…' : 'Skapa issue'}
       </button>

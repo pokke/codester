@@ -8,6 +8,7 @@ import type {
   FileChange,
   CheckStatus,
   GhNotification,
+  Gist,
   GitHubRepo,
   GitHubUser,
   Issue,
@@ -17,8 +18,11 @@ import type {
   PrFile,
   PullRequest,
   PullRequestDetail,
+  RateLimit,
   Release,
   RepoInfo,
+  RepoInsights,
+  RepoLabel,
   SearchIssueResult,
   SearchRepoResult,
   WorkflowRun,
@@ -209,8 +213,9 @@ const api = {
     defaultBranch: () => invoke<string>('github:defaultBranch'),
     issues: () => invoke<Issue[]>('github:issues'),
     issue: (number: number) => invoke<Issue>('github:issue', number),
-    createIssue: (title: string, body: string) =>
-      invoke<Issue>('github:createIssue', title, body),
+    createIssue: (title: string, body: string, labels?: string[], assignees?: string[]) =>
+      invoke<Issue>('github:createIssue', title, body, labels, assignees),
+    labels: () => invoke<RepoLabel[]>('github:labels'),
     review: (number: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body: string) =>
       invoke<void>('github:review', number, event, body),
     mergePr: (number: number, method: 'merge' | 'squash' | 'rebase') =>
@@ -227,7 +232,12 @@ const api = {
     releases: () => invoke<Release[]>('github:releases'),
     createRelease: (rel: NewRelease) => invoke<Release>('github:createRelease', rel),
     runs: () => invoke<WorkflowRun[]>('github:runs'),
-    rerun: (runId: number) => invoke<void>('github:rerun', runId)
+    rerun: (runId: number) => invoke<void>('github:rerun', runId),
+    rateLimit: () => invoke<RateLimit>('github:rateLimit'),
+    gists: () => invoke<Gist[]>('github:gists'),
+    createGist: (description: string, filename: string, content: string, isPublic: boolean) =>
+      invoke<Gist>('github:createGist', description, filename, content, isPublic),
+    insights: () => invoke<RepoInsights>('github:insights')
   }
 }
 
