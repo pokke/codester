@@ -45,6 +45,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
   const [tab, setTab] = useState<Tab>('changes')
   const [creating, setCreating] = useState(false)
   const [newBranch, setNewBranch] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const [query, setQuery] = useState('')
   const [replacement, setReplacement] = useState('')
   const [results, setResults] = useState<SearchHit[]>([])
@@ -241,16 +242,36 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
             />
           </div>
         )}
-        {branches.map((b) => (
-          <div
-            key={b.name}
-            className={`row ${b.current ? 'active' : ''}`}
-            onClick={() => !b.current && checkout(b.name)}
-          >
-            <span className="icon">⎇</span>
-            <span>{b.name}</span>
+        {branches.length > 8 && (
+          <div className="row">
+            <input
+              placeholder="Filtrera branches…"
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              style={{ width: '100%' }}
+            />
           </div>
-        ))}
+        )}
+        {branches
+          .filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+          .map((b) => (
+            <div
+              key={b.name}
+              className={`row ${b.current ? 'active' : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => !b.current && checkout(b.name)}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !b.current) {
+                  e.preventDefault()
+                  checkout(b.name)
+                }
+              }}
+            >
+              <span className="icon">⎇</span>
+              <span>{b.name}</span>
+            </div>
+          ))}
       </div>
 
       <div className="sidebar-tabs">

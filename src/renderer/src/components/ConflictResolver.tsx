@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 
 interface TextSeg {
   type: 'text'
@@ -86,6 +87,7 @@ export function ConflictResolver({
   onResolved: () => void
 }): JSX.Element {
   const { notify } = useToast()
+  const confirm = useConfirm()
   const [segs, setSegs] = useState<Seg[]>([])
   const [choices, setChoices] = useState<Record<number, Choice>>({})
   const [loading, setLoading] = useState(true)
@@ -116,7 +118,24 @@ export function ConflictResolver({
       })
       .join('\n')
 
+  const nextUnresolved = (): void => {
+    const un = conflicts.find((c) => !choices[c.id])
+    if (un) {
+      document
+        .getElementById(`conflict-${un.id}`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }
+
   const save = async (markResolved: boolean): Promise<void> => {
+    // Varna om man sparar med kvarvarande konfliktmarkörer
+    if (!markResolved && decided < conflicts.length) {
+      const ok = await confirm({
+        message: `${conflicts.length - decided} konflikt(er) är olösta – konfliktmarkörerna (<<<<<<<) sparas kvar i filen. Spara ändå?`,
+        confirmLabel: 'Spara ändå'
+      })
+      if (!ok) return
+    }
     const content = buildResolved()
     const res = await window.api.git.saveFile(path, content)
     if (!res.ok) {
@@ -144,6 +163,11 @@ export function ConflictResolver({
           {conflicts.length} konflikt{conflicts.length !== 1 ? 'er' : ''} · {decided} lösta
         </span>
         <span className="spacer" />
+        {!allDecided && (
+          <button className="btn" onClick={nextUnresolved}>
+            Nästa olösta
+          </button>
+        )}
         <button className="btn" onClick={() => save(false)}>
           Spara
         </button>
@@ -163,7 +187,11 @@ export function ConflictResolver({
           }
           const choice = choices[s.id]
           return (
-            <div key={idx} className={`conflict-hunk ${choice ? 'resolved' : ''}`}>
+            <div
+              key={idx}
+              id={`conflict-${s.id}`}
+              className={`conflict-hunk ${choice ? 'resolved' : ''}`}
+            >
               <div className="hunk-head">
                 <span>Konflikt #{s.id + 1}</span>
                 <div className="hunk-choices">
@@ -181,15 +209,17 @@ export function ConflictResolver({
                   </button>
                   <button
                     className={choice === 'both-ot' ? 'active' : ''}
+                    title="Behåll båda: våra rader först, sedan deras"
                     onClick={() => setChoice(s.id, 'both-ot')}
                   >
-                    Båda (V→D)
+                    Båda: våra först
                   </button>
                   <button
                     className={choice === 'both-to' ? 'active' : ''}
+                    title="Behåll båda: deras rader först, sedan våra"
                     onClick={() => setChoice(s.id, 'both-to')}
                   >
-                    Båda (D→V)
+                    Båda: deras först
                   </button>
                 </div>
               </div>

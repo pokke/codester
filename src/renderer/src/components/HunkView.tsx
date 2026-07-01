@@ -80,7 +80,7 @@ export function HunkView({ file }: { file: string }): JSX.Element {
             <button className="btn ghost" onClick={() => stageHunk(file, i)}>
               + Stagea
             </button>
-            <button className="btn ghost" onClick={() => askDiscard(i)}>
+            <button className="btn ghost hunk-discard" onClick={() => askDiscard(i)}>
               ⨯ Kasta
             </button>
           </div>

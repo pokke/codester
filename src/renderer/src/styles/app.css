@@ -1547,6 +1547,12 @@ code {
   color: #fff;
   border-color: transparent;
 }
+.hunk-discard {
+  color: var(--git-deleted);
+}
+.hunk-discard:hover {
+  background: color-mix(in srgb, var(--git-deleted) 15%, transparent);
+}
 
 /* ── Breadcrumbs i editor-verktygsraden ── */
 .breadcrumbs {

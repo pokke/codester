@@ -353,16 +353,25 @@ export function EditorGroup({
   return (
     <main className={groupClass} onMouseDownCapture={onFocus}>
       {/* Flikrad */}
-      <div className="tabbar">
+      <div className="tabbar" role="tablist">
         {openTabs.map((path) => (
           <div
             key={path}
+            role="tab"
+            aria-selected={activePath === path}
+            tabIndex={0}
             className={`tab ${activePath === path ? 'active' : ''} ${
               previewPath === path ? 'preview' : ''
             }`}
             onClick={() => selectPath(path)}
             onDoubleClick={() => pinTab(path)}
             onContextMenu={(e) => openTabMenu(path, e)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                selectPath(path)
+              }
+            }}
             title={path}
             onAuxClick={(e) => e.button === 1 && handleClose(path, e)}
             draggable

@@ -109,10 +109,14 @@ export function SettingsProvider({ children }: { children: ReactNode }): JSX.Ele
     })()
   }, [])
 
-  // Spara vid varje ändring – både snabb cache och den redigerbara filen
+  // Spara vid varje ändring – snabb cache direkt, filskrivning debouncad
+  // (så att reglagedragningar inte spammar disken).
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-    window.api.config.write(SETTINGS_FILE, JSON.stringify(settings, null, 2))
+    const t = setTimeout(() => {
+      window.api.config.write(SETTINGS_FILE, JSON.stringify(settings, null, 2))
+    }, 400)
+    return () => clearTimeout(t)
   }, [settings])
 
   const update = (patch: Partial<Settings>): void =>
