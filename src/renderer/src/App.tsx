@@ -211,8 +211,8 @@ export function App(): JSX.Element {
       <StatusBar
         version={version}
         panelTab={panelTab}
-        onToggleTerminal={() => togglePanel('terminal')}
-        onToggleProblems={() => togglePanel('problems')}
+        onShowTerminal={() => setPanelTab('terminal')}
+        onShowProblems={() => setPanelTab('problems')}
       />
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}

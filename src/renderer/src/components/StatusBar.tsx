@@ -4,13 +4,13 @@ import { useProblems, counts } from '../editor/markers'
 export function StatusBar({
   version,
   panelTab,
-  onToggleTerminal,
-  onToggleProblems
+  onShowTerminal,
+  onShowProblems
 }: {
   version: string
   panelTab: 'terminal' | 'problems' | null
-  onToggleTerminal: () => void
-  onToggleProblems: () => void
+  onShowTerminal: () => void
+  onShowProblems: () => void
 }): JSX.Element {
   const { status, repo, busy } = useRepo()
   const problems = useProblems()
@@ -35,14 +35,14 @@ export function StatusBar({
       <span
         className={`seg clickable ${panelTab === 'terminal' ? 'on' : ''}`}
         title="Terminal (Ctrl+`)"
-        onClick={onToggleTerminal}
+        onClick={onShowTerminal}
       >
         {'>_'} Terminal
       </span>
       <span
         className={`seg clickable ${panelTab === 'problems' ? 'on' : ''}`}
         title="Problem (Ctrl+Shift+M)"
-        onClick={onToggleProblems}
+        onClick={onShowProblems}
       >
         ✖ {errors} ⚠ {warnings}
       </span>
