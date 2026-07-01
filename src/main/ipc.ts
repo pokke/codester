@@ -9,9 +9,11 @@ import * as lang from './services/lang'
 import * as lsp from './services/lsp'
 import * as langservers from './services/langservers'
 
-function watchRepo(path: string): void {
+// Bevaka alla arbetsytans repon (multi-root) så ändringar i valfritt repo
+// uppdaterar vyerna.
+function watchWorkspace(): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  if (win) watcher.startWatch(path, win.webContents)
+  if (win) watcher.watchAll(git.listRepos().map((r) => r.path), win.webContents)
 }
 
 // Slår in en handler i ett Result-kuvert så att fel kan visas snyggt i UI:t
@@ -36,19 +38,18 @@ export function registerIpc(): void {
     })
     if (res.canceled || !res.filePaths[0]) return null
     const info = await git.openRepo(res.filePaths[0])
-    watchRepo(info.path)
+    watchWorkspace()
     return info
   })
   handle('repo:open', async (path: string) => {
     const info = await git.openRepo(path)
-    watchRepo(info.path)
+    watchWorkspace()
     return info
   })
   handle('repo:current', () => git.getRepoPath())
   handle('repo:add', async (path: string) => {
-    const before = git.getRepoPath()
     const info = await git.addRepo(path)
-    if (git.getRepoPath() !== before) watchRepo(info.path) // blev aktivt (arbetsytan var tom)
+    watchWorkspace()
     return info
   })
   handle('repo:addDialog', async () => {
@@ -58,18 +59,19 @@ export function registerIpc(): void {
       title: 'Lägg till mapp i arbetsytan'
     })
     if (res.canceled || !res.filePaths[0]) return null
-    const before = git.getRepoPath()
     const info = await git.addRepo(res.filePaths[0])
-    if (git.getRepoPath() !== before) watchRepo(info.path)
+    watchWorkspace()
     return info
   })
   handle('repo:list', () => git.listRepos())
   handle('repo:setActive', (path: string) => {
     const info = git.setActiveRepo(path)
-    if (info) watchRepo(info.path)
     return info
   })
-  handle('repo:close', (path: string) => git.closeRepo(path))
+  handle('repo:close', (path: string) => {
+    git.closeRepo(path)
+    watchWorkspace()
+  })
   handle('repo:cloneDialog', async (url: string) => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
@@ -78,7 +80,7 @@ export function registerIpc(): void {
     })
     if (res.canceled || !res.filePaths[0]) return null
     const path = await git.cloneRepo(url, res.filePaths[0])
-    watchRepo(path)
+    watchWorkspace()
     return path
   })
 
