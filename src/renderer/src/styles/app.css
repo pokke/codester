@@ -132,6 +132,55 @@
   padding: 3px 6px;
   font-size: 12px;
 }
+
+/* Simultana per-repo källkontroll-sektioner (multi-root) */
+.multi-repo-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.repo-section {
+  border-bottom: 1px solid var(--border);
+}
+.repo-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.repo-section-header:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.repo-section-header .repo-sec-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text);
+}
+.repo-section-header .repo-sec-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.repo-section-header .ws-active-badge {
+  margin-left: 6px;
+}
+.repo-section-body {
+  padding-bottom: var(--space);
+}
+.commit-box.compact {
+  border-top: none;
+  padding: var(--space) calc(var(--space) * 1.5);
+  gap: 6px;
+}
+.commit-box.compact textarea {
+  min-height: 48px;
+}
+.btn.full.small {
+  padding: 3px 8px;
+  font-size: 11px;
+}
 .inspector {
   border-left: 1px solid var(--border);
 }

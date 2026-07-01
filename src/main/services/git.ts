@@ -119,24 +119,28 @@ export async function listFiles(root?: string): Promise<string[]> {
     .sort()
 }
 
-export async function resolveSide(file: string, side: 'ours' | 'theirs'): Promise<void> {
-  const g = requireGit()
+export async function resolveSide(
+  file: string,
+  side: 'ours' | 'theirs',
+  root?: string
+): Promise<void> {
+  const g = requireGit(root)
   await g.raw(['checkout', `--${side}`, '--', file])
   await g.add(file)
 }
 
-export async function branches(): Promise<BranchInfo[]> {
-  const g = requireGit()
+export async function branches(root?: string): Promise<BranchInfo[]> {
+  const g = requireGit(root)
   const b = await g.branchLocal()
   return b.all.map((name) => ({ name, current: name === b.current }))
 }
 
-export async function checkout(name: string): Promise<void> {
-  await requireGit().checkout(name)
+export async function checkout(name: string, root?: string): Promise<void> {
+  await requireGit(root).checkout(name)
 }
 
-export async function createBranch(name: string): Promise<void> {
-  await requireGit().checkoutLocalBranch(name)
+export async function createBranch(name: string, root?: string): Promise<void> {
+  await requireGit(root).checkoutLocalBranch(name)
 }
 
 export async function deleteBranch(name: string, force: boolean): Promise<void> {
@@ -150,30 +154,30 @@ export async function diff(file: string, staged: boolean): Promise<DiffResult> {
   return { patch, binary: patch.includes('Binary files') }
 }
 
-export async function stage(file: string): Promise<void> {
-  await requireGit().add(file)
+export async function stage(file: string, root?: string): Promise<void> {
+  await requireGit(root).add(file)
 }
 
-export async function unstage(file: string): Promise<void> {
-  await requireGit().reset(['HEAD', '--', file])
+export async function unstage(file: string, root?: string): Promise<void> {
+  await requireGit(root).reset(['HEAD', '--', file])
 }
 
-export async function stageAll(): Promise<void> {
-  await requireGit().add('.')
+export async function stageAll(root?: string): Promise<void> {
+  await requireGit(root).add('.')
 }
 
-export async function discard(file: string): Promise<void> {
-  await requireGit().checkout(['--', file])
+export async function discard(file: string, root?: string): Promise<void> {
+  await requireGit(root).checkout(['--', file])
 }
 
-export async function commit(message: string, amend = false): Promise<string> {
-  const res = await requireGit().commit(message, [], amend ? { '--amend': null } : {})
+export async function commit(message: string, amend = false, root?: string): Promise<string> {
+  const res = await requireGit(root).commit(message, [], amend ? { '--amend': null } : {})
   return res.commit
 }
 
-export async function lastCommitMessage(): Promise<string> {
+export async function lastCommitMessage(root?: string): Promise<string> {
   try {
-    return (await requireGit().raw(['log', '-1', '--format=%B'])).trim()
+    return (await requireGit(root).raw(['log', '-1', '--format=%B'])).trim()
   } catch {
     return ''
   }
@@ -232,16 +236,16 @@ export async function discardHunk(file: string, index: number): Promise<void> {
   await applyHunk(file, index, false, ['--reverse'])
 }
 
-export async function push(): Promise<void> {
-  await requireGit().push()
+export async function push(root?: string): Promise<void> {
+  await requireGit(root).push()
 }
 
-export async function pull(): Promise<void> {
-  await requireGit().pull()
+export async function pull(root?: string): Promise<void> {
+  await requireGit(root).pull()
 }
 
-export async function fetchAll(): Promise<void> {
-  await requireGit().fetch(['--all', '--prune'])
+export async function fetchAll(root?: string): Promise<void> {
+  await requireGit(root).fetch(['--all', '--prune'])
 }
 
 export async function log(limit = 100): Promise<CommitLogEntry[]> {
@@ -424,13 +428,13 @@ export async function headContent(file: string): Promise<string> {
   }
 }
 
-export async function stashSave(message?: string): Promise<void> {
+export async function stashSave(message?: string, root?: string): Promise<void> {
   const args = message ? ['push', '-m', message] : ['push']
-  await requireGit().stash(args)
+  await requireGit(root).stash(args)
 }
 
-export async function stashList(): Promise<StashEntry[]> {
-  const g = requireGit()
+export async function stashList(root?: string): Promise<StashEntry[]> {
+  const g = requireGit(root)
   const raw = await g.raw(['stash', 'list', '--format=%gd|%ci|%s'])
   return raw
     .split('\n')
@@ -442,12 +446,12 @@ export async function stashList(): Promise<StashEntry[]> {
     })
 }
 
-export async function stashApply(index: number, pop: boolean): Promise<void> {
-  await requireGit().stash([pop ? 'pop' : 'apply', `stash@{${index}}`])
+export async function stashApply(index: number, pop: boolean, root?: string): Promise<void> {
+  await requireGit(root).stash([pop ? 'pop' : 'apply', `stash@{${index}}`])
 }
 
-export async function stashDrop(index: number): Promise<void> {
-  await requireGit().stash(['drop', `stash@{${index}}`])
+export async function stashDrop(index: number, root?: string): Promise<void> {
+  await requireGit(root).stash(['drop', `stash@{${index}}`])
 }
 
 export async function remoteOwnerRepo(): Promise<{ owner: string; repo: string } | null> {

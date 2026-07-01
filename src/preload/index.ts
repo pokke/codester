@@ -42,24 +42,25 @@ const api = {
 
   git: {
     status: (root?: string) => invoke<RepoStatus>('git:status', root),
-    branches: () => invoke<BranchInfo[]>('git:branches'),
-    checkout: (name: string) => invoke<void>('git:checkout', name),
-    createBranch: (name: string) => invoke<void>('git:createBranch', name),
+    branches: (root?: string) => invoke<BranchInfo[]>('git:branches', root),
+    checkout: (name: string, root?: string) => invoke<void>('git:checkout', name, root),
+    createBranch: (name: string, root?: string) => invoke<void>('git:createBranch', name, root),
     deleteBranch: (name: string, force: boolean) =>
       invoke<void>('git:deleteBranch', name, force),
     diff: (file: string, staged: boolean) => invoke<DiffResult>('git:diff', file, staged),
-    stage: (file: string) => invoke<void>('git:stage', file),
-    unstage: (file: string) => invoke<void>('git:unstage', file),
-    stageAll: () => invoke<void>('git:stageAll'),
-    discard: (file: string) => invoke<void>('git:discard', file),
-    commit: (message: string, amend?: boolean) => invoke<string>('git:commit', message, amend),
-    lastCommitMessage: () => invoke<string>('git:lastCommitMessage'),
+    stage: (file: string, root?: string) => invoke<void>('git:stage', file, root),
+    unstage: (file: string, root?: string) => invoke<void>('git:unstage', file, root),
+    stageAll: (root?: string) => invoke<void>('git:stageAll', root),
+    discard: (file: string, root?: string) => invoke<void>('git:discard', file, root),
+    commit: (message: string, amend?: boolean, root?: string) =>
+      invoke<string>('git:commit', message, amend, root),
+    lastCommitMessage: (root?: string) => invoke<string>('git:lastCommitMessage', root),
     stageHunk: (file: string, index: number) => invoke<void>('git:stageHunk', file, index),
     unstageHunk: (file: string, index: number) => invoke<void>('git:unstageHunk', file, index),
     discardHunk: (file: string, index: number) => invoke<void>('git:discardHunk', file, index),
-    push: () => invoke<void>('git:push'),
-    pull: () => invoke<void>('git:pull'),
-    fetch: () => invoke<void>('git:fetch'),
+    push: (root?: string) => invoke<void>('git:push', root),
+    pull: (root?: string) => invoke<void>('git:pull', root),
+    fetch: (root?: string) => invoke<void>('git:fetch', root),
     log: (limit?: number) => invoke<CommitLogEntry[]>('git:log', limit),
     fileLog: (file: string) => invoke<CommitLogEntry[]>('git:fileLog', file),
     fileContent: (file: string) => invoke<string>('git:fileContent', file),
@@ -74,13 +75,13 @@ const api = {
       invoke<void>('git:saveFile', file, content),
     blame: (file: string) => invoke<BlameLine[]>('git:blame', file),
     listFiles: (root?: string) => invoke<string[]>('git:listFiles', root),
-    resolveSide: (file: string, side: 'ours' | 'theirs') =>
-      invoke<void>('git:resolveSide', file, side),
-    stashSave: (message?: string) => invoke<void>('git:stashSave', message),
-    stashList: () => invoke<StashEntry[]>('git:stashList'),
-    stashApply: (index: number, pop: boolean) =>
-      invoke<void>('git:stashApply', index, pop),
-    stashDrop: (index: number) => invoke<void>('git:stashDrop', index)
+    resolveSide: (file: string, side: 'ours' | 'theirs', root?: string) =>
+      invoke<void>('git:resolveSide', file, side, root),
+    stashSave: (message?: string, root?: string) => invoke<void>('git:stashSave', message, root),
+    stashList: (root?: string) => invoke<StashEntry[]>('git:stashList', root),
+    stashApply: (index: number, pop: boolean, root?: string) =>
+      invoke<void>('git:stashApply', index, pop, root),
+    stashDrop: (index: number, root?: string) => invoke<void>('git:stashDrop', index, root)
   },
 
   terminal: {
