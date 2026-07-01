@@ -89,8 +89,8 @@ export async function cloneRepo(url: string, parentDir: string): Promise<string>
   return target
 }
 
-export async function status(): Promise<RepoStatus> {
-  const g = requireGit()
+export async function status(root?: string): Promise<RepoStatus> {
+  const g = requireGit(root)
   const s = await g.status()
   const files = s.files.map((f) => ({
     path: f.path,
@@ -108,9 +108,9 @@ export async function status(): Promise<RepoStatus> {
   }
 }
 
-export async function listFiles(): Promise<string[]> {
+export async function listFiles(root?: string): Promise<string[]> {
   // Alla spårade + ej ignorerade filer (respekterar .gitignore).
-  const g = requireGit()
+  const g = requireGit(root)
   const out = await g.raw(['ls-files', '--cached', '--others', '--exclude-standard'])
   return out
     .split('\n')

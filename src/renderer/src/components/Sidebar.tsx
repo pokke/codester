@@ -3,6 +3,7 @@ import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { FileTree } from './FileTree'
+import { MultiRootTree } from './MultiRootTree'
 import { CommitBox } from './CommitBox'
 import type { FileChange, SearchHit } from '../../../shared/types'
 
@@ -306,7 +307,11 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
         </>
       ) : tab === 'files' ? (
         <div className="panel-body">
-          <FileTree onOpenEditor={onOpenEditor} />
+          {repos.length > 1 ? (
+            <MultiRootTree onOpenEditor={onOpenEditor} />
+          ) : (
+            <FileTree onOpenEditor={onOpenEditor} />
+          )}
         </div>
       ) : (
         <>

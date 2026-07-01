@@ -41,7 +41,7 @@ const api = {
   },
 
   git: {
-    status: () => invoke<RepoStatus>('git:status'),
+    status: (root?: string) => invoke<RepoStatus>('git:status', root),
     branches: () => invoke<BranchInfo[]>('git:branches'),
     checkout: (name: string) => invoke<void>('git:checkout', name),
     createBranch: (name: string) => invoke<void>('git:createBranch', name),
@@ -73,7 +73,7 @@ const api = {
     saveFile: (file: string, content: string) =>
       invoke<void>('git:saveFile', file, content),
     blame: (file: string) => invoke<BlameLine[]>('git:blame', file),
-    listFiles: () => invoke<string[]>('git:listFiles'),
+    listFiles: (root?: string) => invoke<string[]>('git:listFiles', root),
     resolveSide: (file: string, side: 'ours' | 'theirs') =>
       invoke<void>('git:resolveSide', file, side),
     stashSave: (message?: string) => invoke<void>('git:stashSave', message),
@@ -103,11 +103,13 @@ const api = {
   },
 
   fs: {
-    createFile: (rel: string) => invoke<void>('fs:createFile', rel),
-    createFolder: (rel: string) => invoke<void>('fs:createFolder', rel),
-    rename: (oldRel: string, newRel: string) => invoke<void>('fs:rename', oldRel, newRel),
-    delete: (rel: string) => invoke<void>('fs:delete', rel),
-    copy: (srcRel: string, destRel: string) => invoke<void>('fs:copy', srcRel, destRel)
+    createFile: (rel: string, root?: string) => invoke<void>('fs:createFile', rel, root),
+    createFolder: (rel: string, root?: string) => invoke<void>('fs:createFolder', rel, root),
+    rename: (oldRel: string, newRel: string, root?: string) =>
+      invoke<void>('fs:rename', oldRel, newRel, root),
+    delete: (rel: string, root?: string) => invoke<void>('fs:delete', rel, root),
+    copy: (srcRel: string, destRel: string, root?: string) =>
+      invoke<void>('fs:copy', srcRel, destRel, root)
   },
 
   lang: {

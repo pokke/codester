@@ -83,7 +83,7 @@ export function registerIpc(): void {
   })
 
   // --- Git ---
-  handle('git:status', () => git.status())
+  handle('git:status', (root?: string) => git.status(root))
   handle('git:branches', () => git.branches())
   handle('git:checkout', (name: string) => git.checkout(name))
   handle('git:createBranch', (name: string) => git.createBranch(name))
@@ -114,7 +114,7 @@ export function registerIpc(): void {
   handle('git:lineChanges', (file: string) => git.lineChanges(file))
   handle('git:saveFile', (file: string, content: string) => git.saveFile(file, content))
   handle('git:blame', (file: string) => git.blame(file))
-  handle('git:listFiles', () => git.listFiles())
+  handle('git:listFiles', (root?: string) => git.listFiles(root))
   handle('git:resolveSide', (file: string, side: 'ours' | 'theirs') =>
     git.resolveSide(file, side)
   )
@@ -124,11 +124,15 @@ export function registerIpc(): void {
   handle('git:stashDrop', (index: number) => git.stashDrop(index))
 
   // --- Filoperationer ---
-  handle('fs:createFile', (rel: string) => files.createFile(rel))
-  handle('fs:createFolder', (rel: string) => files.createFolder(rel))
-  handle('fs:rename', (oldRel: string, newRel: string) => files.renamePath(oldRel, newRel))
-  handle('fs:delete', (rel: string) => files.deletePath(rel))
-  handle('fs:copy', (srcRel: string, destRel: string) => files.copyPath(srcRel, destRel))
+  handle('fs:createFile', (rel: string, root?: string) => files.createFile(rel, root))
+  handle('fs:createFolder', (rel: string, root?: string) => files.createFolder(rel, root))
+  handle('fs:rename', (oldRel: string, newRel: string, root?: string) =>
+    files.renamePath(oldRel, newRel, root)
+  )
+  handle('fs:delete', (rel: string, root?: string) => files.deletePath(rel, root))
+  handle('fs:copy', (srcRel: string, destRel: string, root?: string) =>
+    files.copyPath(srcRel, destRel, root)
+  )
 
   // --- Språkintelligens ---
   handle('lang:tsProject', () => lang.tsProject())

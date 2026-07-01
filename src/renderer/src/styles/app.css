@@ -759,6 +759,24 @@ code {
   height: 100%;
   overflow: auto;
 }
+/* Multi-root: rot-rubriker */
+.ws-root-header .fname {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+.ws-active-badge {
+  margin-left: auto;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 0 4px;
+  opacity: 0.85;
+}
 .tree-row {
   gap: 4px;
   padding-top: 3px;
