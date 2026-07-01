@@ -247,9 +247,36 @@ export function GitHubPanel(): JSX.Element {
               {showCfg && (
                 <div style={{ width: '100%' }}>
                   <p className="muted small">
-                    Registrera en OAuth App på github.com (Settings → Developer settings → OAuth
-                    Apps) med <em>Device Flow</em> aktiverat och klistra in dess client ID:
+                    Registrera en OAuth App för inloggning med ett klick (Device Flow). Client ID är
+                    publikt – ingen client secret behövs.
                   </p>
+                  <ol className="gh-oauth-steps muted small">
+                    <li>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          window.open(
+                            'https://github.com/settings/applications/new?' +
+                              'oauth_application[name]=Codester&' +
+                              'oauth_application[url]=' +
+                              encodeURIComponent('https://github.com/pokke/codester') +
+                              '&oauth_application[callback_url]=' +
+                              encodeURIComponent('https://github.com/pokke/codester')
+                          )
+                        }}
+                      >
+                        Öppna ”New OAuth App” (namn/URL förifyllt) ↗
+                      </a>
+                    </li>
+                    <li>
+                      Bocka i <strong>Enable Device Flow</strong> och klicka{' '}
+                      <em>Register application</em>.
+                    </li>
+                    <li>
+                      Kopiera <strong>Client ID</strong> och klistra in nedan.
+                    </li>
+                  </ol>
                   <div className="welcome-clone">
                     <input
                       placeholder="Iv1.xxxxxxxxxxxx"
