@@ -15,27 +15,66 @@ import type {
 } from '../../shared/types'
 
 // Git-motorn för Codester. All git-logik bor i main-processen och nås via IPC.
-// Vi håller ett aktivt repo i taget i Fas 1.
+// Arbetsytan kan innehålla flera repon (multi-root): vi håller en instans per
+// rot och ett "aktivt" repo som källkontrollen/branch-vyn arbetar mot.
 
-let git: SimpleGit | null = null
-let repoPath: string | null = null
+const repos = new Map<string, SimpleGit>()
+let activeRoot: string | null = null
 
 export function getRepoPath(): string | null {
-  return repoPath
+  return activeRoot
 }
 
-function requireGit(): SimpleGit {
-     if (!git) throw new Error('Inget repo är öppnat')
-  return git
+// Hämtar git-instansen för en viss rot (default: aktiva repot).
+function requireGit(root?: string): SimpleGit {
+  const key = root ?? activeRoot
+  const g = key ? repos.get(key) : null
+  if (!g) throw new Error('Inget repo är öppnat')
+  return g
 }
 
-export async function openRepo(path: string): Promise<{ path: string; name: string }> {
+// Roten som en path-baserad operation ska ske mot (default: aktiva).
+function rootDir(root?: string): string {
+  const key = root ?? activeRoot
+  if (!key || !repos.has(key)) throw new Error('Inget repo är öppnat')
+  return key
+}
+
+async function register(path: string): Promise<{ path: string; name: string }> {
   const candidate = simpleGit(path)
   const isRepo = await candidate.checkIsRepo()
   if (!isRepo) throw new Error('Mappen är inte ett git-repo')
-  git = candidate
-  repoPath = path
+  repos.set(path, candidate)
   return { path, name: basename(path) }
+}
+
+// Öppna ett repo och gör det aktivt (används vid öppna-dialog/klon).
+export async function openRepo(path: string): Promise<{ path: string; name: string }> {
+  const info = await register(path)
+  activeRoot = path
+  return info
+}
+
+// Lägg till ett repo i arbetsytan utan att byta aktivt (om ett redan finns).
+export async function addRepo(path: string): Promise<{ path: string; name: string }> {
+  const info = await register(path)
+  if (!activeRoot) activeRoot = path
+  return info
+}
+
+export function listRepos(): { path: string; name: string }[] {
+  return [...repos.keys()].map((p) => ({ path: p, name: basename(p) }))
+}
+
+export function setActiveRepo(path: string): { path: string; name: string } | null {
+  if (!repos.has(path)) return null
+  activeRoot = path
+  return { path, name: basename(path) }
+}
+
+export function closeRepo(path: string): void {
+  repos.delete(path)
+  if (activeRoot === path) activeRoot = [...repos.keys()][0] ?? null
 }
 
 export async function cloneRepo(url: string, parentDir: string): Promise<string> {
@@ -256,13 +295,11 @@ export async function fileLog(file: string): Promise<CommitLogEntry[]> {
 }
 
 export async function fileContent(file: string): Promise<string> {
-  if (!repoPath) throw new Error('Inget repo är öppnat')
-  return readFile(join(repoPath, file), 'utf-8')
+  return readFile(join(rootDir(), file), 'utf-8')
 }
 
 export async function saveFile(file: string, content: string): Promise<void> {
-  if (!repoPath) throw new Error('Inget repo är öppnat')
-  await writeFile(join(repoPath, file), content, 'utf-8')
+  await writeFile(join(rootDir(), file), content, 'utf-8')
 }
 
 export async function commitFiles(hash: string): Promise<FileChange[]> {
@@ -327,7 +364,7 @@ export async function replaceInRepo(
   query: string,
   replacement: string
 ): Promise<{ files: number; count: number }> {
-  if (!query || !repoPath) return { files: 0, count: 0 }
+  if (!query || !activeRoot) return { files: 0, count: 0 }
   let list: string[] = []
   try {
     const raw = await requireGit().raw(['grep', '-l', '-I', '-F', '-i', '-e', query])
@@ -339,7 +376,7 @@ export async function replaceInRepo(
   let files = 0
   let count = 0
   for (const rel of list) {
-    const full = join(repoPath, rel)
+    const full = join(rootDir(), rel)
     const content = await readFile(full, 'utf-8')
     const matches = content.match(re)
     if (!matches) continue

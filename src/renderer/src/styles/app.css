@@ -113,6 +113,25 @@
 .sidebar {
   border-right: 1px solid var(--border);
 }
+/* Arbetsyte-växlare (multi-root) */
+.workspace-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(var(--space) * 0.6) var(--space);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.workspace-bar .ws-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 6px;
+  font-size: 12px;
+}
 .inspector {
   border-left: 1px solid var(--border);
 }

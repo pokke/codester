@@ -45,6 +45,31 @@ export function registerIpc(): void {
     return info
   })
   handle('repo:current', () => git.getRepoPath())
+  handle('repo:add', async (path: string) => {
+    const before = git.getRepoPath()
+    const info = await git.addRepo(path)
+    if (git.getRepoPath() !== before) watchRepo(info.path) // blev aktivt (arbetsytan var tom)
+    return info
+  })
+  handle('repo:addDialog', async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    const res = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory'],
+      title: 'Lägg till mapp i arbetsytan'
+    })
+    if (res.canceled || !res.filePaths[0]) return null
+    const before = git.getRepoPath()
+    const info = await git.addRepo(res.filePaths[0])
+    if (git.getRepoPath() !== before) watchRepo(info.path)
+    return info
+  })
+  handle('repo:list', () => git.listRepos())
+  handle('repo:setActive', (path: string) => {
+    const info = git.setActiveRepo(path)
+    if (info) watchRepo(info.path)
+    return info
+  })
+  handle('repo:close', (path: string) => git.closeRepo(path))
   handle('repo:cloneDialog', async (url: string) => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {

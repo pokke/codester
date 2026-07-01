@@ -21,7 +21,7 @@ import { initLsp, setLspRoot } from './editor/lsp'
 import './styles/app.css'
 
 export function App(): JSX.Element {
-  const { repo, activePath, openTabs, closeTab, selectPath } = useRepo()
+  const { repo, activePath, openTabs, selectPath } = useRepo()
   const { settings, update } = useSettings()
   const mruRef = useRef<string[]>([])
   const [view, setView] = useState<View>('editor')
@@ -89,9 +89,6 @@ export function App(): JSX.Element {
       } else if (e.shiftKey && k === 'm') {
         e.preventDefault()
         togglePanel('problems') // Ctrl+Shift+M → problem-panel
-      } else if (k === 'w') {
-        e.preventDefault()
-        if (activePath) closeTab(activePath) // Ctrl+W → stäng flik
       } else if (e.key === 'Tab') {
         e.preventDefault() // Ctrl+Tab → senast använda flik
         const prev = mruRef.current.find((p) => p !== activePath && openTabs.includes(p))
@@ -109,7 +106,7 @@ export function App(): JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [activePath, openTabs, closeTab, selectPath, settings.uiScale, update])
+  }, [activePath, openTabs, selectPath, settings.uiScale, update])
 
   const renderCenter = (): JSX.Element => {
     if (view === 'github') return <GitHubPanel />

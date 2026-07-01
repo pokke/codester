@@ -17,6 +17,10 @@ type Tab = 'changes' | 'files' | 'search'
 export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
   const {
     repo,
+    repos,
+    switchRepo,
+    addFolder,
+    closeFolder,
     status,
     branches,
     activePath,
@@ -171,6 +175,37 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
 
   return (
     <aside className="panel sidebar">
+      <div className="workspace-bar">
+        <select
+          className="ws-select"
+          value={repo.path}
+          onChange={(e) => switchRepo(e.target.value)}
+          title="Aktivt repo i arbetsytan"
+        >
+          {repos.map((r) => (
+            <option key={r.path} value={r.path}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn ghost icon"
+          title="Lägg till mapp i arbetsytan"
+          onClick={() => addFolder()}
+        >
+          +
+        </button>
+        {repos.length > 1 && (
+          <button
+            className="btn ghost icon"
+            title="Ta bort aktiv mapp ur arbetsytan"
+            onClick={() => closeFolder(repo.path)}
+          >
+            −
+          </button>
+        )}
+      </div>
+
       <div className="panel-header">
         <span>Branches</span>
         <button className="btn icon ghost" title="Ny branch" onClick={() => setCreating(true)}>

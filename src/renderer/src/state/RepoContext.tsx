@@ -33,6 +33,8 @@ function useUnwrap(): <T>(p: Promise<Result<T>>, errPrefix?: string) => Promise<
 
 interface RepoState {
   repo: RepoInfo | null
+  /** alla repon i arbetsytan (multi-root) */
+  repos: RepoInfo[]
   status: RepoStatus | null
   branches: BranchInfo[]
   log: CommitLogEntry[]
@@ -51,6 +53,9 @@ interface RepoState {
 interface RepoContextValue extends RepoState {
   openDialog: () => Promise<void>
   cloneAndOpen: (url: string) => Promise<void>
+  addFolder: () => Promise<void>
+  switchRepo: (path: string) => Promise<void>
+  closeFolder: (path: string) => Promise<void>
   refresh: () => Promise<void>
   selectPath: (path: string | null, line?: number) => void
   previewFile: (path: string) => void
@@ -84,6 +89,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
   const { notify } = useToast()
   const [state, setState] = useState<RepoState>({
     repo: null,
+    repos: [],
     status: null,
     branches: [],
     log: [],
@@ -121,11 +127,17 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     await loadRepoData()
   }, [state.repo, loadRepoData])
 
+  const refreshRepos = useCallback(async () => {
+    const list = await unwrap(window.api.repo.list())
+    if (list) setState((s) => ({ ...s, repos: list }))
+  }, [unwrap])
+
   const setRepo = useCallback(
     async (repo: RepoInfo) => {
       localStorage.setItem('codester.lastRepo', repo.path)
       setState((s) => ({ ...s, repo, activePath: null, openTabs: [], previewPath: null }))
       await loadRepoData()
+      await refreshRepos()
       // Återställ tidigare öppna flikar för detta repo (om filerna finns kvar)
       try {
         const raw = localStorage.getItem(`codester.tabs.${repo.path}`)
@@ -153,19 +165,42 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     )
   }, [state.repo, state.openTabs, state.activePath])
 
-  // Återöppna senaste repo: först main:s aktiva, annars sparad sökväg (överlever
-  // omstart/uppdatering). Misslyckas det (raderat repo) glöms sökvägen tyst.
+  // Återöppna hela arbetsytan vid start (överlever omstart/uppdatering).
+  // Repon som inte längre finns glöms tyst.
   useEffect(() => {
     ;(async () => {
+      let saved: string[] = []
+      try {
+        const raw = localStorage.getItem('codester.workspace')
+        if (raw) saved = JSON.parse(raw)
+      } catch {
+        saved = []
+      }
       const current = await unwrap(window.api.repo.current())
-      const path = current ?? localStorage.getItem('codester.lastRepo')
-      if (!path) return
-      const res = await window.api.repo.open(path)
-      if (res.ok) await setRepo(res.data)
-      else localStorage.removeItem('codester.lastRepo')
+      const last = current ?? localStorage.getItem('codester.lastRepo')
+      const paths = saved.length ? saved : last ? [last] : []
+      if (!paths.length) return
+      const opened: string[] = []
+      for (const p of paths) {
+        const res = await window.api.repo.add(p)
+        if (res.ok) opened.push(p)
+      }
+      if (!opened.length) {
+        localStorage.removeItem('codester.lastRepo')
+        localStorage.removeItem('codester.workspace')
+        return
+      }
+      const active = last && opened.includes(last) ? last : opened[0]
+      const info = await unwrap(window.api.repo.setActive(active))
+      if (info) await setRepo(info)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Spara arbetsytans repon
+  useEffect(() => {
+    localStorage.setItem('codester.workspace', JSON.stringify(state.repos.map((r) => r.path)))
+  }, [state.repos])
 
   const withBusy = useCallback(async (fn: () => Promise<void>) => {
     setState((s) => ({ ...s, busy: true }))
@@ -198,6 +233,55 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
       })
     },
     [unwrap, withBusy, setRepo, notify]
+  )
+
+  // Lägg till en mapp i arbetsytan (byter inte aktivt om ett redan finns)
+  const addFolder = useCallback(async () => {
+    const info = await unwrap(window.api.repo.addDialog(), 'Kunde inte lägga till mapp')
+    if (!info) return
+    await refreshRepos()
+    notify(`La till ${info.name}`, 'success')
+    if (!state.repo) await setRepo(info) // första repot → aktivera direkt
+  }, [unwrap, refreshRepos, notify, state.repo, setRepo])
+
+  // Byt aktivt repo (källkontroll/branch-vy följer med)
+  const switchRepo = useCallback(
+    async (path: string) => {
+      if (path === state.repo?.path) return
+      const info = await unwrap(window.api.repo.setActive(path))
+      if (info) await setRepo(info)
+    },
+    [state.repo, unwrap, setRepo]
+  )
+
+  // Ta bort en mapp ur arbetsytan
+  const closeFolder = useCallback(
+    async (path: string) => {
+      await window.api.repo.close(path)
+      const list = (await unwrap(window.api.repo.list())) ?? []
+      setState((s) => ({ ...s, repos: list }))
+      if (state.repo?.path === path) {
+        if (list[0]) {
+          const info = await unwrap(window.api.repo.setActive(list[0].path))
+          if (info) await setRepo(info)
+        } else {
+          localStorage.removeItem('codester.lastRepo')
+          setState((s) => ({
+            ...s,
+            repo: null,
+            status: null,
+            branches: [],
+            log: [],
+            files: [],
+            stashes: [],
+            openTabs: [],
+            previewPath: null,
+            activePath: null
+          }))
+        }
+      }
+    },
+    [state.repo, unwrap, setRepo]
   )
 
   // Öppna/fäst en flik permanent (dubbelklick, sökträff, quick open)
@@ -428,6 +512,9 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         ...state,
         openDialog,
         cloneAndOpen,
+        addFolder,
+        switchRepo,
+        closeFolder,
         refresh,
         selectPath,
         previewFile,

@@ -31,7 +31,13 @@ const api = {
     openDialog: () => invoke<RepoInfo | null>('repo:openDialog'),
     open: (path: string) => invoke<RepoInfo>('repo:open', path),
     current: () => invoke<string | null>('repo:current'),
-    cloneDialog: (url: string) => invoke<string | null>('repo:cloneDialog', url)
+    cloneDialog: (url: string) => invoke<string | null>('repo:cloneDialog', url),
+    // Arbetsyta (multi-root)
+    add: (path: string) => invoke<RepoInfo>('repo:add', path),
+    addDialog: () => invoke<RepoInfo | null>('repo:addDialog'),
+    list: () => invoke<RepoInfo[]>('repo:list'),
+    setActive: (path: string) => invoke<RepoInfo | null>('repo:setActive', path),
+    close: (path: string) => invoke<void>('repo:close', path)
   },
 
   git: {

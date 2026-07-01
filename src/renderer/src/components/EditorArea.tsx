@@ -106,17 +106,24 @@ export function EditorArea(): JSX.Element {
     if (activePath) openToSide(activePath)
   }, [activePath, openToSide])
 
-  // Ctrl+\ delar editorn (som i VS Code)
+  // Editor-kortkommandon: Ctrl+\ delar editorn, Ctrl+W stänger fliken i den
+  // fokuserade gruppen (som i VS Code).
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      if (e.key === '\\') {
         e.preventDefault()
         splitPrimary()
+      } else if (e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        if (activeGroup === 'secondary' && active2) closeTab2(active2)
+        else if (activePath) closeTab(activePath)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [splitPrimary])
+  }, [splitPrimary, activeGroup, active2, closeTab2, activePath, closeTab])
 
   const startResize = (e: React.MouseEvent): void => {
     e.preventDefault()
