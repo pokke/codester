@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DeviceCodeInfo, GitHubRepo, GitHubUser, PullRequest } from '../../../shared/types'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
@@ -236,14 +236,15 @@ export function GitHubPanel(): JSX.Element {
     )
   }
 
-  const shown = useMemo(() => {
-    const f = repos.filter((r) => r.fullName.toLowerCase().includes(filter.toLowerCase()))
-    const s = [...f]
-    if (sortBy === 'name') s.sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? ''))
-    else if (sortBy === 'stars') s.sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
-    else s.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
-    return s
-  }, [repos, filter, sortBy])
+  // Vanlig beräkning (INTE en hook) – ligger efter en tidig return, så useMemo
+  // här skulle bryta mot React:s hook-regler (error #310).
+  const shown = repos
+    .filter((r) => r.fullName.toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === 'name') return (a.fullName ?? '').localeCompare(b.fullName ?? '')
+      if (sortBy === 'stars') return (b.stars ?? 0) - (a.stars ?? 0)
+      return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+    })
 
   return (
     <main className="panel center">
