@@ -45,7 +45,9 @@ export function App(): JSX.Element {
   // Polla GitHub-notiser (om inloggad) för badge på activitybaren
   useEffect(() => {
     let stopped = false
+    let lastRun = 0
     const tick = async (): Promise<void> => {
+      lastRun = Date.now()
       const has = await window.api.github.hasToken()
       if (has.ok && has.data) {
         const c = await window.api.github.notificationCount()
@@ -54,8 +56,10 @@ export function App(): JSX.Element {
     }
     tick()
     const id = setInterval(tick, 180000)
+    // Fönsterfokus kan trigga tätt (alt-tab) – throttla till max var 60:e sek
+    // så vi inte spammar API:t. ETag-cachen gör en 304 billig, men slipp ändå.
     const onFocus = (): void => {
-      tick()
+      if (Date.now() - lastRun > 60000) tick()
     }
     window.addEventListener('focus', onFocus)
     return () => {

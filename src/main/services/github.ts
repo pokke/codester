@@ -57,37 +57,108 @@ async function timedFetch(
   }
 }
 
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'Codester',
+    ...extra
+  }
+}
+
+// Bygger ett läsbart fel av ett misslyckat svar. Mappar 403 till antingen
+// slut-på-kvot eller saknad OAuth-scope så användaren förstår varför.
+async function ghError(res: Response): Promise<Error> {
+  const text = await res.text()
+  let msg = text.slice(0, 300)
+  try {
+    const j = JSON.parse(text)
+    msg =
+      j.message +
+      (j.errors
+        ? `: ${j.errors.map((e: { message?: string }) => e.message).filter(Boolean).join(', ')}`
+        : '')
+  } catch {
+    /* behåll rå text */
+  }
+  if (res.status === 403 || res.status === 429) {
+    const remaining = res.headers.get('x-ratelimit-remaining')
+    if (remaining === '0') {
+      const reset = res.headers.get('x-ratelimit-reset')
+      const when = reset ? new Date(Number(reset) * 1000).toLocaleTimeString() : null
+      return new Error(
+        `GitHub API-kvoten är slut${when ? ` – återställs ${when}` : ' – försök igen senare'}`
+      )
+    }
+    const retry = res.headers.get('retry-after')
+    if (retry) return new Error(`GitHub bad om paus – försök igen om ${retry}s`)
+    const accepted = res.headers.get('x-accepted-oauth-scopes')
+    const have = res.headers.get('x-oauth-scopes')
+    if (accepted && accepted.trim()) {
+      return new Error(
+        `Token saknar behörighet. Kräver scope: ${accepted}${have !== null ? ` (du har: ${have || 'inga'})` : ''}`
+      )
+    }
+  }
+  return new Error(`GitHub ${res.status}: ${msg}`)
+}
+
 async function ghReq<T>(method: string, path: string, body?: unknown): Promise<T> {
   if (!token) throw new Error('Ingen GitHub-token angiven')
   const res = await timedFetch(`${API}${path}`, {
     method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'Codester',
-      ...(body ? { 'Content-Type': 'application/json' } : {})
-    },
+    headers: authHeaders(body ? { 'Content-Type': 'application/json' } : undefined),
     body: body ? JSON.stringify(body) : undefined
   })
-  if (!res.ok) {
-    const text = await res.text()
-    // GitHub returnerar ofta { message, errors[] } – plocka ut något läsbart
-    let msg = text.slice(0, 300)
-    try {
-      const j = JSON.parse(text)
-      msg = j.message + (j.errors ? `: ${j.errors.map((e: { message?: string }) => e.message).filter(Boolean).join(', ')}` : '')
-    } catch {
-      /* behåll rå text */
-    }
-    throw new Error(`GitHub ${res.status}: ${msg}`)
-  }
+  if (!res.ok) throw await ghError(res)
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
 
-function gh<T>(path: string): Promise<T> {
-  return ghReq<T>('GET', path)
+// GET med villkorlig ETag-cache: sparar kvot genom att skicka If-None-Match och
+// återanvända cachad kropp vid 304. Cachas per exakt path.
+const etagCache = new Map<string, { etag: string; data: unknown }>()
+
+async function gh<T>(path: string): Promise<T> {
+  if (!token) throw new Error('Ingen GitHub-token angiven')
+  const cached = etagCache.get(path)
+  const res = await timedFetch(`${API}${path}`, {
+    headers: authHeaders(cached ? { 'If-None-Match': cached.etag } : undefined)
+  })
+  if (res.status === 304 && cached) return cached.data as T
+  if (!res.ok) throw await ghError(res)
+  const data = (await res.json()) as T
+  const etag = res.headers.get('etag')
+  if (etag) etagCache.set(path, { etag, data })
+  return data
+}
+
+// Följer Link-headerns rel="next" och slår ihop alla sidor (upp till ett tak
+// så en jättelista inte hänger appen). per_page=100 tvingas om det saknas.
+function nextLink(link: string | null): string | null {
+  if (!link) return null
+  const m = link.match(/<([^>]+)>;\s*rel="next"/)
+  return m ? m[1] : null
+}
+
+async function ghPaged<T>(path: string, maxPages = 10): Promise<T[]> {
+  if (!token) throw new Error('Ingen GitHub-token angiven')
+  const sep = path.includes('?') ? '&' : '?'
+  let url: string | null = /[?&]per_page=/.test(path)
+    ? `${API}${path}`
+    : `${API}${path}${sep}per_page=100`
+  const items: T[] = []
+  let pages = 0
+  while (url && pages < maxPages) {
+    const res: Response = await timedFetch(url, { headers: authHeaders() })
+    if (!res.ok) throw await ghError(res)
+    const batch = (await res.json()) as T[]
+    items.push(...batch)
+    url = nextLink(res.headers.get('link'))
+    pages++
+  }
+  return items
 }
 
 export function hasToken(): boolean {
@@ -189,21 +260,19 @@ export async function getUser(): Promise<GitHubUser> {
 }
 
 export async function listRepos(): Promise<GitHubRepo[]> {
-  const repos = await gh<
-    Array<{
-      full_name: string
-      name: string
-      clone_url: string
-      private: boolean
-      description: string | null
-      default_branch: string
-      html_url: string
-      stargazers_count: number
-      language: string | null
-      pushed_at: string
-      updated_at: string
-    }>
-  >('/user/repos?per_page=100&sort=updated')
+  const repos = await ghPaged<{
+    full_name: string
+    name: string
+    clone_url: string
+    private: boolean
+    description: string | null
+    default_branch: string
+    html_url: string
+    stargazers_count: number
+    language: string | null
+    pushed_at: string
+    updated_at: string
+  }>('/user/repos?sort=updated')
   return repos.map((r) => ({
     fullName: r.full_name,
     name: r.name,
@@ -219,17 +288,15 @@ export async function listRepos(): Promise<GitHubRepo[]> {
 }
 
 export async function listPullRequests(owner: string, repo: string): Promise<PullRequest[]> {
-  const prs = await gh<
-    Array<{
-      number: number
-      title: string
-      user: { login: string }
-      state: string
-      html_url: string
-      head: { ref: string }
-      base: { ref: string }
-    }>
-  >(`/repos/${owner}/${repo}/pulls?state=open&per_page=50`)
+  const prs = await ghPaged<{
+    number: number
+    title: string
+    user: { login: string }
+    state: string
+    html_url: string
+    head: { ref: string }
+    base: { ref: string }
+  }>(`/repos/${owner}/${repo}/pulls?state=open`)
   return prs.map((p) => ({
     number: p.number,
     title: p.title,
@@ -292,16 +359,14 @@ export async function getPullRequestFiles(
   repo: string,
   number: number
 ): Promise<PrFile[]> {
-  const files = await gh<
-    Array<{
-      filename: string
-      previous_filename?: string
-      status: string
-      additions: number
-      deletions: number
-      patch?: string
-    }>
-  >(`/repos/${owner}/${repo}/pulls/${number}/files?per_page=100`)
+  const files = await ghPaged<{
+    filename: string
+    previous_filename?: string
+    status: string
+    additions: number
+    deletions: number
+    patch?: string
+  }>(`/repos/${owner}/${repo}/pulls/${number}/files`)
   return files.map((f) => ({
     filename: f.filename,
     previousFilename: f.previous_filename ?? null,
@@ -721,9 +786,9 @@ function mapIssue(i: {
 
 export async function listIssues(owner: string, repo: string): Promise<Issue[]> {
   // Filtrera bort pull requests (GitHub listar PRs som issues)
-  const issues = await gh<
-    Array<Parameters<typeof mapIssue>[0] & { pull_request?: unknown }>
-  >(`/repos/${owner}/${repo}/issues?state=open&per_page=50`)
+  const issues = await ghPaged<
+    Parameters<typeof mapIssue>[0] & { pull_request?: unknown }
+  >(`/repos/${owner}/${repo}/issues?state=open`)
   return issues.filter((i) => !i.pull_request).map(mapIssue)
 }
 
@@ -750,8 +815,8 @@ export async function createIssue(
 }
 
 export async function listLabels(owner: string, repo: string): Promise<RepoLabel[]> {
-  const ls = await gh<Array<{ name: string; color: string }>>(
-    `/repos/${owner}/${repo}/labels?per_page=100`
+  const ls = await ghPaged<{ name: string; color: string }>(
+    `/repos/${owner}/${repo}/labels`
   )
   return ls.map((l) => ({ name: l.name, color: l.color }))
 }

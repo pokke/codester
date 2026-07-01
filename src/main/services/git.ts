@@ -471,6 +471,9 @@ export async function remoteOwnerRepo(): Promise<{ owner: string; repo: string }
   const origin = remotes.find((r) => r.name === 'origin') ?? remotes[0]
   const url = origin?.refs?.fetch
   if (!url) return null
+  // Bara github.com – annars pekar GitHub-vyn fel (en GitLab/Bitbucket-remote
+  // skulle annars ändå anropa api.github.com och ge förvirrande 404).
+  if (!/(^|@|\/\/)github\.com[/:]/i.test(url)) return null
   // Stöd både https och ssh-form
   const m = url.match(/[/:]([^/]+)\/([^/]+?)(?:\.git)?$/)
   if (!m) return null
