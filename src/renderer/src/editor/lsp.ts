@@ -186,5 +186,45 @@ export function initLsp(): void {
         return arr.map((loc) => ({ uri: toModelUri(loc.uri), range: toRange(loc.range) }))
       }
     })
+
+    monaco.languages.registerReferenceProvider(langId, {
+      async provideReferences(model, position, context) {
+        if (!(await ensure(langId))) return []
+        const res = (await window.api.lsp.request(langId, 'textDocument/references', {
+          textDocument: { uri: toLspUri(model) },
+          position: pos(position),
+          context: { includeDeclaration: context.includeDeclaration }
+        })) as { uri: string; range: LspRange }[] | null
+        if (!Array.isArray(res)) return []
+        return res.map((loc) => ({ uri: toModelUri(loc.uri), range: toRange(loc.range) }))
+      }
+    })
+
+    monaco.languages.registerRenameProvider(langId, {
+      async provideRenameEdits(model, position, newName) {
+        if (!(await ensure(langId))) return { edits: [] }
+        const res = (await window.api.lsp.request(langId, 'textDocument/rename', {
+          textDocument: { uri: toLspUri(model) },
+          position: pos(position),
+          newName
+        })) as {
+          changes?: Record<string, { range: LspRange; newText: string }[]>
+          documentChanges?: { textDocument: { uri: string }; edits: { range: LspRange; newText: string }[] }[]
+        } | null
+        const edits: monaco.languages.IWorkspaceTextEdit[] = []
+        const add = (uri: string, tes: { range: LspRange; newText: string }[]): void => {
+          for (const te of tes)
+            edits.push({
+              resource: toModelUri(uri),
+              versionId: undefined,
+              textEdit: { range: toRange(te.range), text: te.newText }
+            })
+        }
+        if (res?.changes) for (const [uri, tes] of Object.entries(res.changes)) add(uri, tes)
+        if (res?.documentChanges)
+          for (const dc of res.documentChanges) add(dc.textDocument.uri, dc.edits)
+        return { edits }
+      }
+    })
   }
 }

@@ -5,6 +5,7 @@ import { EditorPane } from './components/EditorPane'
 import { HistoryView } from './components/HistoryView'
 import { GitHubPanel } from './components/GitHubPanel'
 import { TerminalView } from './components/TerminalView'
+import { ProblemsView } from './components/ProblemsView'
 import { Inspector } from './components/Inspector'
 import { Resizer } from './components/Resizer'
 import { StatusBar } from './components/StatusBar'
@@ -76,6 +77,9 @@ export function App(): JSX.Element {
       } else if (e.key === '`') {
         e.preventDefault()
         setView((v) => (v === 'terminal' ? 'editor' : 'terminal')) // Ctrl+` → terminal
+      } else if (e.shiftKey && k === 'm') {
+        e.preventDefault()
+        setView((v) => (v === 'problems' ? 'editor' : 'problems')) // Ctrl+Shift+M → problem
       } else if (k === 'w') {
         e.preventDefault()
         if (activePath) closeTab(activePath) // Ctrl+W → stäng flik
@@ -101,6 +105,7 @@ export function App(): JSX.Element {
   const renderCenter = (): JSX.Element => {
     if (view === 'terminal') return <TerminalView />
     if (view === 'github') return <GitHubPanel />
+    if (view === 'problems') return <ProblemsView onOpenFile={() => setView('editor')} />
     if (!repo) return <WelcomeScreen />
     if (view === 'history') return <HistoryView />
     return <EditorPane />
@@ -161,7 +166,7 @@ export function App(): JSX.Element {
 
       <UpdateBanner />
 
-      <StatusBar version={version} />
+      <StatusBar version={version} onShowProblems={() => setView('problems')} />
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showAbout && <AboutModal version={version} onClose={() => setShowAbout(false)} />}

@@ -1,4 +1,4 @@
-export type View = 'editor' | 'history' | 'github' | 'terminal'
+export type View = 'editor' | 'history' | 'github' | 'terminal' | 'problems'
 
 interface Props {
   view: View
@@ -11,7 +11,8 @@ const items: { id: View; icon: string; label: string }[] = [
   { id: 'editor', icon: '⎘', label: 'Ändringar & kod' },
   { id: 'history', icon: '🕘', label: 'Historik' },
   { id: 'github', icon: '⌥', label: 'GitHub' },
-  { id: 'terminal', icon: '▶', label: 'Terminal' }
+  { id: 'terminal', icon: '▶', label: 'Terminal' },
+  { id: 'problems', icon: '⚠', label: 'Problem' }
 ]
 
 export function ActivityBar({ view, onChange, onOpenSettings, onOpenPalette }: Props): JSX.Element {

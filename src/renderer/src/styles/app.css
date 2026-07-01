@@ -1306,3 +1306,62 @@ code {
   font-size: 11px;
   white-space: pre-wrap;
 }
+
+/* ── Problems-panel ── */
+.problems {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space) 0;
+}
+.problem-group {
+  margin-bottom: var(--space);
+}
+.problem-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px calc(var(--space) * 1.5);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.problem-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  padding: 3px calc(var(--space) * 1.5) 3px calc(var(--space) * 3);
+  cursor: pointer;
+  font-size: 13px;
+}
+.problem-row:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.sev {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.sev-error {
+  color: var(--git-deleted);
+}
+.sev-warning {
+  color: var(--git-modified);
+}
+.sev-info {
+  color: var(--accent);
+}
+.problem-msg {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.problem-loc {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.statusbar .clickable {
+  cursor: pointer;
+}
+.statusbar .clickable:hover {
+  filter: brightness(1.2);
+}
