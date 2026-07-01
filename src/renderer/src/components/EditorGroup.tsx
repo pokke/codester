@@ -94,6 +94,7 @@ export function EditorGroup({
   const blameCol = useRef<MonacoEditor.IEditorDecorationsCollection | null>(null)
 
   const change = status?.files.find((f) => f.path === activePath)
+  const hasChange = !!change
   const isConflicted = !!activePath && (status?.conflicted ?? []).includes(activePath)
 
   // Applicera Codesters tema på Monaco när temat ändras
@@ -102,12 +103,13 @@ export function EditorGroup({
     monaco.editor.setTheme(defineMonacoTheme(getTheme(settings.themeId)))
   }, [monaco, settings.themeId])
 
-  // Välj förnuftigt standardläge när filen byts – men behåll "Hunkar" om
-  // användaren valt det (praktiskt vid staging fil för fil).
+  // Välj förnuftigt standardläge när filen byts. Beror på `hasChange` (boolean)
+  // och INTE på change-objektets identitet – annars körde effekten vid varje
+  // status-omladdning (filbevakaren) och slog tillbaka t.ex. Redigera → Diff.
   useEffect(() => {
-    if (isConflicted || !change || activeLine) setMode('edit')
+    if (isConflicted || !hasChange || activeLine) setMode('edit')
     else setMode((m) => (m === 'hunks' ? 'hunks' : 'diff'))
-  }, [activePath, isConflicted, change, activeLine])
+  }, [activePath, isConflicted, hasChange, activeLine])
 
   // Hoppa till rad (t.ex. från en sökträff)
   useEffect(() => {
