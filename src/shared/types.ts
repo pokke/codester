@@ -182,6 +182,14 @@ export interface SearchIssueResult {
   author: string
 }
 
+export interface ReleaseAsset {
+  id: number
+  name: string
+  size: number
+  downloadCount: number
+  downloadUrl: string
+}
+
 export interface Release {
   id: number
   tagName: string
@@ -192,6 +200,14 @@ export interface Release {
   htmlUrl: string
   publishedAt: string | null
   author: string
+  assets: ReleaseAsset[]
+}
+
+export interface EditRelease {
+  name?: string
+  body?: string
+  draft?: boolean
+  prerelease?: boolean
 }
 
 export interface NewRelease {
@@ -213,6 +229,22 @@ export interface WorkflowRun {
   htmlUrl: string
   createdAt: string
   runNumber: number
+}
+
+export interface JobStep {
+  name: string
+  status: string // queued | in_progress | completed
+  conclusion: string | null
+  number: number
+}
+
+export interface WorkflowJob {
+  id: number
+  name: string
+  status: string
+  conclusion: string | null
+  htmlUrl: string
+  steps: JobStep[]
 }
 
 export interface RateLimit {

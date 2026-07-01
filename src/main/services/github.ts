@@ -2,6 +2,7 @@ import type {
   CheckState,
   CheckStatus,
   DeviceCodeInfo,
+  EditRelease,
   GhComment,
   GhNotification,
   GitHubRepo,
@@ -20,6 +21,7 @@ import type {
   RepoLabel,
   SearchIssueResult,
   SearchRepoResult,
+  WorkflowJob,
   WorkflowRun
 } from '../../shared/types'
 import {
@@ -592,52 +594,26 @@ export async function searchRepositories(q: string): Promise<SearchRepoResult[]>
 
 // --- Releaser ---
 
-export async function listReleases(owner: string, repo: string): Promise<Release[]> {
-  const rs = await gh<
-    Array<{
-      id: number
-      tag_name: string
-      name: string | null
-      body: string | null
-      draft: boolean
-      prerelease: boolean
-      html_url: string
-      published_at: string | null
-      author: { login: string } | null
-    }>
-  >(`/repos/${owner}/${repo}/releases?per_page=30`)
-  return rs.map((r) => ({
-    id: r.id,
-    tagName: r.tag_name,
-    name: r.name || r.tag_name,
-    body: r.body,
-    draft: r.draft,
-    prerelease: r.prerelease,
-    htmlUrl: r.html_url,
-    publishedAt: r.published_at,
-    author: r.author?.login ?? ''
-  }))
+type RawRelease = {
+  id: number
+  tag_name: string
+  name: string | null
+  body: string | null
+  draft: boolean
+  prerelease: boolean
+  html_url: string
+  published_at: string | null
+  author: { login: string } | null
+  assets?: Array<{
+    id: number
+    name: string
+    size: number
+    download_count: number
+    browser_download_url: string
+  }>
 }
 
-export async function createRelease(owner: string, repo: string, rel: NewRelease): Promise<Release> {
-  const r = await ghReq<{
-    id: number
-    tag_name: string
-    name: string | null
-    body: string | null
-    draft: boolean
-    prerelease: boolean
-    html_url: string
-    published_at: string | null
-    author: { login: string } | null
-  }>('POST', `/repos/${owner}/${repo}/releases`, {
-    tag_name: rel.tagName,
-    name: rel.name || rel.tagName,
-    body: rel.body,
-    draft: rel.draft,
-    prerelease: rel.prerelease,
-    ...(rel.target ? { target_commitish: rel.target } : {})
-  })
+function mapRelease(r: RawRelease): Release {
   return {
     id: r.id,
     tagName: r.tag_name,
@@ -647,8 +623,46 @@ export async function createRelease(owner: string, repo: string, rel: NewRelease
     prerelease: r.prerelease,
     htmlUrl: r.html_url,
     publishedAt: r.published_at,
-    author: r.author?.login ?? ''
+    author: r.author?.login ?? '',
+    assets: (r.assets ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      size: a.size,
+      downloadCount: a.download_count,
+      downloadUrl: a.browser_download_url
+    }))
   }
+}
+
+export async function listReleases(owner: string, repo: string): Promise<Release[]> {
+  const rs = await ghPaged<RawRelease>(`/repos/${owner}/${repo}/releases`, 3)
+  return rs.map(mapRelease)
+}
+
+export async function createRelease(owner: string, repo: string, rel: NewRelease): Promise<Release> {
+  const r = await ghReq<RawRelease>('POST', `/repos/${owner}/${repo}/releases`, {
+    tag_name: rel.tagName,
+    name: rel.name || rel.tagName,
+    body: rel.body,
+    draft: rel.draft,
+    prerelease: rel.prerelease,
+    ...(rel.target ? { target_commitish: rel.target } : {})
+  })
+  return mapRelease(r)
+}
+
+export async function updateRelease(
+  owner: string,
+  repo: string,
+  id: number,
+  patch: EditRelease
+): Promise<Release> {
+  const r = await ghReq<RawRelease>('PATCH', `/repos/${owner}/${repo}/releases/${id}`, patch)
+  return mapRelease(r)
+}
+
+export async function deleteRelease(owner: string, repo: string, id: number): Promise<void> {
+  await ghReq('DELETE', `/repos/${owner}/${repo}/releases/${id}`)
 }
 
 // --- Actions / workflow-körningar ---
@@ -682,6 +696,49 @@ export async function listWorkflowRuns(owner: string, repo: string): Promise<Wor
 
 export async function rerunWorkflow(owner: string, repo: string, runId: number): Promise<void> {
   await ghReq('POST', `/repos/${owner}/${repo}/actions/runs/${runId}/rerun`)
+}
+
+export async function rerunFailedJobs(owner: string, repo: string, runId: number): Promise<void> {
+  await ghReq('POST', `/repos/${owner}/${repo}/actions/runs/${runId}/rerun-failed-jobs`)
+}
+
+export async function cancelWorkflowRun(owner: string, repo: string, runId: number): Promise<void> {
+  await ghReq('POST', `/repos/${owner}/${repo}/actions/runs/${runId}/cancel`)
+}
+
+export async function listWorkflowJobs(
+  owner: string,
+  repo: string,
+  runId: number
+): Promise<WorkflowJob[]> {
+  const res = await gh<{
+    jobs: Array<{
+      id: number
+      name: string
+      status: string
+      conclusion: string | null
+      html_url: string | null
+      steps?: Array<{
+        name: string
+        status: string
+        conclusion: string | null
+        number: number
+      }>
+    }>
+  }>(`/repos/${owner}/${repo}/actions/runs/${runId}/jobs`)
+  return res.jobs.map((j) => ({
+    id: j.id,
+    name: j.name,
+    status: j.status,
+    conclusion: j.conclusion,
+    htmlUrl: j.html_url ?? '',
+    steps: (j.steps ?? []).map((s) => ({
+      name: s.name,
+      status: s.status,
+      conclusion: s.conclusion,
+      number: s.number
+    }))
+  }))
 }
 
 // --- Rate limit ---

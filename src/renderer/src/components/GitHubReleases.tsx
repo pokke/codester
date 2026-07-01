@@ -1,10 +1,103 @@
 import { useEffect, useState } from 'react'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 import { rowA11y } from '../ui/a11y'
 import { Markdown } from '../ui/Markdown'
 import type { Release } from '../../../shared/types'
 
-function ReleaseDetail({ rel, onBack }: { rel: Release; onBack: () => void }): JSX.Element {
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+function EditRelease({
+  rel,
+  onDone,
+  onCancel
+}: {
+  rel: Release
+  onDone: () => void
+  onCancel: () => void
+}): JSX.Element {
+  const { notify } = useToast()
+  const [name, setName] = useState(rel.name)
+  const [body, setBody] = useState(rel.body ?? '')
+  const [prerelease, setPrerelease] = useState(rel.prerelease)
+  const [busy, setBusy] = useState(false)
+
+  const save = async (): Promise<void> => {
+    if (busy) return
+    setBusy(true)
+    const r = await window.api.github.updateRelease(rel.id, { name, body, prerelease })
+    setBusy(false)
+    if (r.ok) {
+      notify('Release uppdaterad', 'success')
+      onDone()
+    } else notify(r.error, 'error')
+  }
+
+  return (
+    <div className="pr-create">
+      <label className="field-label">Titel</label>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <label className="field-label">Anteckningar (markdown)</label>
+      <textarea className="pr-create-body" value={body} onChange={(e) => setBody(e.target.value)} />
+      <label className="checkbox-row">
+        <input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} />{' '}
+        Pre-release
+      </label>
+      <div className="pr-review-actions">
+        <button className="btn primary small" disabled={busy} onClick={save}>
+          {busy ? 'Sparar…' : 'Spara'}
+        </button>
+        <button className="btn ghost small" disabled={busy} onClick={onCancel}>
+          Avbryt
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ReleaseDetail({
+  rel,
+  onBack,
+  onChanged
+}: {
+  rel: Release
+  onBack: () => void
+  onChanged: () => void
+}): JSX.Element {
+  const { notify } = useToast()
+  const confirm = useConfirm()
+  const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const publish = async (): Promise<void> => {
+    setBusy(true)
+    const r = await window.api.github.updateRelease(rel.id, { draft: false })
+    setBusy(false)
+    if (r.ok) {
+      notify('Release publicerad', 'success')
+      onChanged()
+    } else notify(r.error, 'error')
+  }
+  const remove = async (): Promise<void> => {
+    const ok = await confirm({
+      message: `Radera release ${rel.tagName}? Taggen finns kvar.`,
+      confirmLabel: 'Radera'
+    })
+    if (!ok) return
+    setBusy(true)
+    const r = await window.api.github.deleteRelease(rel.id)
+    setBusy(false)
+    if (r.ok) {
+      notify('Release raderad', 'success')
+      onBack()
+      onChanged()
+    } else notify(r.error, 'error')
+  }
+
   return (
     <div className="pr-detail">
       <div className="pr-detail-head">
@@ -12,9 +105,24 @@ function ReleaseDetail({ rel, onBack }: { rel: Release; onBack: () => void }): J
           ← Tillbaka
         </button>
         <span className="spacer" />
-        <button className="btn ghost small" onClick={() => window.open(rel.htmlUrl)}>
-          Öppna på GitHub
-        </button>
+        {!editing && (
+          <>
+            {rel.draft && (
+              <button className="btn small" disabled={busy} onClick={publish}>
+                Publicera
+              </button>
+            )}
+            <button className="btn ghost small" disabled={busy} onClick={() => setEditing(true)}>
+              Redigera
+            </button>
+            <button className="btn ghost small danger" disabled={busy} onClick={remove}>
+              Radera
+            </button>
+            <button className="btn ghost small" onClick={() => window.open(rel.htmlUrl)}>
+              Öppna på GitHub
+            </button>
+          </>
+        )}
       </div>
       <h2 className="pr-detail-title">
         {rel.name} <span className="muted">{rel.tagName}</span>
@@ -25,12 +133,41 @@ function ReleaseDetail({ rel, onBack }: { rel: Release; onBack: () => void }): J
         {rel.publishedAt && <span className="path-dim">{rel.publishedAt.slice(0, 10)}</span>}
         {rel.author && <span className="path-dim">@{rel.author}</span>}
       </div>
-      {rel.body ? (
-        <div className="pr-body">
-          <Markdown text={rel.body} />
-        </div>
+
+      {editing ? (
+        <EditRelease
+          rel={rel}
+          onCancel={() => setEditing(false)}
+          onDone={() => {
+            setEditing(false)
+            onChanged()
+          }}
+        />
       ) : (
-        <div className="hint">Inga release-anteckningar</div>
+        <>
+          {rel.body ? (
+            <div className="pr-body">
+              <Markdown text={rel.body} />
+            </div>
+          ) : (
+            <div className="hint">Inga release-anteckningar</div>
+          )}
+          {rel.assets.length > 0 && (
+            <div className="release-assets">
+              <label className="field-label">Filer ({rel.assets.length})</label>
+              {rel.assets.map((a) => (
+                <div key={a.id} className="row asset-row">
+                  <span className="fname">{a.name}</span>
+                  <span className="path-dim">{fmtBytes(a.size)}</span>
+                  <span className="path-dim">↓ {a.downloadCount}</span>
+                  <button className="btn ghost small" onClick={() => window.open(a.downloadUrl)}>
+                    Ladda ner
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -131,7 +268,8 @@ export function GitHubReleases(): JSX.Element {
       />
     )
   const open = items.find((r) => r.id === openId)
-  if (open) return <ReleaseDetail rel={open} onBack={() => setOpenId(null)} />
+  if (open)
+    return <ReleaseDetail rel={open} onBack={() => setOpenId(null)} onChanged={load} />
 
   return (
     <>
@@ -155,6 +293,7 @@ export function GitHubReleases(): JSX.Element {
             {r.name}
             {r.draft && <span className="repo-badge">utkast</span>}
             {r.prerelease && <span className="repo-badge">pre</span>}
+            {r.assets.length > 0 && <span className="repo-badge">{r.assets.length} filer</span>}
           </span>
           {r.publishedAt && <span className="path-dim">{r.publishedAt.slice(0, 10)}</span>}
         </div>

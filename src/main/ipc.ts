@@ -307,15 +307,43 @@ export function registerIpc(): void {
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.createRelease(or.owner, or.repo, rel)
   })
+  handle(
+    'github:updateRelease',
+    async (id: number, patch: import('../shared/types').EditRelease) => {
+      const or = await git.remoteOwnerRepo()
+      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+      return github.updateRelease(or.owner, or.repo, id, patch)
+    }
+  )
+  handle('github:deleteRelease', async (id: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.deleteRelease(or.owner, or.repo, id)
+  })
   handle('github:runs', async () => {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.listWorkflowRuns(or.owner, or.repo)
   })
+  handle('github:runJobs', async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listWorkflowJobs(or.owner, or.repo, runId)
+  })
   handle('github:rerun', async (runId: number) => {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.rerunWorkflow(or.owner, or.repo, runId)
+  })
+  handle('github:rerunFailed', async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.rerunFailedJobs(or.owner, or.repo, runId)
+  })
+  handle('github:cancelRun', async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.cancelWorkflowRun(or.owner, or.repo, runId)
   })
   handle('github:rateLimit', () => github.getRateLimit())
   handle('github:gists', () => github.listGists())
