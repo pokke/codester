@@ -5,18 +5,21 @@ import { SettingsProvider } from './settings/SettingsContext'
 import { ToastProvider } from './ui/Toast'
 import { ConfirmProvider } from './ui/Confirm'
 import { RepoProvider } from './state/RepoContext'
+import { ErrorBoundary } from './ui/ErrorBoundary'
 import './styles/global.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <SettingsProvider>
-      <ToastProvider>
-        <ConfirmProvider>
-          <RepoProvider>
-            <App />
-          </RepoProvider>
-        </ConfirmProvider>
-      </ToastProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <RepoProvider>
+              <App />
+            </RepoProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 )

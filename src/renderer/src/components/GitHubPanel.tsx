@@ -239,9 +239,9 @@ export function GitHubPanel(): JSX.Element {
   const shown = useMemo(() => {
     const f = repos.filter((r) => r.fullName.toLowerCase().includes(filter.toLowerCase()))
     const s = [...f]
-    if (sortBy === 'name') s.sort((a, b) => a.fullName.localeCompare(b.fullName))
-    else if (sortBy === 'stars') s.sort((a, b) => b.stars - a.stars)
-    else s.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    if (sortBy === 'name') s.sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? ''))
+    else if (sortBy === 'stars') s.sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
+    else s.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
     return s
   }, [repos, filter, sortBy])
 

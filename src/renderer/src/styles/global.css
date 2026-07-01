@@ -91,6 +91,32 @@ button:disabled,
   flex-shrink: 0;
 }
 
+/* Felgräns – visas i stället för blank app vid render-fel */
+.error-boundary {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+.error-boundary .error-detail {
+  max-width: 90%;
+  max-height: 45vh;
+  overflow: auto;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  color: var(--git-deleted, #e06c75);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
 input,
 select,
 textarea {
