@@ -338,8 +338,20 @@ export async function publishToGitHub(
   await g.raw([...ghAuthArgs(token), 'push', '-u', 'origin', `${branch}:${branch}`])
 }
 
+// Har repot minst en commit? Ett nyss initierat repo har "unborn" HEAD, och
+// git log/blame m.fl. kastar då "does not have any commits yet".
+async function hasCommits(g: SimpleGit): Promise<boolean> {
+  try {
+    await g.revparse(['--verify', 'HEAD'])
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function log(limit = 100): Promise<CommitLogEntry[]> {
   const g = requireGit()
+  if (!(await hasCommits(g))) return []
   const res = await g.log({
     maxCount: limit,
     format: {
