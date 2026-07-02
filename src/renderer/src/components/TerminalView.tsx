@@ -86,8 +86,9 @@ export function TerminalView(): JSX.Element {
             className={`term-tab ${state.active === id ? 'active' : ''}`}
             onClick={() => commit({ active: id })}
             onAuxClick={(e) => e.button === 1 && closeTerminal(id)}
+            title={`Terminal ${i + 1} · mittenklick stänger`}
           >
-            <span>▶ {i + 1}</span>
+            <span className="term-tab-label">▶ {i + 1}</span>
             <button
               className="term-tab-close"
               title="Stäng terminal"
