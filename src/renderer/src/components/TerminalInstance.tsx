@@ -105,24 +105,12 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     window.api.terminal.resize(id, term.cols, term.rows)
     if (active) term.focus()
 
-    // Layouten (panelhöjd) kan settla en tick efter mount – gör en extra fit så
-    // radantalet matchar och sista raden inte klipps.
-    const settle = setTimeout(() => {
-      try {
-        fit.fit()
-        window.api.terminal.resize(id, term.cols, term.rows)
-      } catch {
-        /* host borta */
-      }
-    }, 60)
+    // Layouten (panelbredd/-höjd) kan settla efter mount – räkna om när den
+    // faktiskt målats, plus en sen backup, så terminalen fyller hela ytan.
+    refitAfterPaint()
+    const settle = setTimeout(refit, 150)
 
-    const ro = new ResizeObserver(() => {
-      try {
-        fit.fit()
-      } catch {
-        /* host borta */
-      }
-    })
+    const ro = new ResizeObserver(() => refit())
     ro.observe(hostRef.current)
 
     return () => {
@@ -147,13 +135,32 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     fitRef.current?.fit()
   }, [settings.themeId, settings.fontSize])
 
-  // Passa storleken när terminalen blir aktiv (kan ha varit dold)
+  // Passa storleken när terminalen blir aktiv (kan ha varit dold → mätt som 0)
   useEffect(() => {
     if (active) {
-      fitRef.current?.fit()
+      refitAfterPaint()
       termRef.current?.focus()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
+
+  // Räkna om kolumner/rader mot värdens aktuella storlek och meddela skalet.
+  const refit = (): void => {
+    const fit = fitRef.current
+    const term = termRef.current
+    if (!fit || !term) return
+    try {
+      fit.fit()
+      window.api.terminal.resize(id, term.cols, term.rows)
+    } catch {
+      /* host borta */
+    }
+  }
+  // Kör fit efter att layouten faktiskt målats (dubbel rAF) – annars kan bredd/
+  // höjd mätas fel vid första öppningen och terminalen få för få kolumner/rader.
+  const refitAfterPaint = (): void => {
+    requestAnimationFrame(() => requestAnimationFrame(refit))
+  }
 
   // Kopiera aktuell markering till systemets urklipp.
   const copySelection = (): void => {
