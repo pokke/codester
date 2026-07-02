@@ -45,6 +45,11 @@ function invoke<T>(channel: string, ...args: unknown[]): Promise<Result<T>> {
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
 
+  clipboard: {
+    write: (text: string) => invoke<void>('clipboard:write', text),
+    read: () => invoke<string>('clipboard:read')
+  },
+
   repo: {
     openDialog: () => invoke<RepoInfo | null>('repo:openDialog'),
     open: (path: string) => invoke<RepoInfo>('repo:open', path),

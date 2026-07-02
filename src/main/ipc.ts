@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, clipboard } from 'electron'
 import type { Result } from '../shared/types'
 import * as git from './services/git'
 import * as github from './services/github'
@@ -80,6 +80,12 @@ export function registerIpc(): void {
     watchWorkspace()
     return info
   })
+  // --- Urklipp (systemets, via Electron) ---
+  handle('clipboard:write', (text: string) => {
+    clipboard.writeText(text)
+  })
+  handle('clipboard:read', () => clipboard.readText())
+
   handle('repo:list', () => git.listRepos())
   handle('repo:remote', () => git.remoteOwnerRepo())
   handle('repo:setActive', (path: string) => {

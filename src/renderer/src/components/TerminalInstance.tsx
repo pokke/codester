@@ -81,6 +81,26 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     })
     term.onResize(({ cols, rows }) => window.api.terminal.resize(id, cols, rows))
 
+    // Kopiera/klistra: Ctrl+Shift+C/V, samt Ctrl+C när något är markerat
+    // (annars går Ctrl+C vidare som avbryt-signal till skalet).
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true
+      const k = e.key.toLowerCase()
+      if (e.ctrlKey && e.shiftKey && k === 'c') {
+        copySelection()
+        return false
+      }
+      if (e.ctrlKey && e.shiftKey && k === 'v') {
+        pasteClipboard()
+        return false
+      }
+      if (e.ctrlKey && !e.shiftKey && k === 'c' && term.hasSelection()) {
+        copySelection()
+        return false
+      }
+      return true
+    })
+
     window.api.terminal.ensure(id)
     window.api.terminal.resize(id, term.cols, term.rows)
     if (active) term.focus()
@@ -123,6 +143,27 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     }
   }, [active])
 
+  // Kopiera aktuell markering till systemets urklipp.
+  const copySelection = (): void => {
+    const sel = termRef.current?.getSelection()
+    if (sel) {
+      window.api.clipboard.write(sel)
+      termRef.current?.clearSelection()
+    }
+  }
+  // Klistra in urklippet i skalet (endast pty-läge; pipe-läget har eget fält).
+  const pasteClipboard = async (): Promise<void> => {
+    if (modeRef.current !== 'pty') return
+    const r = await window.api.clipboard.read()
+    if (r.ok && r.data) window.api.terminal.input(id, r.data)
+  }
+  // Högerklick: kopiera om något är markerat, annars klistra in.
+  const onContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    if (termRef.current?.hasSelection()) copySelection()
+    else pasteClipboard()
+  }
+
   const run = (): void => {
     const cmd = input
     termRef.current?.write(`\r\n\x1b[36m❯\x1b[0m ${cmd}\r\n`)
@@ -155,7 +196,12 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
 
   return (
     <div className="terminal-instance">
-      <div className="xterm-host" ref={hostRef} onClick={() => termRef.current?.focus()} />
+      <div
+        className="xterm-host"
+        ref={hostRef}
+        onClick={() => termRef.current?.focus()}
+        onContextMenu={onContextMenu}
+      />
       {mode === 'pipe' && (
         <div className="terminal-input">
           <span className="prompt">❯</span>
