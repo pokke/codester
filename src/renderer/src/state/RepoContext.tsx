@@ -16,6 +16,7 @@ import type {
   StashEntry
 } from '../../../shared/types'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Confirm'
 
 // Hjälpare som packar upp Result-kuvert och visar fel som toast.
 function useUnwrap(): <T>(p: Promise<Result<T>>, errPrefix?: string) => Promise<T | undefined> {
@@ -87,6 +88,7 @@ const Ctx = createContext<RepoContextValue | null>(null)
 export function RepoProvider({ children }: { children: ReactNode }): JSX.Element {
   const unwrap = useUnwrap()
   const { notify } = useToast()
+  const confirm = useConfirm()
   const [state, setState] = useState<RepoState>({
     repo: null,
     repos: [],
@@ -240,14 +242,31 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     [unwrap, withBusy, setRepo, notify]
   )
 
-  // Lägg till en mapp i arbetsytan (byter inte aktivt om ett redan finns)
+  // Lägg till/öppna en mapp i arbetsytan. Är den inte ett git-repo erbjuds
+  // git init så även oversionerade projekt kan öppnas smidigt. Den nyss
+  // tillagda mappen blir aktiv så man byter till projektet direkt.
   const addFolder = useCallback(async () => {
-    const info = await unwrap(window.api.repo.addDialog(), 'Kunde inte lägga till mapp')
+    const path = await unwrap(window.api.repo.pickFolder())
+    if (!path) return
+    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+    const isGit = await unwrap(window.api.repo.isGit(path))
+    let info: { path: string; name: string } | undefined
+    if (isGit) {
+      info = await unwrap(window.api.repo.add(path), 'Kunde inte lägga till mapp')
+    } else {
+      const ok = await confirm({
+        message: `"${name}" är inte ett Git-repo än. Vill du skapa ett här (git init) så du kan versionshantera projektet?`,
+        confirmLabel: 'Skapa Git-repo'
+      })
+      if (!ok) return
+      info = await unwrap(window.api.repo.init(path), 'Kunde inte initiera Git-repo')
+    }
     if (!info) return
     await refreshRepos()
-    notify(`La till ${info.name}`, 'success')
-    if (!state.repo) await setRepo(info) // första repot → aktivera direkt
-  }, [unwrap, refreshRepos, notify, state.repo, setRepo])
+    const active = await unwrap(window.api.repo.setActive(info.path))
+    if (active) await setRepo(active)
+    notify(isGit ? `La till ${info.name}` : `Skapade Git-repo i ${info.name}`, 'success')
+  }, [unwrap, confirm, refreshRepos, setRepo, notify])
 
   // Byt aktivt repo (källkontroll/branch-vy följer med)
   const switchRepo = useCallback(

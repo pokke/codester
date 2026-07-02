@@ -62,6 +62,22 @@ export async function addRepo(path: string): Promise<{ path: string; name: strin
   return info
 }
 
+// Är mappen ett git-repo? (kastar inte – används för att avgöra om vi ska
+// erbjuda git init innan vi lägger till en mapp.)
+export async function isGitRepo(path: string): Promise<boolean> {
+  try {
+    return await simpleGit(path).checkIsRepo()
+  } catch {
+    return false
+  }
+}
+
+// Kör git init i mappen och lägg sedan till den i arbetsytan.
+export async function initRepo(path: string): Promise<{ path: string; name: string }> {
+  await simpleGit(path).init()
+  return addRepo(path)
+}
+
 export function listRepos(): { path: string; name: string }[] {
   return [...repos.keys()].map((p) => ({ path: p, name: basename(p) }))
 }

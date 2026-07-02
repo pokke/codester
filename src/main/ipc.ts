@@ -64,6 +64,22 @@ export function registerIpc(): void {
     watchWorkspace()
     return info
   })
+  // Väljer bara en mapp – ingen git-koll (renderern avgör init vs add).
+  handle('repo:pickFolder', async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    const res = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory'],
+      title: 'Öppna mapp / projekt'
+    })
+    if (res.canceled || !res.filePaths[0]) return null
+    return res.filePaths[0]
+  })
+  handle('repo:isGit', (path: string) => git.isGitRepo(path))
+  handle('repo:init', async (path: string) => {
+    const info = await git.initRepo(path)
+    watchWorkspace()
+    return info
+  })
   handle('repo:list', () => git.listRepos())
   handle('repo:remote', () => git.remoteOwnerRepo())
   handle('repo:setActive', (path: string) => {

@@ -53,6 +53,9 @@ const api = {
     // Arbetsyta (multi-root)
     add: (path: string) => invoke<RepoInfo>('repo:add', path),
     addDialog: () => invoke<RepoInfo | null>('repo:addDialog'),
+    pickFolder: () => invoke<string | null>('repo:pickFolder'),
+    isGit: (path: string) => invoke<boolean>('repo:isGit', path),
+    init: (path: string) => invoke<RepoInfo>('repo:init', path),
     list: () => invoke<RepoInfo[]>('repo:list'),
     remote: () => invoke<{ owner: string; repo: string } | null>('repo:remote'),
     setActive: (path: string) => invoke<RepoInfo | null>('repo:setActive', path),

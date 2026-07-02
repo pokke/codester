@@ -44,7 +44,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
   } = useRepo()
   const { notify } = useToast()
   const confirm = useConfirm()
-  const [tab, setTab] = useState<Tab>('changes')
+  const [tab, setTab] = useState<Tab>('files')
   const [creating, setCreating] = useState(false)
   const [newBranch, setNewBranch] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -210,7 +210,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
         </select>
         <button
           className="btn ghost icon"
-          title="Lägg till mapp i arbetsytan"
+          title="Öppna mapp / projekt (skapar Git-repo vid behov)"
           onClick={() => addFolder()}
         >
           +
