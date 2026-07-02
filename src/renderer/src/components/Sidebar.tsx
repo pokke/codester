@@ -4,7 +4,6 @@ import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { FileTree } from './FileTree'
 import { TimelineView } from './TimelineView'
-import { MultiRepoChanges } from './MultiRepoChanges'
 import { CommitBox } from './CommitBox'
 import { Icon } from '../ui/Icon'
 import { rowA11y } from '../ui/a11y'
@@ -358,8 +357,6 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
           </div>
           <TimelineView />
         </div>
-      ) : repos.length > 1 ? (
-        <MultiRepoChanges onOpenEditor={onOpenEditor} />
       ) : (
         <>
           <div className="panel-body changes-list">

@@ -110,33 +110,37 @@ export function FileTree({ onOpenEditor }: { onOpenEditor: () => void }): JSX.El
 
   const showHeaders = rootsData.length > 1
 
-  // Hämta filer + status per rot (uppdateras vid repo-lista/revision)
+  // Visa bara det AKTIVA repot – ett projekt i taget. Byte av aktivt repo i
+  // arbetsyte-väljaren högst upp byter hela filträdet. (Arbetsytan kan fortsatt
+  // innehålla flera repon; de andra vilar tills man växlar till dem.)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const data = await Promise.all(
-        repos.map(async (r) => {
-          const [f, s] = await Promise.all([
-            window.api.git.listFiles(r.path),
-            window.api.git.status(r.path)
-          ])
-          return {
-            path: r.path,
-            name: r.name,
+      if (!repo) {
+        setRootsData([])
+        setLoaded(true)
+        return
+      }
+      const [f, s] = await Promise.all([
+        window.api.git.listFiles(repo.path),
+        window.api.git.status(repo.path)
+      ])
+      if (!cancelled) {
+        setRootsData([
+          {
+            path: repo.path,
+            name: repo.name,
             files: f.ok ? f.data : [],
             status: s.ok ? s.data : null
           }
-        })
-      )
-      if (!cancelled) {
-        setRootsData(data)
+        ])
         setLoaded(true)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [repos, revision])
+  }, [repo, revision])
 
   // Nya rötter börjar expanderade
   useEffect(() => {
