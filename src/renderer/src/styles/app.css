@@ -2164,7 +2164,9 @@ code {
 .xterm-host {
   flex: 1;
   min-height: 0;
-  padding: 6px 8px;
+  /* Extra botten-padding så xterms sista rad (t.ex. prompten) aldrig klipps mot
+     panelkanten/statusraden. FitAddon räknar bort host-paddingen. */
+  padding: 8px 10px 12px;
   overflow: hidden;
   background: var(--bg);
 }

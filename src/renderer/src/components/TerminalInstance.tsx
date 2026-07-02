@@ -105,6 +105,17 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     window.api.terminal.resize(id, term.cols, term.rows)
     if (active) term.focus()
 
+    // Layouten (panelhöjd) kan settla en tick efter mount – gör en extra fit så
+    // radantalet matchar och sista raden inte klipps.
+    const settle = setTimeout(() => {
+      try {
+        fit.fit()
+        window.api.terminal.resize(id, term.cols, term.rows)
+      } catch {
+        /* host borta */
+      }
+    }, 60)
+
     const ro = new ResizeObserver(() => {
       try {
         fit.fit()
@@ -118,6 +129,7 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
       // Döda INTE skalet här – bara koppla loss. Sessionen lever kvar i main
       // så terminalen finns kvar när panelen stängs/öppnas. (Explicit stängning
       // sker via ×-knappen som anropar window.api.terminal.kill.)
+      clearTimeout(settle)
       ro.disconnect()
       unsubData()
       unsubMode()
