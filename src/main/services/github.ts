@@ -194,6 +194,37 @@ export function hasToken(): boolean {
   return !!token
 }
 
+// Endast för main-processen (t.ex. git-push mot github med extraheader).
+// Returneras ALDRIG till renderern.
+export function getToken(): string | null {
+  ensureTokenLoaded()
+  return token
+}
+
+// Skapar ett nytt repo på den inloggade användarens konto.
+export async function createRepo(
+  name: string,
+  description: string,
+  isPrivate: boolean
+): Promise<{ fullName: string; cloneUrl: string; htmlUrl: string; owner: string }> {
+  const r = await ghReq<{
+    full_name: string
+    clone_url: string
+    html_url: string
+    owner: { login: string }
+  }>('POST', '/user/repos', {
+    name,
+    description: description || undefined,
+    private: isPrivate
+  })
+  return {
+    fullName: r.full_name,
+    cloneUrl: r.clone_url,
+    htmlUrl: r.html_url,
+    owner: r.owner.login
+  }
+}
+
 export async function setToken(value: string): Promise<GitHubUser> {
   token = value.trim()
   tokenLoaded = true

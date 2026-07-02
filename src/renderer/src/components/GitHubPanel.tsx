@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { DeviceCodeInfo, GitHubRepo, GitHubUser } from '../../../shared/types'
 import { useRepo } from '../state/RepoContext'
 import { useToast } from '../ui/Toast'
 import { Icon } from '../ui/Icon'
+import { GitHubPublish } from './GitHubPublish'
 import { GitHubPullRequests } from './GitHubPullRequests'
 import { GitHubIssues } from './GitHubIssues'
 import { GitHubNotifications } from './GitHubNotifications'
@@ -137,13 +138,14 @@ export function GitHubPanel(): JSX.Element {
   }, [])
 
   // Hämta aktivt repos GitHub owner/namn (för repo-scope-etiketten)
-  useEffect(() => {
+  const loadRemote = useCallback((): void => {
     if (!repo) {
       setRemote(null)
       return
     }
     window.api.repo.remote().then((r) => setRemote(r.ok ? r.data : null))
   }, [repo])
+  useEffect(loadRemote, [loadRemote])
 
   const connect = async (): Promise<void> => {
     if (connecting || !token.trim()) return
@@ -369,7 +371,9 @@ export function GitHubPanel(): JSX.Element {
       </div>
 
       <div className="gh-subtabs" role="tablist">
-        {scope === 'account'
+        {scope === 'repo' && repo && !remote
+          ? null
+          : scope === 'account'
           ? (
               [
                 ['repos', 'Repositories'],
@@ -412,11 +416,17 @@ export function GitHubPanel(): JSX.Element {
       <div className="gh-body">
         {scope === 'repo' && (
           <RepoScopeGuard key={repo?.path ?? 'none'}>
-            {repoTab === 'overview' && <GitHubInsights />}
-            {repoTab === 'pulls' && <GitHubPullRequests />}
-            {repoTab === 'issues' && <GitHubIssues />}
-            {repoTab === 'actions' && <GitHubActions />}
-            {repoTab === 'releases' && <GitHubReleases />}
+            {!remote ? (
+              <GitHubPublish onPublished={loadRemote} />
+            ) : (
+              <>
+                {repoTab === 'overview' && <GitHubInsights />}
+                {repoTab === 'pulls' && <GitHubPullRequests />}
+                {repoTab === 'issues' && <GitHubIssues />}
+                {repoTab === 'actions' && <GitHubActions />}
+                {repoTab === 'releases' && <GitHubReleases />}
+              </>
+            )}
           </RepoScopeGuard>
         )}
         {scope === 'account' && accountTab === 'search' && <GitHubSearch />}

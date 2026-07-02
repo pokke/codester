@@ -120,9 +120,9 @@ export function registerIpc(): void {
   handle('git:stageHunk', (file: string, index: number) => git.stageHunk(file, index))
   handle('git:unstageHunk', (file: string, index: number) => git.unstageHunk(file, index))
   handle('git:discardHunk', (file: string, index: number) => git.discardHunk(file, index))
-  handle('git:push', (root?: string) => git.push(root))
-  handle('git:pull', (root?: string) => git.pull(root))
-  handle('git:fetch', (root?: string) => git.fetchAll(root))
+  handle('git:push', (root?: string) => git.push(github.getToken(), root))
+  handle('git:pull', (root?: string) => git.pull(github.getToken(), root))
+  handle('git:fetch', (root?: string) => git.fetchAll(github.getToken(), root))
   handle('git:log', (limit?: number) => git.log(limit))
   handle('git:fileLog', (file: string) => git.fileLog(file))
   handle('git:fileContent', (file: string) => git.fileContent(file))
@@ -372,5 +372,14 @@ export function registerIpc(): void {
     const or = await git.remoteOwnerRepo()
     if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
     return github.getRepoInsights(or.owner, or.repo)
+  })
+  handle('github:publish', async (name: string, description: string, isPrivate: boolean) => {
+    const root = git.getRepoPath()
+    if (!root) throw new Error('Inget repo är aktivt att publicera')
+    if (!github.hasToken()) throw new Error('Anslut till GitHub först')
+    const created = await github.createRepo(name.trim(), description, isPrivate)
+    await git.publishToGitHub(github.getToken(), created.cloneUrl, root)
+    watchWorkspace()
+    return created
   })
 }

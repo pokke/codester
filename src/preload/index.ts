@@ -256,7 +256,14 @@ const api = {
     gists: () => invoke<Gist[]>('github:gists'),
     createGist: (description: string, filename: string, content: string, isPublic: boolean) =>
       invoke<Gist>('github:createGist', description, filename, content, isPublic),
-    insights: () => invoke<RepoInsights>('github:insights')
+    insights: () => invoke<RepoInsights>('github:insights'),
+    publish: (name: string, description: string, isPrivate: boolean) =>
+      invoke<{ fullName: string; cloneUrl: string; htmlUrl: string; owner: string }>(
+        'github:publish',
+        name,
+        description,
+        isPrivate
+      )
   }
 }
 

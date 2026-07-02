@@ -263,16 +263,79 @@ export async function discardHunk(file: string, index: number): Promise<void> {
   await applyHunk(file, index, false, ['--reverse'])
 }
 
-export async function push(root?: string): Promise<void> {
-  await requireGit(root).push()
+// Autentisera github-pushar med appens token via en engångs-extraheader på
+// kommandoraden. Token hamnar aldrig i .git/config eller på disk. För
+// icke-github-remotes (eller utan token) faller vi tillbaka på gits vanliga
+// credential-hantering.
+function ghAuthArgs(token: string | null): string[] {
+  if (!token) return []
+  const b64 = Buffer.from(`x-access-token:${token}`).toString('base64')
+  return ['-c', `http.https://github.com/.extraheader=AUTHORIZATION: basic ${b64}`]
 }
 
-export async function pull(root?: string): Promise<void> {
-  await requireGit(root).pull()
+async function remoteIsGitHub(g: SimpleGit): Promise<boolean> {
+  try {
+    const rs = await g.getRemotes(true)
+    const o = rs.find((r) => r.name === 'origin') ?? rs[0]
+    return /github\.com/i.test(o?.refs?.fetch ?? o?.refs?.push ?? '')
+  } catch {
+    return false
+  }
 }
 
-export async function fetchAll(root?: string): Promise<void> {
-  await requireGit(root).fetch(['--all', '--prune'])
+async function authArgsFor(g: SimpleGit, token: string | null): Promise<string[]> {
+  return (await remoteIsGitHub(g)) ? ghAuthArgs(token) : []
+}
+
+export async function push(token: string | null, root?: string): Promise<void> {
+  const g = requireGit(root)
+  await g.raw([...(await authArgsFor(g, token)), 'push'])
+}
+
+export async function pull(token: string | null, root?: string): Promise<void> {
+  const g = requireGit(root)
+  await g.raw([...(await authArgsFor(g, token)), 'pull'])
+}
+
+export async function fetchAll(token: string | null, root?: string): Promise<void> {
+  const g = requireGit(root)
+  await g.raw([...(await authArgsFor(g, token)), 'fetch', '--all', '--prune'])
+}
+
+// Publicera ett lokalt repo på GitHub: säkerställ en commit, koppla origin till
+// det (redan skapade) GitHub-repot och pusha aktuell branch med upstream.
+export async function publishToGitHub(
+  token: string | null,
+  cloneUrl: string,
+  root?: string
+): Promise<void> {
+  const g = requireGit(root)
+
+  // 1. Se till att det finns minst en commit (git init ger en "unborn" HEAD).
+  let hasHead = true
+  try {
+    await g.revparse(['--verify', 'HEAD'])
+  } catch {
+    hasHead = false
+  }
+  if (!hasHead) {
+    await g.add('.')
+    const st = await g.status()
+    if (st.staged.length > 0 || st.files.length > 0) await g.commit('Initial commit')
+    else await g.raw(['commit', '--allow-empty', '-m', 'Initial commit'])
+  }
+
+  // 2. Koppla origin till det nya repot (skriv över ev. befintlig).
+  const remotes = await g.getRemotes()
+  if (remotes.some((r) => r.name === 'origin')) {
+    await g.raw(['remote', 'set-url', 'origin', cloneUrl])
+  } else {
+    await g.raw(['remote', 'add', 'origin', cloneUrl])
+  }
+
+  // 3. Pusha aktuell branch och sätt upstream (token via extraheader).
+  const branch = (await g.status()).current ?? 'main'
+  await g.raw([...ghAuthArgs(token), 'push', '-u', 'origin', `${branch}:${branch}`])
 }
 
 export async function log(limit = 100): Promise<CommitLogEntry[]> {
