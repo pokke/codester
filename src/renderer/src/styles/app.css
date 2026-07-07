@@ -920,6 +920,15 @@
 .file-row:hover .row-actions {
   display: flex;
 }
+.branch-row .branch-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.branch-row:hover .row-actions {
+  display: flex;
+}
 .hint {
   padding: calc(var(--space) * 0.6) var(--space);
   color: var(--text-muted);

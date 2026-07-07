@@ -66,6 +66,7 @@ interface RepoContextValue extends RepoState {
   reorderTabs: (from: string, to: string) => void
   checkout: (name: string) => Promise<void>
   createBranch: (name: string) => Promise<void>
+  deleteBranch: (name: string, force: boolean) => Promise<Result<void>>
   stage: (file: string) => Promise<void>
   unstage: (file: string) => Promise<void>
   stageAll: () => Promise<void>
@@ -417,6 +418,20 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     [unwrap, loadRepoData, notify]
   )
 
+  // Returnerar Result så anroparen kan hantera "inte helt merge:ad" (och då
+  // fråga om tvingad radering) i stället för att auto-toasta felet.
+  const deleteBranch = useCallback(
+    async (name: string, force: boolean): Promise<Result<void>> => {
+      const res = await window.api.git.deleteBranch(name, force)
+      if (res.ok) {
+        await loadRepoData()
+        notify(`Tog bort branch ${name}`, 'success')
+      }
+      return res
+    },
+    [loadRepoData, notify]
+  )
+
   const stage = useCallback(
     async (file: string) => {
       await unwrap(window.api.git.stage(file), 'Stage')
@@ -548,6 +563,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         reorderTabs,
         checkout,
         createBranch,
+        deleteBranch,
         stage,
         unstage,
         stageAll,

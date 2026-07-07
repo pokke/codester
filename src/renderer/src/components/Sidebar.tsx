@@ -31,6 +31,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     previewFile,
     checkout,
     createBranch,
+    deleteBranch,
     stage,
     unstage,
     stageAll,
@@ -122,6 +123,31 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
     if (name) await createBranch(name)
     setNewBranch('')
     setCreating(false)
+  }
+
+  const removeBranch = async (name: string): Promise<void> => {
+    const ok = await confirm({
+      message: `Ta bort branchen "${name}"?`,
+      confirmLabel: 'Ta bort',
+      danger: true
+    })
+    if (!ok) return
+    const res = await deleteBranch(name, false)
+    if (res.ok) return
+    // Git vägrar om branchen inte är helt merge:ad – erbjud tvingad radering.
+    if (/not fully merged|not merged|isn't fully merged/i.test(res.error)) {
+      const force = await confirm({
+        message: `"${name}" är inte helt merge:ad – ändringar som bara finns där går förlorade. Ta bort ändå?`,
+        confirmLabel: 'Ta bort ändå',
+        danger: true
+      })
+      if (force) {
+        const forced = await deleteBranch(name, true)
+        if (!forced.ok) notify(forced.error, 'error')
+      }
+    } else {
+      notify(res.error, 'error')
+    }
   }
 
   const fileRow = (f: FileChange, isStaged: boolean): JSX.Element => (
@@ -262,7 +288,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
           .map((b) => (
             <div
               key={b.name}
-              className={`row ${b.current ? 'active' : ''}`}
+              className={`row branch-row ${b.current ? 'active' : ''}`}
               role="button"
               tabIndex={0}
               onClick={() => !b.current && checkout(b.name)}
@@ -274,7 +300,21 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
               }}
             >
               <span className="icon">⎇</span>
-              <span>{b.name}</span>
+              <span className="branch-name">{b.name}</span>
+              {!b.current && (
+                <span className="row-actions">
+                  <button
+                    className="btn ghost icon"
+                    title="Ta bort branch"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeBranch(b.name)
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
             </div>
           ))}
       </div>

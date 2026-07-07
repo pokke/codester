@@ -147,8 +147,30 @@ export async function resolveSide(
 
 export async function branches(root?: string): Promise<BranchInfo[]> {
   const g = requireGit(root)
-  const b = await g.branchLocal()
-  return b.all.map((name) => ({ name, current: name === b.current }))
+  let list: BranchInfo[]
+  try {
+    // Sortera på senaste commit (nyast först) via for-each-ref.
+    const raw = await g.raw([
+      'for-each-ref',
+      '--sort=-committerdate',
+      'refs/heads/',
+      '--format=%(HEAD)%09%(refname:short)'
+    ])
+    list = raw
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((line) => {
+        const [head, name] = line.split('\t')
+        return { name: (name ?? '').trim(), current: (head ?? '').includes('*') }
+      })
+      .filter((b) => b.name)
+  } catch {
+    const b = await g.branchLocal()
+    list = b.all.map((name) => ({ name, current: name === b.current }))
+  }
+  // main/master alltid överst; övriga behåller ordningen (senast ändrad först).
+  const rank = (n: string): number => (n === 'main' ? 0 : n === 'master' ? 1 : 2)
+  return list.sort((a, b) => rank(a.name) - rank(b.name))
 }
 
 export async function checkout(name: string, root?: string): Promise<void> {
