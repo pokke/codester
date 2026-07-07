@@ -7,12 +7,17 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tagg att bygga & publicera (tom = senaste v*-taggen)'
+        required: false
+        default: ''
 
 # Avbryt äldre/överflödiga körningar för samma ref (t.ex. dubbla main-pushar).
-# Tagg-körningar (releaser) får varsin grupp och avbryts aldrig.
+# Tagg-körningar (releaser) och manuella körningar får varsin grupp och avbryts aldrig.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.tag }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   build:
@@ -27,20 +32,41 @@ jobs:
           fetch-depth: 0 # hämta all historik + taggar så vi kan jämföra versioner
           fetch-tags: true
 
-      - name: Determine if this is the newest tag
+      - name: Determine target tag & whether to release
         id: guard
-        if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
-          current="${GITHUB_REF_NAME}"
           highest="$(git tag -l 'v*' | sort -V | tail -n1)"
-          echo "Denna tagg: $current — högsta taggen: $highest"
-          if [ "$current" = "$highest" ]; then
-            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manuell körning: bygg vald tagg, annars den nyaste.
+            target="${{ github.event.inputs.tag }}"
+            [ -z "$target" ] && target="$highest"
+            if ! git rev-parse -q --verify "refs/tags/$target" >/dev/null; then
+              echo "::error::Taggen $target finns inte."
+              exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "target=$target" >> "$GITHUB_OUTPUT"
+            echo "::notice::Manuell körning bygger tagg $target"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            current="${GITHUB_REF_NAME}"
+            echo "target=$current" >> "$GITHUB_OUTPUT"
+            echo "Denna tagg: $current — högsta taggen: $highest"
+            if [ "$current" = "$highest" ]; then
+              echo "release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "release=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Hoppar över release: $current är inte den nyaste taggen ($highest finns)."
+            fi
           else
-            echo "is_latest=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Hoppar över release: $current är inte den nyaste taggen ($highest finns)."
+            # Push till main / PR: bara CI (typecheck + build), ingen release.
+            echo "release=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Checkout target tag (manuell körning)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: git checkout "refs/tags/${{ steps.guard.outputs.target }}"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -58,7 +84,7 @@ jobs:
         run: npm run build
 
       - name: Package installer (electron-builder)
-        if: startsWith(github.ref, 'refs/tags/v') && steps.guard.outputs.is_latest == 'true'
+        if: steps.guard.outputs.release == 'true'
         shell: bash
         env:
           # Code signing (valfritt): lägg certifikatet som base64 i secrets.
@@ -78,9 +104,11 @@ jobs:
           npx electron-builder --win --publish never
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') && steps.guard.outputs.is_latest == 'true'
+        if: steps.guard.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          # Sätt taggen explicit (github.ref är main vid manuell körning).
+          tag_name: ${{ steps.guard.outputs.target }}
           # Installer + manifest (latest.yml) + blockmap krävs för auto-update
           files: |
             release/*.exe
