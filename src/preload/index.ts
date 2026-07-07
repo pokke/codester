@@ -76,6 +76,7 @@ const api = {
     createBranch: (name: string, root?: string) => invoke<void>('git:createBranch', name, root),
     deleteBranch: (name: string, force: boolean) =>
       invoke<void>('git:deleteBranch', name, force),
+    deleteRemoteBranch: (name: string) => invoke<void>('git:deleteRemoteBranch', name),
     diff: (file: string, staged: boolean) => invoke<DiffResult>('git:diff', file, staged),
     stage: (file: string, root?: string) => invoke<void>('git:stage', file, root),
     unstage: (file: string, root?: string) => invoke<void>('git:unstage', file, root),

@@ -126,27 +126,43 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
   }
 
   const removeBranch = async (name: string): Promise<void> => {
+    // Finns en GitHub-remote? Då tar vi bort branchen både lokalt och på origin.
+    const remote = await window.api.repo.remote()
+    const onRemote = remote.ok && !!remote.data
+
     const ok = await confirm({
-      message: `Ta bort branchen "${name}"?`,
+      message: onRemote
+        ? `Ta bort branchen "${name}" – både lokalt och på GitHub (origin)?`
+        : `Ta bort branchen "${name}"?`,
       confirmLabel: 'Ta bort',
       danger: true
     })
     if (!ok) return
-    const res = await deleteBranch(name, false)
-    if (res.ok) return
-    // Git vägrar om branchen inte är helt merge:ad – erbjud tvingad radering.
-    if (/not fully merged|not merged|isn't fully merged/i.test(res.error)) {
-      const force = await confirm({
-        message: `"${name}" är inte helt merge:ad – ändringar som bara finns där går förlorade. Ta bort ändå?`,
-        confirmLabel: 'Ta bort ändå',
-        danger: true
-      })
-      if (force) {
-        const forced = await deleteBranch(name, true)
-        if (!forced.ok) notify(forced.error, 'error')
+
+    // Lokal radering (med tvingad fallback om branchen inte är helt merge:ad).
+    let res = await deleteBranch(name, false)
+    if (!res.ok) {
+      if (/not fully merged|not merged|isn't fully merged/i.test(res.error)) {
+        const force = await confirm({
+          message: `"${name}" är inte helt merge:ad – ändringar som bara finns där går förlorade. Ta bort ändå?`,
+          confirmLabel: 'Ta bort ändå',
+          danger: true
+        })
+        if (!force) return
+        res = await deleteBranch(name, true)
       }
-    } else {
-      notify(res.error, 'error')
+      if (!res.ok) {
+        notify(res.error, 'error')
+        return
+      }
+    }
+
+    // Remote-radering. Struntar i "finns inte på origin" (branchen var aldrig pushad).
+    if (onRemote) {
+      const r = await window.api.git.deleteRemoteBranch(name)
+      if (!r.ok && !/does not exist|remote ref does not exist|not found/i.test(r.error)) {
+        notify(`Borttagen lokalt, men inte på origin: ${r.error}`, 'error')
+      }
     }
   }
 

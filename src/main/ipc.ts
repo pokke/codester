@@ -114,6 +114,9 @@ export function registerIpc(): void {
   handle('git:checkout', (name: string, root?: string) => git.checkout(name, root))
   handle('git:createBranch', (name: string, root?: string) => git.createBranch(name, root))
   handle('git:deleteBranch', (name: string, force: boolean) => git.deleteBranch(name, force))
+  handle('git:deleteRemoteBranch', (name: string, root?: string) =>
+    git.deleteRemoteBranch(github.getToken(), name, root)
+  )
   handle('git:diff', (file: string, staged: boolean) => git.diff(file, staged))
   handle('git:stage', (file: string, root?: string) => git.stage(file, root))
   handle('git:unstage', (file: string, root?: string) => git.unstage(file, root))

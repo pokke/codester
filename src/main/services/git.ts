@@ -196,6 +196,16 @@ export async function deleteBranch(name: string, force: boolean): Promise<void> 
   await requireGit().deleteLocalBranch(name, force)
 }
 
+// Ta bort branchen på origin (github-token via extraheader, se ghAuthArgs).
+export async function deleteRemoteBranch(
+  token: string | null,
+  name: string,
+  root?: string
+): Promise<void> {
+  const g = requireGit(root)
+  await g.raw([...ghAuthArgs(token), 'push', 'origin', '--delete', name])
+}
+
 export async function diff(file: string, staged: boolean): Promise<DiffResult> {
   const g = requireGit()
   const args = staged ? ['--staged', '--', file] : ['--', file]
