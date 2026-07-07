@@ -102,13 +102,16 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
     })
 
     window.api.terminal.ensure(id)
-    window.api.terminal.resize(id, term.cols, term.rows)
     if (active) term.focus()
 
-    // Layouten (panelbredd/-höjd) kan settla efter mount – räkna om när den
-    // faktiskt målats, plus en sen backup, så terminalen fyller hela ytan.
-    refitAfterPaint()
-    const settle = setTimeout(refit, 150)
+    // Fit kan misslyckas tidigt (cellstorleken går ej att mäta förrän fonten
+    // målats) och lämnar då både xterm och skalet på default 80 kolumner. Kör
+    // därför flera försök tills det stämmer, plus vid fönster-/host-storleks-
+    // ändring, så terminalen alltid fyller hela ytan.
+    const timers = [0, 50, 150, 350, 600].map((ms) => window.setTimeout(refit, ms))
+    requestAnimationFrame(() => requestAnimationFrame(refit))
+    const onWinResize = (): void => refit()
+    window.addEventListener('resize', onWinResize)
 
     const ro = new ResizeObserver(() => refit())
     ro.observe(hostRef.current)
@@ -117,7 +120,8 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
       // Döda INTE skalet här – bara koppla loss. Sessionen lever kvar i main
       // så terminalen finns kvar när panelen stängs/öppnas. (Explicit stängning
       // sker via ×-knappen som anropar window.api.terminal.kill.)
-      clearTimeout(settle)
+      timers.forEach(clearTimeout)
+      window.removeEventListener('resize', onWinResize)
       ro.disconnect()
       unsubData()
       unsubMode()
@@ -138,7 +142,8 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
   // Passa storleken när terminalen blir aktiv (kan ha varit dold → mätt som 0)
   useEffect(() => {
     if (active) {
-      refitAfterPaint()
+      requestAnimationFrame(() => requestAnimationFrame(refit))
+      window.setTimeout(refit, 120)
       termRef.current?.focus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,12 +161,6 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
       /* host borta */
     }
   }
-  // Kör fit efter att layouten faktiskt målats (dubbel rAF) – annars kan bredd/
-  // höjd mätas fel vid första öppningen och terminalen få för få kolumner/rader.
-  const refitAfterPaint = (): void => {
-    requestAnimationFrame(() => requestAnimationFrame(refit))
-  }
-
   // Kopiera aktuell markering till systemets urklipp.
   const copySelection = (): void => {
     const sel = termRef.current?.getSelection()
