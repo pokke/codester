@@ -976,14 +976,34 @@
 .file-row:hover .row-actions {
   display: flex;
 }
+.branch-row {
+  /* Stabil höjd så raden inte hoppar när ✕ dyker upp vid hover */
+  min-height: 28px;
+}
 .branch-row .branch-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.branch-row:hover .row-actions {
+/* Åtgärdsknappen är alltid i layouten (döljs bara visuellt) → ingen höjd-
+   ändring vid hover. Kompakt storlek så den ryms inom radhöjden. */
+.branch-row .row-actions {
   display: flex;
+  visibility: hidden;
+}
+.branch-row:hover .row-actions,
+.branch-row:focus-within .row-actions {
+  visibility: visible;
+}
+.branch-row .row-actions .btn.icon {
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
 }
 .hint {
   padding: calc(var(--space) * 0.6) var(--space);
