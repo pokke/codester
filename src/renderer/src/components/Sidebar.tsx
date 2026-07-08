@@ -15,9 +15,17 @@ function statusClass(status: string): string {
   return 'modified'
 }
 
-type Tab = 'changes' | 'files' | 'search'
+export type SidebarTab = 'changes' | 'files' | 'search'
 
-export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
+export function Sidebar({
+  onOpenEditor,
+  tab,
+  onTabChange
+}: {
+  onOpenEditor: () => void
+  tab: SidebarTab
+  onTabChange: (t: SidebarTab) => void
+}): JSX.Element {
   const {
     repo,
     repos,
@@ -44,7 +52,7 @@ export function Sidebar({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Ele
   } = useRepo()
   const { notify } = useToast()
   const confirm = useConfirm()
-  const [tab, setTab] = useState<Tab>('files')
+  const setTab = onTabChange
   const [creating, setCreating] = useState(false)
   const [newBranch, setNewBranch] = useState('')
   const [branchFilter, setBranchFilter] = useState('')

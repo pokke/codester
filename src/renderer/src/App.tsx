@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActivityBar, type View } from './components/ActivityBar'
-import { Sidebar } from './components/Sidebar'
+import { Sidebar, type SidebarTab } from './components/Sidebar'
 import { EditorArea } from './components/EditorArea'
 import { HistoryView } from './components/HistoryView'
 import { GitHubPanel } from './components/GitHubPanel'
@@ -32,6 +32,7 @@ export function App(): JSX.Element {
   const [showPalette, setShowPalette] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
   const [sidebarHidden, setSidebarHidden] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('files')
   const [panelTab, setPanelTab] = useState<'terminal' | 'problems' | null>(() => {
     const saved = localStorage.getItem('codester.panelTab')
     return saved === 'terminal' || saved === 'problems' ? saved : null
@@ -199,7 +200,11 @@ export function App(): JSX.Element {
           {showSidebar && (
             <>
               <div className="pane sidebar-pane" style={{ width: 'var(--sidebar-w, 250px)' }}>
-                <Sidebar onOpenEditor={() => setView('editor')} />
+                <Sidebar
+                  onOpenEditor={() => setView('editor')}
+                  tab={sidebarTab}
+                  onTabChange={setSidebarTab}
+                />
               </div>
               <Resizer side="sidebar" />
             </>
@@ -270,6 +275,11 @@ export function App(): JSX.Element {
         panelTab={panelTab}
         onShowTerminal={() => setPanelTab('terminal')}
         onShowProblems={() => setPanelTab('problems')}
+        onOpenChanges={() => {
+          setSidebarHidden(false)
+          setSidebarTab('changes')
+          setView('editor')
+        }}
       />
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}

@@ -393,12 +393,68 @@
   flex: 1;
 }
 .statusbar .seg.branch {
-  max-width: 220px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: inline-block;
   line-height: 24px;
+}
+.branch-picker-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+/* Öppnas uppåt eftersom statusraden ligger längst ner */
+.branch-picker {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  width: 260px;
+  max-width: 80vw;
+  background: var(--bg-elevated, var(--bg));
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  z-index: 50;
+}
+.branch-picker-filter {
+  width: 100%;
+  margin-bottom: 6px;
+}
+.branch-picker-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.branch-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+.branch-picker-item:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.branch-picker-item.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.branch-picker-item .branch-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.branch-picker-item .tick {
+  color: var(--accent);
 }
 /* Dölj lågprioriterade segment i smala fönster */
 @media (max-width: 860px) {
