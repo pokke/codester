@@ -2579,6 +2579,8 @@ code {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* Klipp ev. överskott så bottenpanelen aldrig målas över statusraden */
+  overflow: hidden;
 }
 .panel-resizer {
   height: 5px;

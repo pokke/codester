@@ -77,6 +77,16 @@ export function App(): JSX.Element {
     localStorage.setItem('codester.panelHeight', String(panelHeight))
   }, [panelHeight])
 
+  // Håll panelhöjden inom fönstret (ett sparat värde från ett större fönster
+  // får annars panelen att svämma över statusraden). Klampa vid start + resize.
+  useEffect(() => {
+    const clamp = (): void =>
+      setPanelHeight((h) => Math.max(120, Math.min(window.innerHeight - 200, h)))
+    clamp()
+    window.addEventListener('resize', clamp)
+    return () => window.removeEventListener('resize', clamp)
+  }, [])
+
   // Kom ihåg om terminal-/problem-panelen var öppen (överlever omstart/uppdatering)
   useEffect(() => {
     localStorage.setItem('codester.panelTab', panelTab ?? '')
