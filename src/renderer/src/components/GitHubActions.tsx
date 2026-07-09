@@ -80,7 +80,7 @@ export function GitHubActions(): JSX.Element {
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current)
     if (runs.some(isActive)) {
-      timer.current = setTimeout(() => load(false), 5000)
+      timer.current = setTimeout(() => load(false), 3000)
     }
     return () => {
       if (timer.current) clearTimeout(timer.current)

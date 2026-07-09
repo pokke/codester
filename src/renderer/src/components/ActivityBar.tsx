@@ -12,8 +12,8 @@ interface Props {
 // (och Ctrl+` / Ctrl+Shift+M) så de inte tar plats som stora vänsterknappar.
 const items: { id: View; icon: string; label: string }[] = [
   { id: 'editor', icon: '⎘', label: 'Ändringar & kod' },
-  { id: 'history', icon: '⟲', label: 'Historik' },
-  { id: 'github', icon: '⌥', label: 'GitHub' }
+  { id: 'github', icon: '⌥', label: 'GitHub' },
+  { id: 'history', icon: '⟲', label: 'Historik' }
 ]
 
 export function ActivityBar({
