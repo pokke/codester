@@ -34,7 +34,7 @@ function loadState(repoPath: string): TermState {
   return { ids: [`${h}-1`], active: `${h}-1`, counter: 1 }
 }
 
-export function TerminalView(): JSX.Element {
+export function TerminalView({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
   const { repo } = useRepo()
   const repoPath = repo?.path ?? 'none'
   const [state, setState] = useState<TermState>(() => loadState(repoPath))
@@ -112,7 +112,7 @@ export function TerminalView(): JSX.Element {
             className="term-slot"
             style={{ display: state.active === id ? 'flex' : 'none' }}
           >
-            <TerminalInstance id={id} active={state.active === id} />
+            <TerminalInstance id={id} active={state.active === id} onOpenEditor={onOpenEditor} />
           </div>
         ))}
       </div>

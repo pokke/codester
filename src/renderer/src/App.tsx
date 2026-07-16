@@ -305,7 +305,12 @@ export function App(): JSX.Element {
               </div>
               <div className="panel-content">
                 <div className="panel-view" style={{ display: panelTab === 'terminal' ? 'flex' : 'none' }}>
-                  <TerminalView />
+                  <TerminalView
+                    onOpenEditor={() => {
+                      setPanelMax(false)
+                      setView('editor')
+                    }}
+                  />
                 </div>
                 {panelTab === 'problems' && <ProblemsView onOpenFile={() => setView('editor')} />}
               </div>

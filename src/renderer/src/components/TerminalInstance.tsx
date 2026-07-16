@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type ILink } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useSettings } from '../settings/SettingsContext'
+import { useRepo } from '../state/RepoContext'
 import { getTheme, type Theme } from '../themes/themes'
 
 function xtermTheme(t: Theme): Record<string, string> {
@@ -33,8 +34,17 @@ function xtermTheme(t: Theme): Record<string, string> {
 }
 
 // En enskild terminal (xterm) kopplad till en skalsession i main via id.
-export function TerminalInstance({ id, active }: { id: string; active: boolean }): JSX.Element {
+export function TerminalInstance({
+  id,
+  active,
+  onOpenEditor
+}: {
+  id: string
+  active: boolean
+  onOpenEditor: () => void
+}): JSX.Element {
   const { settings } = useSettings()
+  const { repo, selectPath } = useRepo()
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -43,6 +53,19 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
   const [input, setInput] = useState('')
   const history = useRef<string[]>([])
   const histPos = useRef(-1)
+
+  // Refs så länk-providern (registreras en gång) alltid ser aktuellt repo/callback.
+  const openLinkRef = useRef<(raw: string, line?: number) => void>(() => {})
+  openLinkRef.current = (raw: string, line?: number): void => {
+    // Öppna filen i editorn; gör sökvägen repo-relativ om den ligger under repot.
+    let rel = raw.replace(/\\/g, '/')
+    const root = repo?.path?.replace(/\\/g, '/')
+    if (root && rel.toLowerCase().startsWith(root.toLowerCase() + '/')) {
+      rel = rel.slice(root.length + 1)
+    }
+    selectPath(rel, line)
+    onOpenEditor()
+  }
 
   useEffect(() => {
     if (!hostRef.current) return
@@ -80,6 +103,49 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
       if (modeRef.current === 'pty') window.api.terminal.input(id, data)
     })
     term.onResize(({ cols, rows }) => window.api.terminal.resize(id, cols, rows))
+
+    // Klickbara länkar: URL:er → öppna externt; fil[:rad[:kol]] → öppna i editorn.
+    // (Bra för agentverktyg som Claude Code som skriver fil-referenser i utdata.)
+    const linkProvider = term.registerLinkProvider({
+      provideLinks(y, callback) {
+        const bufLine = term.buffer.active.getLine(y - 1)
+        if (!bufLine) {
+          callback(undefined)
+          return
+        }
+        const text = bufLine.translateToString(false)
+        const links: ILink[] = []
+        const push = (index: number, len: number, activate: () => void): void => {
+          links.push({
+            range: { start: { x: index + 1, y }, end: { x: index + len, y } },
+            text: text.slice(index, index + len),
+            activate
+          })
+        }
+        let m: RegExpExecArray | null
+        // URL:er
+        const urlSpans: [number, number][] = []
+        const urlRe = /https?:\/\/[^\s<>"'`)\]}]+/g
+        while ((m = urlRe.exec(text))) {
+          const url = m[0]
+          urlSpans.push([m.index, m.index + url.length])
+          push(m.index, url.length, () => window.open(url))
+        }
+        // fil[:rad[:kol]] – kräver filändelse för att undvika brus, och hoppar
+        // träffar som ligger inuti en URL (t.ex. ".git" i en clone-url).
+        // Ändelsen måste börja med bokstav → undviker att versionsnummer som
+        // 3.14 eller v0.1.84 felaktigt blir "fil-länkar".
+        const fileRe = /(?<![\w/\\.:-])((?:[A-Za-z]:[\\/])?[\w.\-/\\]+\.[A-Za-z][A-Za-z0-9]*)(?::(\d+))?(?::(\d+))?/g
+        while ((m = fileRe.exec(text))) {
+          const start = m.index
+          if (urlSpans.some(([a, b]) => start >= a && start < b)) continue
+          const path = m[1]
+          const line = m[2] ? Number(m[2]) : undefined
+          push(start, m[0].length, () => openLinkRef.current(path, line))
+        }
+        callback(links.length ? links : undefined)
+      }
+    })
 
     // Kopiera/klistra: Ctrl+Shift+C/V, samt Ctrl+C när något är markerat
     // (annars går Ctrl+C vidare som avbryt-signal till skalet).
@@ -122,6 +188,7 @@ export function TerminalInstance({ id, active }: { id: string; active: boolean }
       // sker via ×-knappen som anropar window.api.terminal.kill.)
       timers.forEach(clearTimeout)
       window.removeEventListener('resize', onWinResize)
+      linkProvider.dispose()
       ro.disconnect()
       unsubData()
       unsubMode()
