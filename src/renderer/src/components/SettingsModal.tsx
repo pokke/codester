@@ -292,6 +292,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                 />
                 Formatera vid spara (Prettier)
               </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={settings.wordWrap}
+                  onChange={(e) => update({ wordWrap: e.target.checked })}
+                />
+                Radbrytning i editorn (Alt+Z)
+              </label>
             </div>
             <div className="field">
               <label>Spara automatiskt</label>

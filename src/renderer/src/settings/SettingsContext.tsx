@@ -14,6 +14,7 @@ export interface Settings {
   inspectorWidth: number // px
   formatOnSave: boolean
   autoSave: AutoSave
+  wordWrap: boolean // radbrytning i editorn (Alt+Z)
 }
 
 const DEFAULTS: Settings = {
@@ -25,7 +26,8 @@ const DEFAULTS: Settings = {
   sidebarWidth: 250,
   inspectorWidth: 280,
   formatOnSave: false,
-  autoSave: 'off'
+  autoSave: 'off',
+  wordWrap: false
 }
 
 const STORAGE_KEY = 'codester.settings'

@@ -64,7 +64,7 @@ export function EditorGroup({
   // Globalt/repo-brett tillstånd är gemensamt för alla grupper
   const { status, revision, refresh, resolveSide } = useRepo()
   const dragTabRef = useRef<string | null>(null)
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
   const { notify } = useToast()
   const monaco = useMonaco()
 
@@ -86,6 +86,8 @@ export function EditorGroup({
   const formatDocRef = useRef<() => void>(() => {})
   const autoSaveRef = useRef(settings.autoSave)
   autoSaveRef.current = settings.autoSave
+  const toggleWrapRef = useRef<() => void>(() => {})
+  toggleWrapRef.current = () => update({ wordWrap: !settings.wordWrap })
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Gutter-markeringar + inline blame
   const [editorReady, setEditorReady] = useState(0)
@@ -480,7 +482,8 @@ export function EditorGroup({
             renderSideBySide: true,
             fontSize: settings.fontSize,
             minimap: { enabled: false },
-            scrollBeyondLastLine: false
+            scrollBeyondLastLine: false,
+            wordWrap: settings.wordWrap ? 'on' : 'off'
           }}
         />
       ) : (
@@ -506,6 +509,10 @@ export function EditorGroup({
               comboToMonaco(monacoApi, bindingFor('formatDocument')) ??
               (monacoApi.KeyMod.Shift | monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyF)
             ed.addCommand(fmtKb, () => formatDocRef.current())
+            // Alt+Z → radbrytning av/på (som VS Code)
+            ed.addCommand(monacoApi.KeyMod.Alt | monacoApi.KeyCode.KeyZ, () =>
+              toggleWrapRef.current()
+            )
             // Auto-spara vid fokusbyte
             ed.onDidBlurEditorText(() => {
               if (autoSaveRef.current === 'onFocusChange') saveRef.current()
@@ -518,7 +525,8 @@ export function EditorGroup({
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            stickyScroll: { enabled: true }
+            stickyScroll: { enabled: true },
+            wordWrap: settings.wordWrap ? 'on' : 'off'
           }}
         />
       )}
