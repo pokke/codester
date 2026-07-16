@@ -56,7 +56,13 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
         cols: 80,
         rows: 24,
         cwd: dir,
-        env: process.env as Record<string, string>
+        // TERM + COLORTERM så CLI-verktyg (t.ex. Claude Code) vet att de kan
+        // använda 256-färg/truecolor och full TUI.
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor'
+        } as Record<string, string>
       })
       pty.onData((d) => send('terminal:data', { id, text: d }))
       pty.onExit(() => send('terminal:data', { id, text: '\r\n[skalet avslutades]\r\n' }))

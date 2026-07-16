@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Terminal, type ILink } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
 import { useSettings } from '../settings/SettingsContext'
 import { useRepo } from '../state/RepoContext'
@@ -79,6 +80,15 @@ export function TerminalInstance({
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(hostRef.current)
+    // GPU-renderare för slät utskrift vid hög genomströmning (t.ex. en agent
+    // som streamar). Vid förlorad WebGL-kontext faller xterm tillbaka på DOM.
+    try {
+      const webgl = new WebglAddon()
+      webgl.onContextLoss(() => webgl.dispose())
+      term.loadAddon(webgl)
+    } catch {
+      /* ingen WebGL → DOM-renderaren (default) används */
+    }
     fit.fit()
     termRef.current = term
     fitRef.current = fit
