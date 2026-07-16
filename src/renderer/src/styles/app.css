@@ -2274,8 +2274,21 @@ code {
 .xterm-host .xterm {
   height: 100%;
 }
+/* Fasta cellstorlekar delar sällan värdytan jämnt → en rest-remsa blir kvar i
+   botten (och i scrollbars-fickan till höger). Måla ALLA xterm-ytor med tema-
+   bakgrunden så resten smälter in i terminalen istället för att synas som en
+   svart list. */
+.xterm-host .xterm,
+.xterm-host .xterm-viewport,
+.xterm-host .xterm-screen {
+  background: var(--bg);
+}
 .xterm-host .xterm-viewport::-webkit-scrollbar {
   width: 10px;
+}
+.xterm-host .xterm-viewport::-webkit-scrollbar-track,
+.xterm-host .xterm-viewport::-webkit-scrollbar-corner {
+  background: var(--bg);
 }
 .xterm-host .xterm-viewport::-webkit-scrollbar-thumb {
   background: var(--border);
