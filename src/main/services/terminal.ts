@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { spawn, execFile, type ChildProcessWithoutNullStreams } from 'child_process'
 import { homedir } from 'os'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
@@ -128,4 +128,11 @@ export function killTerminal(id: string): void {
 
 export function killAllTerminals(): void {
   for (const id of [...sessions.keys()]) killTerminal(id)
+}
+
+// Finns kommandot i PATH? (för att avgöra om t.ex. `claude` går att starta.)
+export function hasCommand(cmd: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile('where', [cmd], (err) => resolve(!err))
+  })
 }

@@ -75,6 +75,7 @@ export function TerminalInstance({
       fontSize: settings.fontSize,
       cursorBlink: true,
       convertEol: true,
+      scrollback: 10000, // långa agent-sessioner → gott om historik att scrolla i
       theme: xtermTheme(getTheme(settings.themeId))
     })
     const fit = new FitAddon()

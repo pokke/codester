@@ -121,6 +121,7 @@ const api = {
     resize: (id: string, cols: number, rows: number): void =>
       ipcRenderer.send('terminal:resize', id, cols, rows),
     kill: (id: string): void => ipcRenderer.send('terminal:kill', id),
+    hasCommand: (cmd: string) => invoke<boolean>('system:hasCommand', cmd),
     onData: (cb: (d: { id: string; text: string }) => void): (() => void) => {
       const listener = (_e: unknown, d: { id: string; text: string }): void => cb(d)
       ipcRenderer.on('terminal:data', listener)

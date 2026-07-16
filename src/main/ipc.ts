@@ -85,6 +85,7 @@ export function registerIpc(): void {
     clipboard.writeText(text)
   })
   handle('clipboard:read', () => clipboard.readText())
+  handle('system:hasCommand', (cmd: string) => terminal.hasCommand(cmd))
 
   handle('repo:list', () => git.listRepos())
   handle('repo:remote', () => git.remoteOwnerRepo())

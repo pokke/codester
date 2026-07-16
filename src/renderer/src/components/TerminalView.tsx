@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { TerminalInstance } from './TerminalInstance'
 import { useRepo } from '../state/RepoContext'
+import { useToast } from '../ui/Toast'
 
 // Terminal-id kodar repo (kort hash) + nummer, så de är unika mellan repon och
 // stabila mellan omstarter → varje terminal återfår sin egen historikfil.
@@ -36,9 +37,24 @@ function loadState(repoPath: string): TermState {
 
 export function TerminalView({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
   const { repo } = useRepo()
+  const { notify } = useToast()
   const repoPath = repo?.path ?? 'none'
   const [state, setState] = useState<TermState>(() => loadState(repoPath))
+  const [hasClaude, setHasClaude] = useState<boolean | null>(null)
   const prevPath = useRef(repoPath)
+
+  useEffect(() => {
+    window.api.terminal.hasCommand('claude').then((r) => setHasClaude(r.ok ? r.data : true))
+  }, [])
+
+  // Starta Claude Code i den aktiva terminalen (skickar `claude` + Enter).
+  const startClaude = (): void => {
+    if (hasClaude === false) {
+      notify('Claude Code (`claude`) hittades inte i PATH. Installera det först.', 'error')
+      return
+    }
+    window.api.terminal.input(state.active, 'claude\r')
+  }
 
   // Byt terminaluppsättning när repo byts
   useEffect(() => {
@@ -103,6 +119,18 @@ export function TerminalView({ onOpenEditor }: { onOpenEditor: () => void }): JS
         ))}
         <button className="term-add" title="Ny terminal" onClick={addTerminal}>
           +
+        </button>
+        <span className="spacer" />
+        <button
+          className={`term-claude ${hasClaude === false ? 'missing' : ''}`}
+          title={
+            hasClaude === false
+              ? 'Claude Code hittades inte i PATH'
+              : 'Starta Claude Code i den aktiva terminalen'
+          }
+          onClick={startClaude}
+        >
+          ▷ Claude Code
         </button>
       </div>
       <div className="term-body">
