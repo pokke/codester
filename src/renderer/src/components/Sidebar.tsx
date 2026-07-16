@@ -19,10 +19,12 @@ export type SidebarTab = 'changes' | 'files' | 'search'
 
 export function Sidebar({
   onOpenEditor,
+  onCollapse,
   tab,
   onTabChange
 }: {
   onOpenEditor: () => void
+  onCollapse: () => void
   tab: SidebarTab
   onTabChange: (t: SidebarTab) => void
 }): JSX.Element {
@@ -274,6 +276,13 @@ export function Sidebar({
             −
           </button>
         )}
+        <button
+          className="btn ghost icon ws-collapse"
+          title="Dölj sidofältet (klicka vy-ikonen igen för att visa)"
+          onClick={onCollapse}
+        >
+          «
+        </button>
       </div>
 
       {!repo.isGit && (

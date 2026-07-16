@@ -218,7 +218,10 @@ export function App(): JSX.Element {
           view={view}
           onChange={(id) => {
             if (id === 'terminal' || id === 'problems') togglePanel(id)
-            else {
+            else if (id === view && (id === 'editor' || id === 'history')) {
+              // Klick på den redan aktiva vyn togglar sidofältet (VS Code-stil)
+              setSidebarHidden((v) => !v)
+            } else {
               // Byter man till en riktig vy medan panelen är maximerad måste vi
               // återställa den, annars göms vyn bakom terminalen.
               setPanelMax(false)
@@ -240,6 +243,7 @@ export function App(): JSX.Element {
                       setPanelMax(false)
                       setView('editor')
                     }}
+                    onCollapse={() => setSidebarHidden(true)}
                     tab={sidebarTab}
                     onTabChange={setSidebarTab}
                   />
