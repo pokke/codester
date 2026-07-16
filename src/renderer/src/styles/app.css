@@ -2597,6 +2597,7 @@ code {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden; /* klipp inom panelen så inget bleder mot statusraden */
   border-top: 1px solid var(--border);
   background: var(--bg);
 }
@@ -2642,6 +2643,7 @@ code {
   flex: 1;
   min-height: 0;
   display: flex;
+  overflow: hidden;
 }
 .panel-content > *,
 .panel-view {
