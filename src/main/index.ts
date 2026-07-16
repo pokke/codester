@@ -115,6 +115,12 @@ app.whenReady().then(() => {
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('update:install', () => quitAndInstall())
   ipcMain.handle('update:check', () => checkNow())
+  // Blinka i aktivitetsfältet när något kräver uppmärksamhet (t.ex. en agent i
+  // terminalen) och fönstret inte är fokuserat.
+  ipcMain.on('window:flash', () => {
+    const w = BrowserWindow.getAllWindows()[0]
+    if (w && !w.isFocused()) w.flashFrame(true)
+  })
   registerIpc()
 
   createWindow()
@@ -126,7 +132,10 @@ app.whenReady().then(() => {
       if (!win.isDestroyed()) win.webContents.send(channel, ...args)
     })
     // Leta efter uppdateringar igen när fönstret får fokus (strypt i updater)
-    win.on('focus', () => checkNow())
+    win.on('focus', () => {
+      win.flashFrame(false) // sluta blinka när användaren är tillbaka
+      checkNow()
+    })
   }
 
   app.on('activate', () => {

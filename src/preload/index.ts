@@ -50,6 +50,10 @@ const api = {
     read: () => invoke<string>('clipboard:read')
   },
 
+  window: {
+    flash: (): void => ipcRenderer.send('window:flash')
+  },
+
   repo: {
     openDialog: () => invoke<RepoInfo | null>('repo:openDialog'),
     open: (path: string) => invoke<RepoInfo>('repo:open', path),

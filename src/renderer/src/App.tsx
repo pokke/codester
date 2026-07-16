@@ -16,6 +16,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useRepo } from './state/RepoContext'
 import { useSettings } from './settings/SettingsContext'
+import { useToast } from './ui/Toast'
 import { configureTypeScript } from './editor/monaco'
 import { initLsp, setLspRoot } from './editor/lsp'
 import { registerSnippets } from './editor/snippets'
@@ -25,6 +26,7 @@ import './styles/app.css'
 export function App(): JSX.Element {
   const { repo, activePath, openTabs, selectPath } = useRepo()
   const { settings, update } = useSettings()
+  const { notify } = useToast()
   const mruRef = useRef<string[]>([])
   const [view, setView] = useState<View>('editor')
   const [showSettings, setShowSettings] = useState(false)
@@ -309,6 +311,16 @@ export function App(): JSX.Element {
                     onOpenEditor={() => {
                       setPanelMax(false)
                       setView('editor')
+                    }}
+                    onAttention={() => {
+                      // Terminalen (t.ex. en agent) larmade. Blinka i aktivitets-
+                      // fältet om fönstret är obevakat + toasta om man inte redan
+                      // tittar på terminalen.
+                      const unfocused = !document.hasFocus()
+                      if (unfocused) window.api.window.flash()
+                      if (unfocused || panelTabRef.current !== 'terminal') {
+                        notify('🔔 Terminalen behöver uppmärksamhet', 'info')
+                      }
                     }}
                   />
                 </div>

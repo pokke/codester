@@ -39,11 +39,13 @@ function xtermTheme(t: Theme): Record<string, string> {
 export function TerminalInstance({
   id,
   active,
-  onOpenEditor
+  onOpenEditor,
+  onAttention
 }: {
   id: string
   active: boolean
   onOpenEditor: () => void
+  onAttention: () => void
 }): JSX.Element {
   const { settings } = useSettings()
   const { repo, selectPath } = useRepo()
@@ -59,7 +61,9 @@ export function TerminalInstance({
   const history = useRef<string[]>([])
   const histPos = useRef(-1)
 
-  // Refs så länk-providern (registreras en gång) alltid ser aktuellt repo/callback.
+  // Refs så länk-providern/bell (registreras en gång) alltid ser aktuellt callback.
+  const onAttentionRef = useRef(onAttention)
+  onAttentionRef.current = onAttention
   const openLinkRef = useRef<(raw: string, line?: number) => void>(() => {})
   openLinkRef.current = (raw: string, line?: number): void => {
     // Öppna filen i editorn; gör sökvägen repo-relativ om den ligger under repot.
@@ -121,6 +125,9 @@ export function TerminalInstance({
       if (modeRef.current === 'pty') window.api.terminal.input(id, data)
     })
     term.onResize(({ cols, rows }) => window.api.terminal.resize(id, cols, rows))
+    // Terminal-bell (BEL) = "kräver uppmärksamhet" – t.ex. när en agent är klar
+    // eller väntar på svar. Larma uppåt (blink/notis om fönstret är obevakat).
+    term.onBell(() => onAttentionRef.current())
 
     // Klickbara länkar: URL:er → öppna externt; fil[:rad[:kol]] → öppna i editorn.
     // (Bra för agentverktyg som Claude Code som skriver fil-referenser i utdata.)

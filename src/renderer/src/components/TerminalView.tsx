@@ -35,7 +35,13 @@ function loadState(repoPath: string): TermState {
   return { ids: [`${h}-1`], active: `${h}-1`, counter: 1 }
 }
 
-export function TerminalView({ onOpenEditor }: { onOpenEditor: () => void }): JSX.Element {
+export function TerminalView({
+  onOpenEditor,
+  onAttention
+}: {
+  onOpenEditor: () => void
+  onAttention: () => void
+}): JSX.Element {
   const { repo } = useRepo()
   const { notify } = useToast()
   const repoPath = repo?.path ?? 'none'
@@ -140,7 +146,12 @@ export function TerminalView({ onOpenEditor }: { onOpenEditor: () => void }): JS
             className="term-slot"
             style={{ display: state.active === id ? 'flex' : 'none' }}
           >
-            <TerminalInstance id={id} active={state.active === id} onOpenEditor={onOpenEditor} />
+            <TerminalInstance
+              id={id}
+              active={state.active === id}
+              onOpenEditor={onOpenEditor}
+              onAttention={onAttention}
+            />
           </div>
         ))}
       </div>
