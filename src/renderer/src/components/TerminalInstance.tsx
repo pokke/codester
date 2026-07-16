@@ -79,7 +79,10 @@ export function TerminalInstance({
   useEffect(() => {
     if (!hostRef.current) return
     const term = new Terminal({
-      fontFamily: "'Cascadia Code', 'Consolas', monospace",
+      // Föredra Nerd Font (powerline/ikon-glyfer) om användaren har någon
+      // installerad, annars fallback till Cascadia/Consolas.
+      fontFamily:
+        "'CaskaydiaCove Nerd Font Mono','CaskaydiaCove Nerd Font','JetBrainsMono Nerd Font','MesloLGS NF','Cascadia Code','Consolas',monospace",
       fontSize: settings.fontSize,
       cursorBlink: true,
       convertEol: true,

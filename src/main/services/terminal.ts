@@ -86,6 +86,11 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
   sessions.set(id, { pty: null, pipe })
   send('terminal:mode', { id, mode: 'pipe' })
   send('terminal:data', { id, text: `Codester-terminal · ${dir}\r\n` })
+  // Pipe-läget saknar riktig PTY → interaktiva TUI-verktyg fungerar inte fullt ut.
+  send('terminal:data', {
+    id,
+    text: '\x1b[33m⚠ Riktig PTY saknas – interaktiva verktyg (t.ex. Claude Code) fungerar inte fullt ut i det här läget.\x1b[0m\r\n'
+  })
 }
 
 export function ensureTerminal(id: string, sender: WebContents, cwd: string | null): void {
