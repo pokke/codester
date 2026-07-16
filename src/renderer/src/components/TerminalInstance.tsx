@@ -268,20 +268,23 @@ export function TerminalInstance({
     if (!fit || !term) return
     try {
       fit.fit()
-      // Skydd: FitAddon kan i vissa fall (sub-pixel/skalning) råka räkna en
-      // kolumn/rad för mycket → innehållet spiller ut. Dra av tills det ryms
-      // exakt inom värden. Garanterar att inget någonsin overflowar.
+      // Skydd mot HiDPI/skalnings-overflow: på skalade skärmar blir den FAKTISKT
+      // renderade cellbredden nån promille bredare än xterm rapporterar, och över
+      // många kolumner spiller det ut. Mät därför den verkliga renderade bredden
+      // i DOM och dra av kolumner/rader tills det ryms i den synliga ytan.
       const host = hostRef.current
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cell = (term as any)?._core?._renderService?.dimensions?.css?.cell
-      if (host && cell?.width && cell?.height) {
-        let guard = 0
-        while (term.cols > 2 && term.cols * cell.width > host.clientWidth && guard++ < 8) {
-          term.resize(term.cols - 1, term.rows)
-        }
-        guard = 0
-        while (term.rows > 1 && term.rows * cell.height > host.clientHeight && guard++ < 8) {
-          term.resize(term.cols, term.rows - 1)
+      const viewport = host?.querySelector('.xterm-viewport') as HTMLElement | null
+      const screen = host?.querySelector('.xterm-screen') as HTMLElement | null
+      if (host && viewport && screen && term.cols > 2 && term.rows > 1) {
+        const rect = screen.getBoundingClientRect()
+        const cellW = rect.width / term.cols
+        const cellH = rect.height / term.rows
+        if (cellW > 0 && cellH > 0) {
+          const maxCols = Math.max(2, Math.floor(viewport.clientWidth / cellW))
+          const maxRows = Math.max(1, Math.floor(host.clientHeight / cellH))
+          const cols = Math.min(term.cols, maxCols)
+          const rows = Math.min(term.rows, maxRows)
+          if (cols !== term.cols || rows !== term.rows) term.resize(cols, rows)
         }
       }
       window.api.terminal.resize(id, term.cols, term.rows)

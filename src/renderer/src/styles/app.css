@@ -2683,7 +2683,7 @@ code {
   display: flex;
   min-width: 0;
   min-height: 0;
-  padding-bottom: 6px;
+  background: var(--bg);
 }
 .terminal-view {
   display: flex;
