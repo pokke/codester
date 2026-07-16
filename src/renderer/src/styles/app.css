@@ -2260,6 +2260,7 @@ code {
 .xterm-host {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   /* Extra botten-padding så xterms sista rad (t.ex. prompten) aldrig klipps mot
      panelkanten/statusraden. FitAddon räknar bort host-paddingen. */
   padding: 8px 10px 12px;
@@ -2670,6 +2671,16 @@ code {
 }
 
 /* ── Flera terminaler ── */
+/* Terminalen som center-vy: fyller center-panen. padding-bottom ger en lucka
+   UTANFÖR terminalen (WebGL-canvasen målar in i xterms egen padding) så sista
+   raden alltid ligger ovanför statusraden. */
+.center-terminal {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: 6px;
+}
 .terminal-view {
   display: flex;
   flex-direction: column;
@@ -2826,6 +2837,7 @@ code {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   position: relative;
 }
 .term-search {

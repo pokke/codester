@@ -35,13 +35,10 @@ export function App(): JSX.Element {
   const [showQuickOpen, setShowQuickOpen] = useState(false)
   const [sidebarHidden, setSidebarHidden] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('files')
-  const [panelTab, setPanelTab] = useState<'terminal' | 'problems' | null>(() => {
-    const saved = localStorage.getItem('codester.panelTab')
-    return saved === 'terminal' || saved === 'problems' ? saved : null
-  })
-  const [panelHeight, setPanelHeight] = useState<number>(
-    () => Number(localStorage.getItem('codester.panelHeight')) || 240
-  )
+  // Terminalen är en center-vy som hålls monterad när den väl öppnats (så
+  // scrollbacken lever kvar även när man växlar vy).
+  const [termMounted, setTermMounted] = useState(false)
+  const prevViewRef = useRef<View>('editor')
   const [version, setVersion] = useState('0.1.0')
   const [ghUnread, setGhUnread] = useState(0)
 
@@ -72,38 +69,16 @@ export function App(): JSX.Element {
     }
   }, [])
 
-  const togglePanel = (tab: 'terminal' | 'problems'): void =>
-    setPanelTab((cur) => (cur === tab ? null : tab))
+  // Växla en center-vy (terminal/problem): klick igen → tillbaka till förra vyn.
+  const toggleCenter = (v: 'terminal' | 'problems'): void =>
+    setView((cur) => (cur === v ? prevViewRef.current : v))
 
+  // Kom ihåg senaste "innehållsvy" (så terminal/problem kan togglas tillbaka),
+  // och montera terminalen så fort den öppnats (behåll scrollback).
   useEffect(() => {
-    localStorage.setItem('codester.panelHeight', String(panelHeight))
-  }, [panelHeight])
-
-  // Håll panelhöjden inom fönstret (ett sparat värde från ett större fönster
-  // får annars panelen att svämma över statusraden). Klampa vid start + resize.
-  useEffect(() => {
-    const clamp = (): void =>
-      setPanelHeight((h) => Math.max(120, Math.min(window.innerHeight - 200, h)))
-    clamp()
-    window.addEventListener('resize', clamp)
-    return () => window.removeEventListener('resize', clamp)
-  }, [])
-
-  // Maximerad panel: terminalen/problem fyller hela ytan (dölj editorn) – bäst
-  // för att köra en agent (t.ex. Claude Code) i terminalen. Kom ihåg valet.
-  const [panelMax, setPanelMax] = useState(() => localStorage.getItem('codester.panelMax') === '1')
-  useEffect(() => {
-    localStorage.setItem('codester.panelMax', panelMax ? '1' : '0')
-  }, [panelMax])
-  // Läses i den globala tangenthanteraren utan att göra om lyssnaren.
-  const panelTabRef = useRef(panelTab)
-  panelTabRef.current = panelTab
-  const maximized = !!panelTab && panelMax
-
-  // Kom ihåg om terminal-/problem-panelen var öppen (överlever omstart/uppdatering)
-  useEffect(() => {
-    localStorage.setItem('codester.panelTab', panelTab ?? '')
-  }, [panelTab])
+    if (view !== 'terminal' && view !== 'problems') prevViewRef.current = view
+    if (view === 'terminal') setTermMounted(true)
+  }, [view])
 
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
@@ -157,12 +132,12 @@ export function App(): JSX.Element {
       }
       if (matches(e, 'toggleTerminal')) {
         e.preventDefault()
-        togglePanel('terminal')
+        toggleCenter('terminal')
         return
       }
       if (matches(e, 'toggleProblems')) {
         e.preventDefault()
-        togglePanel('problems')
+        toggleCenter('problems')
         return
       }
       // Fasta specialtangenter: Ctrl+Tab (MRU) + zoom
@@ -182,26 +157,26 @@ export function App(): JSX.Element {
       } else if (k === '0') {
         e.preventDefault() // Ctrl+0 → återställ zoom
         update({ uiScale: 1 })
-      } else if (e.shiftKey && e.key === 'Enter' && panelTabRef.current) {
-        e.preventDefault() // Ctrl+Shift+Enter → maximera/återställ panelen (när öppen)
-        setPanelMax((v) => !v)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [activePath, openTabs, selectPath, settings.uiScale, update])
 
+  // Center-panen för icke-terminal-vyer (terminalen renderas separat och hålls
+  // monterad). Anropas bara när view !== 'terminal'.
   const renderCenter = (): JSX.Element => {
     if (view === 'github') return <GitHubPanel />
+    if (view === 'problems') return <ProblemsView onOpenFile={() => setView('editor')} />
     if (!repo) return <WelcomeScreen />
     if (view === 'history') return <HistoryView />
     return <EditorArea />
   }
 
-  // Sidofältet visas i editor-/historik-vyn – och även bredvid en maximerad
-  // terminal, så man kan bläddra i filer/grenar med terminalen stor.
+  // Sidofältet visas bredvid editor/historik OCH terminalen (standard-workbench,
+  // så man kan bläddra i filer/grenar även med terminalen i mitten).
   const showSidebar =
-    repo && !sidebarHidden && (maximized || view === 'editor' || view === 'history')
+    repo && !sidebarHidden && (view === 'editor' || view === 'history' || view === 'terminal')
 
   return (
     <div className="app">
@@ -217,32 +192,23 @@ export function App(): JSX.Element {
         <ActivityBar
           view={view}
           onChange={(id) => {
-            if (id === 'terminal' || id === 'problems') togglePanel(id)
+            if (id === 'terminal' || id === 'problems') toggleCenter(id)
             else if (id === view && (id === 'editor' || id === 'history')) {
               // Klick på den redan aktiva vyn togglar sidofältet (VS Code-stil)
               setSidebarHidden((v) => !v)
-            } else {
-              // Byter man till en riktig vy medan panelen är maximerad måste vi
-              // återställa den, annars göms vyn bakom terminalen.
-              setPanelMax(false)
-              setView(id)
-            }
+            } else setView(id)
           }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPalette={() => setShowPalette(true)}
           badges={{ github: ghUnread }}
         />
-        <div className={`main-area ${maximized ? 'row-max' : ''}`}>
-        {(!maximized || showSidebar) && (
-          <div className={`workbench ${maximized ? 'sidebar-only' : ''}`}>
+        <div className="main-area">
+          <div className="workbench">
             {showSidebar && (
               <>
                 <div className="pane sidebar-pane" style={{ width: 'var(--sidebar-w, 250px)' }}>
                   <Sidebar
-                    onOpenEditor={() => {
-                      setPanelMax(false)
-                      setView('editor')
-                    }}
+                    onOpenEditor={() => setView('editor')}
                     onCollapse={() => setSidebarHidden(true)}
                     tab={sidebarTab}
                     onTabChange={setSidebarTab}
@@ -251,94 +217,31 @@ export function App(): JSX.Element {
                 <Resizer side="sidebar" />
               </>
             )}
-            {!maximized && <div className="pane center-pane">{renderCenter()}</div>}
-          </div>
-        )}
-
-        {panelTab && (
-          <>
-            {!maximized && (
-            <div
-              className="panel-resizer"
-              title="Dra för att ändra höjd"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                const startY = e.clientY
-                const startH = panelHeight
-                const move = (ev: MouseEvent): void =>
-                  setPanelHeight(
-                    Math.max(120, Math.min(window.innerHeight - 200, startH + (startY - ev.clientY)))
-                  )
-                const up = (): void => {
-                  window.removeEventListener('mousemove', move)
-                  window.removeEventListener('mouseup', up)
-                }
-                window.addEventListener('mousemove', move)
-                window.addEventListener('mouseup', up)
-              }}
-            />
-            )}
-            <div
-              className={`bottom-panel ${maximized ? 'maximized' : ''}`}
-              style={maximized ? undefined : { height: panelHeight }}
-            >
-              <div className="panel-tabs">
-                <button
-                  className={panelTab === 'terminal' ? 'active' : ''}
-                  onClick={() => setPanelTab('terminal')}
+            <div className="pane center-pane">
+              {view !== 'terminal' && renderCenter()}
+              {/* Terminalen hålls monterad (dold när annan vy visas) så
+                  scrollback/agent-sessioner lever kvar. */}
+              {termMounted && (
+                <div
+                  className="center-terminal"
+                  style={{ display: view === 'terminal' ? 'flex' : 'none' }}
                 >
-                  Terminal
-                </button>
-                <button
-                  className={panelTab === 'problems' ? 'active' : ''}
-                  onClick={() => setPanelTab('problems')}
-                >
-                  Problem
-                </button>
-                <span className="spacer" />
-                <button
-                  className="btn ghost icon"
-                  title={
-                    maximized
-                      ? 'Återställ panelstorlek (Ctrl+Shift+Enter)'
-                      : 'Maximera panelen – fyll ytan (Ctrl+Shift+Enter)'
-                  }
-                  onClick={() => setPanelMax((v) => !v)}
-                >
-                  {maximized ? '⤡' : '⤢'}
-                </button>
-                <button
-                  className="btn ghost icon"
-                  title="Stäng panel"
-                  onClick={() => setPanelTab(null)}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="panel-content">
-                <div className="panel-view" style={{ display: panelTab === 'terminal' ? 'flex' : 'none' }}>
                   <TerminalView
-                    onOpenEditor={() => {
-                      setPanelMax(false)
-                      setView('editor')
-                    }}
+                    onOpenEditor={() => setView('editor')}
                     onAttention={() => {
                       // Terminalen (t.ex. en agent) larmade. Blinka i aktivitets-
-                      // fältet om fönstret är obevakat + toasta om man inte redan
-                      // tittar på terminalen.
+                      // fältet om fönstret är obevakat + toasta om man inte tittar.
                       const unfocused = !document.hasFocus()
                       if (unfocused) window.api.window.flash()
-                      if (unfocused || panelTabRef.current !== 'terminal') {
+                      if (unfocused || view !== 'terminal') {
                         notify('🔔 Terminalen behöver uppmärksamhet', 'info')
                       }
                     }}
                   />
                 </div>
-                {panelTab === 'problems' && <ProblemsView onOpenFile={() => setView('editor')} />}
-              </div>
+              )}
             </div>
-          </>
-        )}
+          </div>
         </div>
       </div>
 
@@ -346,9 +249,9 @@ export function App(): JSX.Element {
 
       <StatusBar
         version={version}
-        panelTab={panelTab}
-        onShowTerminal={() => setPanelTab('terminal')}
-        onShowProblems={() => setPanelTab('problems')}
+        view={view}
+        onShowTerminal={() => toggleCenter('terminal')}
+        onShowProblems={() => toggleCenter('problems')}
         onOpenChanges={() => {
           setSidebarHidden(false)
           setSidebarTab('changes')
@@ -368,7 +271,7 @@ export function App(): JSX.Element {
         <CommandPalette
           onClose={() => setShowPalette(false)}
           setView={setView}
-          openPanel={togglePanel}
+          openPanel={toggleCenter}
           openSettings={() => {
             setShowPalette(false)
             setShowSettings(true)

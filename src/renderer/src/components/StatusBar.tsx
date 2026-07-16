@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRepo } from '../state/RepoContext'
 import { useProblems, counts } from '../editor/markers'
+import type { View } from './ActivityBar'
 
 export function StatusBar({
   version,
-  panelTab,
+  view,
   onShowTerminal,
   onShowProblems,
   onOpenChanges
 }: {
   version: string
-  panelTab: 'terminal' | 'problems' | null
+  view: View
   onShowTerminal: () => void
   onShowProblems: () => void
   onOpenChanges: () => void
@@ -119,14 +120,14 @@ export function StatusBar({
       )}
       <span className="spacer" />
       <button
-        className={`seg clickable ${panelTab === 'terminal' ? 'on' : ''}`}
+        className={`seg clickable ${view === 'terminal' ? 'on' : ''}`}
         title="Visa/dölj terminalen (Ctrl+`)"
         onClick={onShowTerminal}
       >
         {'>_'} Terminal
       </button>
       <button
-        className={`seg clickable ${panelTab === 'problems' ? 'on' : ''}`}
+        className={`seg clickable ${view === 'problems' ? 'on' : ''}`}
         title="Visa/dölj problem – fel och varningar (Ctrl+Shift+M)"
         onClick={onShowProblems}
       >

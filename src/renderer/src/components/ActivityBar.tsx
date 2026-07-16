@@ -13,7 +13,8 @@ interface Props {
 const items: { id: View; icon: string; label: string }[] = [
   { id: 'editor', icon: '⎘', label: 'Ändringar & kod' },
   { id: 'github', icon: '⌥', label: 'GitHub' },
-  { id: 'history', icon: '⟲', label: 'Historik' }
+  { id: 'history', icon: '⟲', label: 'Historik' },
+  { id: 'terminal', icon: '>_', label: 'Terminal' }
 ]
 
 export function ActivityBar({
