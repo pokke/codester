@@ -39,11 +39,13 @@ function xtermTheme(t: Theme): Record<string, string> {
 export function TerminalInstance({
   id,
   active,
+  visible,
   onOpenEditor,
   onAttention
 }: {
   id: string
   active: boolean
+  visible: boolean
   onOpenEditor: () => void
   onAttention: () => void
 }): JSX.Element {
@@ -247,6 +249,17 @@ export function TerminalInstance({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
+
+  // Tvinga ny fit varje gång terminalen blir synlig igen. Den hålls monterad
+  // (display:none) när en annan vy visas, och ResizeObservern kan missa
+  // åter-visningen → kolumnerna blir kvar på fel bredd och texten åker ut.
+  useEffect(() => {
+    if (visible) {
+      requestAnimationFrame(() => requestAnimationFrame(refit))
+      window.setTimeout(refit, 120)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
 
   // Räkna om kolumner/rader mot värdens aktuella storlek och meddela skalet.
   const refit = (): void => {

@@ -48,9 +48,11 @@ function loadState(repoPath: string): TermState {
 }
 
 export function TerminalView({
+  visible,
   onOpenEditor,
   onAttention
 }: {
+  visible: boolean
   onOpenEditor: () => void
   onAttention: () => void
 }): JSX.Element {
@@ -79,8 +81,8 @@ export function TerminalView({
   }, [repoPath, state])
 
   const paneCount = PANES[state.layout]
-  const visible = state.ids.slice(0, paneCount)
-  const focused = visible.includes(state.active) ? state.active : (visible[0] ?? state.active)
+  const visibleIds = state.ids.slice(0, paneCount)
+  const focused = visibleIds.includes(state.active) ? state.active : (visibleIds[0] ?? state.active)
 
   // Starta Claude Code i den fokuserade terminalen (skickar `claude` + Enter).
   const startClaude = (): void => {
@@ -196,7 +198,7 @@ export function TerminalView({
         </button>
       </div>
       <div className={`term-grid ${state.layout}`}>
-        {visible.map((id) => (
+        {visibleIds.map((id) => (
           <div
             key={id}
             className={`term-cell ${focused === id ? 'focused' : ''}`}
@@ -207,6 +209,7 @@ export function TerminalView({
             <TerminalInstance
               id={id}
               active={focused === id}
+              visible={visible}
               onOpenEditor={onOpenEditor}
               onAttention={onAttention}
             />

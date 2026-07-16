@@ -237,6 +237,7 @@ export function App(): JSX.Element {
                   style={{ display: view === 'terminal' ? 'flex' : 'none' }}
                 >
                   <TerminalView
+                    visible={view === 'terminal'}
                     onOpenEditor={() => setView('editor')}
                     onAttention={() => {
                       // Terminalen (t.ex. en agent) larmade. Blinka i aktivitets-
