@@ -2271,11 +2271,6 @@ code {
   overflow: hidden;
   background: var(--bg);
 }
-/* Liten vänster-/topp-inramning läggs på xterm-elementet – FitAddon räknar bort
-   den korrekt (till skillnad från värdens padding). */
-.xterm-host .xterm {
-  padding: 4px 0 0 6px;
-}
 .xterm-host .xterm {
   height: 100%;
 }

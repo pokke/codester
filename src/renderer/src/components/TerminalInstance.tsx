@@ -268,6 +268,22 @@ export function TerminalInstance({
     if (!fit || !term) return
     try {
       fit.fit()
+      // Skydd: FitAddon kan i vissa fall (sub-pixel/skalning) råka räkna en
+      // kolumn/rad för mycket → innehållet spiller ut. Dra av tills det ryms
+      // exakt inom värden. Garanterar att inget någonsin overflowar.
+      const host = hostRef.current
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cell = (term as any)?._core?._renderService?.dimensions?.css?.cell
+      if (host && cell?.width && cell?.height) {
+        let guard = 0
+        while (term.cols > 2 && term.cols * cell.width > host.clientWidth && guard++ < 8) {
+          term.resize(term.cols - 1, term.rows)
+        }
+        guard = 0
+        while (term.rows > 1 && term.rows * cell.height > host.clientHeight && guard++ < 8) {
+          term.resize(term.cols, term.rows - 1)
+        }
+      }
       window.api.terminal.resize(id, term.cols, term.rows)
     } catch {
       /* host borta */
