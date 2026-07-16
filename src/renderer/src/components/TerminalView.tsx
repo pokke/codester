@@ -11,10 +11,21 @@ function repoHash(path: string): string {
   return (h >>> 0).toString(36)
 }
 
+// Hur många terminaler som visas samtidigt i respektive layout.
+type Layout = 'single' | 'cols2' | 'rows2' | 'grid4'
+const PANES: Record<Layout, number> = { single: 1, cols2: 2, rows2: 2, grid4: 4 }
+const LAYOUTS: { id: Layout; icon: string; label: string }[] = [
+  { id: 'single', icon: '▢', label: 'En terminal' },
+  { id: 'cols2', icon: '◫', label: '2 sida vid sida' },
+  { id: 'rows2', icon: '⊟', label: '2 på varandra' },
+  { id: 'grid4', icon: '⊞', label: '2×2 (fyra)' }
+]
+
 interface TermState {
   ids: string[]
   active: string
   counter: number
+  layout: Layout
 }
 
 function keyFor(repoPath: string): string {
@@ -27,12 +38,13 @@ function loadState(repoPath: string): TermState {
     const raw = localStorage.getItem(keyFor(repoPath))
     if (raw) {
       const s = JSON.parse(raw) as TermState
-      if (Array.isArray(s.ids) && s.ids.length && s.active) return s
+      if (Array.isArray(s.ids) && s.ids.length && s.active)
+        return { ...s, layout: s.layout ?? 'single' }
     }
   } catch {
     /* falla tillbaka */
   }
-  return { ids: [`${h}-1`], active: `${h}-1`, counter: 1 }
+  return { ids: [`${h}-1`], active: `${h}-1`, counter: 1, layout: 'single' }
 }
 
 export function TerminalView({
@@ -53,15 +65,6 @@ export function TerminalView({
     window.api.terminal.hasCommand('claude').then((r) => setHasClaude(r.ok ? r.data : true))
   }, [])
 
-  // Starta Claude Code i den aktiva terminalen (skickar `claude` + Enter).
-  const startClaude = (): void => {
-    if (hasClaude === false) {
-      notify('Claude Code (`claude`) hittades inte i PATH. Installera det först.', 'error')
-      return
-    }
-    window.api.terminal.input(state.active, 'claude\r')
-  }
-
   // Byt terminaluppsättning när repo byts
   useEffect(() => {
     if (prevPath.current !== repoPath) {
@@ -70,17 +73,57 @@ export function TerminalView({
     }
   }, [repoPath])
 
-  // Spara listan per repo
+  // Spara per repo
   useEffect(() => {
     localStorage.setItem(keyFor(repoPath), JSON.stringify(state))
   }, [repoPath, state])
 
-  const commit = (patch: Partial<TermState>): void => setState((s) => ({ ...s, ...patch }))
+  const paneCount = PANES[state.layout]
+  const visible = state.ids.slice(0, paneCount)
+  const focused = visible.includes(state.active) ? state.active : (visible[0] ?? state.active)
 
+  // Starta Claude Code i den fokuserade terminalen (skickar `claude` + Enter).
+  const startClaude = (): void => {
+    if (hasClaude === false) {
+      notify('Claude Code (`claude`) hittades inte i PATH. Installera det först.', 'error')
+      return
+    }
+    window.api.terminal.input(focused, 'claude\r')
+  }
+
+  const newId = (counter: number): string => `${repoHash(repoPath)}-${counter}`
+
+  // Ny terminal – väx layouten så den nya rutan syns.
   const addTerminal = (): void => {
-    const counter = state.counter + 1
-    const id = `${repoHash(repoPath)}-${counter}`
-    setState((s) => ({ ids: [...s.ids, id], active: id, counter }))
+    setState((s) => {
+      const counter = s.counter + 1
+      const ids = [...s.ids, newId(counter)]
+      let layout = s.layout
+      if (ids.length > PANES[layout]) layout = ids.length >= 3 ? 'grid4' : 'cols2'
+      return { ids, active: newId(counter), counter, layout }
+    })
+  }
+
+  // Välj layout – fyll på med nya terminaler så alla rutor har en session.
+  const setLayout = (layout: Layout): void => {
+    setState((s) => {
+      let counter = s.counter
+      const ids = [...s.ids]
+      while (ids.length < PANES[layout]) {
+        counter++
+        ids.push(newId(counter))
+      }
+      return { ...s, ids, counter, layout, active: ids.includes(s.active) ? s.active : ids[0] }
+    })
+  }
+
+  // Fokusera en session; ligger den utanför de synliga rutorna, flytta in den.
+  const focusSession = (id: string): void => {
+    setState((s) => {
+      const ids =
+        s.ids.indexOf(id) >= PANES[s.layout] ? [id, ...s.ids.filter((x) => x !== id)] : s.ids
+      return { ...s, ids, active: id }
+    })
   }
 
   const closeTerminal = (id: string): void => {
@@ -90,12 +133,13 @@ export function TerminalView({
       const ids = s.ids.filter((x) => x !== id)
       if (ids.length === 0) {
         const counter = s.counter + 1
-        const fresh = `${repoHash(repoPath)}-${counter}`
-        return { ids: [fresh], active: fresh, counter }
+        const fresh = newId(counter)
+        return { ids: [fresh], active: fresh, counter, layout: 'single' }
       }
-      // Aktivera grannen (föregående om möjligt, annars nästa)
       const nextActive = s.active === id ? (ids[idx - 1] ?? ids[idx] ?? ids[0]) : s.active
-      return { ...s, ids, active: nextActive }
+      // Krymp till en ruta om bara en session finns kvar
+      const layout = ids.length <= 1 ? 'single' : s.layout
+      return { ...s, ids, active: nextActive, layout }
     })
   }
 
@@ -105,8 +149,8 @@ export function TerminalView({
         {state.ids.map((id, i) => (
           <div
             key={id}
-            className={`term-tab ${state.active === id ? 'active' : ''}`}
-            onClick={() => commit({ active: id })}
+            className={`term-tab ${focused === id ? 'active' : ''}`}
+            onClick={() => focusSession(id)}
             onAuxClick={(e) => e.button === 1 && closeTerminal(id)}
             title={`Terminal ${i + 1} · mittenklick stänger`}
           >
@@ -126,29 +170,43 @@ export function TerminalView({
         <button className="term-add" title="Ny terminal" onClick={addTerminal}>
           +
         </button>
+        <div className="term-layout-picker" title="Terminallayout">
+          {LAYOUTS.map((l) => (
+            <button
+              key={l.id}
+              className={state.layout === l.id ? 'active' : ''}
+              title={l.label}
+              onClick={() => setLayout(l.id)}
+            >
+              {l.icon}
+            </button>
+          ))}
+        </div>
         <span className="spacer" />
         <button
           className={`term-claude ${hasClaude === false ? 'missing' : ''}`}
           title={
             hasClaude === false
               ? 'Claude Code hittades inte i PATH'
-              : 'Starta Claude Code i den aktiva terminalen'
+              : 'Starta Claude Code i den fokuserade terminalen'
           }
           onClick={startClaude}
         >
           ▷ Claude Code
         </button>
       </div>
-      <div className="term-body">
-        {state.ids.map((id) => (
+      <div className={`term-grid ${state.layout}`}>
+        {visible.map((id) => (
           <div
             key={id}
-            className="term-slot"
-            style={{ display: state.active === id ? 'flex' : 'none' }}
+            className={`term-cell ${focused === id ? 'focused' : ''}`}
+            onMouseDown={() => {
+              if (focused !== id) focusSession(id)
+            }}
           >
             <TerminalInstance
               id={id}
-              active={state.active === id}
+              active={focused === id}
               onOpenEditor={onOpenEditor}
               onAttention={onAttention}
             />
