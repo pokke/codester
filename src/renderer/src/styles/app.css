@@ -2608,6 +2608,7 @@ code {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0; /* måste kunna krympa i row-max, annars trycks allt ut ur fönstret */
   overflow: hidden; /* klipp inom panelen så inget bleder mot statusraden */
   border-top: 1px solid var(--border);
   background: var(--bg);
@@ -2653,6 +2654,7 @@ code {
 .panel-content {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   overflow: hidden;
   /* Garanterad lucka UTANFÖR terminalen (WebGL-canvasen målar in i xterm-
