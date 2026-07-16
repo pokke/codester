@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Terminal, type ILink } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
+import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { useSettings } from '../settings/SettingsContext'
 import { useRepo } from '../state/RepoContext'
@@ -49,8 +50,11 @@ export function TerminalInstance({
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
+  const searchRef = useRef<SearchAddon | null>(null)
   const modeRef = useRef<'pty' | 'pipe'>('pty')
   const [mode, setMode] = useState<'pty' | 'pipe'>('pty')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const [input, setInput] = useState('')
   const history = useRef<string[]>([])
   const histPos = useRef(-1)
@@ -80,6 +84,9 @@ export function TerminalInstance({
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
+    const search = new SearchAddon()
+    term.loadAddon(search)
+    searchRef.current = search
     term.open(hostRef.current)
     // GPU-renderare för slät utskrift vid hög genomströmning (t.ex. en agent
     // som streamar). Vid förlorad WebGL-kontext faller xterm tillbaka på DOM.
@@ -163,6 +170,10 @@ export function TerminalInstance({
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
       const k = e.key.toLowerCase()
+      if (e.ctrlKey && !e.shiftKey && k === 'f') {
+        setSearchOpen(true)
+        return false
+      }
       if (e.ctrlKey && e.shiftKey && k === 'c') {
         copySelection()
         return false
@@ -260,6 +271,18 @@ export function TerminalInstance({
     else pasteClipboard()
   }
 
+  // Sök i terminalens buffert (Ctrl+F).
+  const findInTerm = (dir: 'next' | 'prev', q = searchTerm): void => {
+    if (!q) return
+    if (dir === 'next') searchRef.current?.findNext(q)
+    else searchRef.current?.findPrevious(q)
+  }
+  const closeSearch = (): void => {
+    setSearchOpen(false)
+    termRef.current?.clearSelection()
+    termRef.current?.focus()
+  }
+
   const run = (): void => {
     const cmd = input
     termRef.current?.write(`\r\n\x1b[36m❯\x1b[0m ${cmd}\r\n`)
@@ -292,6 +315,32 @@ export function TerminalInstance({
 
   return (
     <div className="terminal-instance">
+      {searchOpen && (
+        <div className="term-search">
+          <input
+            autoFocus
+            placeholder="Sök i terminalen…"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              findInTerm('next', e.target.value)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') findInTerm(e.shiftKey ? 'prev' : 'next')
+              else if (e.key === 'Escape') closeSearch()
+            }}
+          />
+          <button title="Föregående (Shift+Enter)" onClick={() => findInTerm('prev')}>
+            ↑
+          </button>
+          <button title="Nästa (Enter)" onClick={() => findInTerm('next')}>
+            ↓
+          </button>
+          <button title="Stäng (Esc)" onClick={closeSearch}>
+            ✕
+          </button>
+        </div>
+      )}
       <div
         className="xterm-host"
         ref={hostRef}
