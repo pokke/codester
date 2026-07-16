@@ -11,10 +11,10 @@ interface Props {
 // Bara riktiga vyer bor här. Terminal/Problem togglas från statusraden nere
 // (och Ctrl+` / Ctrl+Shift+M) så de inte tar plats som stora vänsterknappar.
 const items: { id: View; icon: string; label: string }[] = [
+  { id: 'terminal', icon: '>_', label: 'Terminal' },
   { id: 'editor', icon: '⎘', label: 'Ändringar & kod' },
   { id: 'github', icon: '⌥', label: 'GitHub' },
-  { id: 'history', icon: '⟲', label: 'Historik' },
-  { id: 'terminal', icon: '>_', label: 'Terminal' }
+  { id: 'history', icon: '⟲', label: 'Historik' }
 ]
 
 export function ActivityBar({

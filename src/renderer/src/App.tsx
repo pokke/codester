@@ -80,6 +80,16 @@ export function App(): JSX.Element {
     if (view === 'terminal') setTermMounted(true)
   }, [view])
 
+  // Stänger man sista öppna filen i editorn → gå till terminalen (bra för
+  // agent-flöde: klar med filerna, tillbaka till Claude Code).
+  const prevTabsRef = useRef(openTabs.length)
+  useEffect(() => {
+    if (prevTabsRef.current > 0 && openTabs.length === 0 && view === 'editor') {
+      setView('terminal')
+    }
+    prevTabsRef.current = openTabs.length
+  }, [openTabs.length, view])
+
   useEffect(() => {
     window.api?.getVersion().then(setVersion).catch(() => {})
     initLsp() // registrera LSP-providers en gång

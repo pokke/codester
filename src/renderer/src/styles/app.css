@@ -54,6 +54,8 @@
 }
 .center-pane {
   flex: 1;
+  min-width: 0;
+  overflow: hidden; /* inget innehåll (t.ex. terminalen) får spilla ut ur panelen */
 }
 .sidebar-pane,
 .inspector-pane {
