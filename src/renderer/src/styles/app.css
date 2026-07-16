@@ -2689,11 +2689,10 @@ code {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* Fyll hela panelen. Utan detta krymper vyn (flex-item i rad-container) till
-     sitt innehålls bredd, så terminalen bara täcker en del av fönstret. */
+  /* flex:1 fyller center-vyn. (width:100% togs bort – överflödigt på ett
+     flex-element och kan ge sub-pixel-avrundning som rundar upp en kolumn.) */
   flex: 1;
   min-width: 0;
-  width: 100%;
 }
 .term-tabs {
   display: flex;
