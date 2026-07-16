@@ -3,6 +3,7 @@
 export interface RepoInfo {
   path: string
   name: string
+  isGit: boolean
 }
 
 export interface BranchInfo {

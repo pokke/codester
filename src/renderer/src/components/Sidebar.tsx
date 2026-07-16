@@ -31,6 +31,7 @@ export function Sidebar({
     repos,
     switchRepo,
     addFolder,
+    initGit,
     closeFolder,
     status,
     branches,
@@ -259,7 +260,7 @@ export function Sidebar({
         </select>
         <button
           className="btn ghost icon"
-          title="Öppna mapp / projekt (skapar Git-repo vid behov)"
+          title="Öppna mapp / projekt (behöver inte vara Git)"
           onClick={() => addFolder()}
         >
           +
@@ -275,6 +276,17 @@ export function Sidebar({
         )}
       </div>
 
+      {!repo.isGit && (
+        <div className="nongit-banner">
+          <span className="path-dim">Inte ett Git-repo</span>
+          <button className="btn small" onClick={() => initGit()}>
+            Initiera Git
+          </button>
+        </div>
+      )}
+
+      {repo.isGit && (
+        <>
       <div className="panel-header">
         <span>Branches</span>
         <button className="btn icon ghost" title="Ny branch" onClick={() => setCreating(true)}>
@@ -342,6 +354,8 @@ export function Sidebar({
             </div>
           ))}
       </div>
+        </>
+      )}
 
       <div className="sidebar-tabs">
         <button className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}>
@@ -525,7 +539,7 @@ export function Sidebar({
             )}
           </div>
 
-          <CommitBox />
+          {repo.isGit && <CommitBox />}
         </>
       )}
     </aside>

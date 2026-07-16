@@ -1,7 +1,7 @@
 import { simpleGit, type SimpleGit } from 'simple-git'
 import { basename, join } from 'path'
 import { tmpdir } from 'os'
-import { readFile, writeFile, unlink } from 'fs/promises'
+import { readFile, writeFile, unlink, readdir } from 'fs/promises'
 import type {
   BranchInfo,
   BlameLine,
@@ -18,52 +18,78 @@ import type {
 // Arbetsytan kan innehålla flera repon (multi-root): vi håller en instans per
 // rot och ett "aktivt" repo som källkontrollen/branch-vyn arbetar mot.
 
-const repos = new Map<string, SimpleGit>()
+type RepoInfo = { path: string; name: string; isGit: boolean }
+
+// Rötter i arbetsytan. Värdet är git-instansen om roten ÄR ett git-repo,
+// annars null (en vanlig mapp öppnad utan versionshantering).
+const repos = new Map<string, SimpleGit | null>()
 let activeRoot: string | null = null
 
 export function getRepoPath(): string | null {
   return activeRoot
 }
 
-// Hämtar git-instansen för en viss rot (default: aktiva repot).
+// Git-instansen för en rot om den är ett git-repo, annars null.
+function gitFor(root?: string): SimpleGit | null {
+  const key = root ?? activeRoot
+  return key ? (repos.get(key) ?? null) : null
+}
+
+// Kräver ett git-repo (för git-/skrivoperationer). Kastar tydligt om roten inte
+// är öppnad eller inte är versionshanterad.
 function requireGit(root?: string): SimpleGit {
   const key = root ?? activeRoot
-  const g = key ? repos.get(key) : null
-  if (!g) throw new Error('Inget repo är öppnat')
+  if (!key || !repos.has(key)) throw new Error('Ingen mapp är öppnad')
+  const g = repos.get(key)
+  if (!g) throw new Error('Mappen är inte ett git-repo')
   return g
 }
 
-// Roten som en path-baserad operation ska ske mot (default: aktiva).
+export function isGitRoot(root?: string): boolean {
+  return gitFor(root) !== null
+}
+
+// Roten som en path-baserad operation ska ske mot (default: aktiva). Fungerar
+// även för icke-git-mappar (filträd/fil-läsning).
 function rootDir(root?: string): string {
   const key = root ?? activeRoot
-  if (!key || !repos.has(key)) throw new Error('Inget repo är öppnat')
+  if (!key || !repos.has(key)) throw new Error('Ingen mapp är öppnad')
   return key
 }
 
-async function register(path: string): Promise<{ path: string; name: string }> {
-  const candidate = simpleGit(path)
-  const isRepo = await candidate.checkIsRepo()
-  if (!isRepo) throw new Error('Mappen är inte ett git-repo')
-  repos.set(path, candidate)
-  return { path, name: basename(path) }
+function repoInfo(path: string): RepoInfo {
+  return { path, name: basename(path), isGit: (repos.get(path) ?? null) !== null }
 }
 
-// Öppna ett repo och gör det aktivt (används vid öppna-dialog/klon).
-export async function openRepo(path: string): Promise<{ path: string; name: string }> {
+// Registrera en mapp i arbetsytan. Är den ett git-repo lagras git-instansen,
+// annars null (öppnas ändå som vanlig mapp).
+async function register(path: string): Promise<RepoInfo> {
+  const candidate = simpleGit(path)
+  let isRepo = false
+  try {
+    isRepo = await candidate.checkIsRepo()
+  } catch {
+    isRepo = false
+  }
+  repos.set(path, isRepo ? candidate : null)
+  return repoInfo(path)
+}
+
+// Öppna en mapp och gör den aktiv (öppna-dialog/klon).
+export async function openRepo(path: string): Promise<RepoInfo> {
   const info = await register(path)
   activeRoot = path
   return info
 }
 
-// Lägg till ett repo i arbetsytan utan att byta aktivt (om ett redan finns).
-export async function addRepo(path: string): Promise<{ path: string; name: string }> {
+// Lägg till en mapp i arbetsytan utan att byta aktiv (om en redan finns).
+export async function addRepo(path: string): Promise<RepoInfo> {
   const info = await register(path)
   if (!activeRoot) activeRoot = path
   return info
 }
 
-// Är mappen ett git-repo? (kastar inte – används för att avgöra om vi ska
-// erbjuda git init innan vi lägger till en mapp.)
+// Är mappen ett git-repo? (kastar inte)
 export async function isGitRepo(path: string): Promise<boolean> {
   try {
     return await simpleGit(path).checkIsRepo()
@@ -72,25 +98,66 @@ export async function isGitRepo(path: string): Promise<boolean> {
   }
 }
 
-// Kör git init i mappen och lägg sedan till den i arbetsytan.
-export async function initRepo(path: string): Promise<{ path: string; name: string }> {
+// Kör git init i mappen och (om-)registrera den som git-repo.
+export async function initRepo(path: string): Promise<RepoInfo> {
   await simpleGit(path).init()
-  return addRepo(path)
+  return register(path)
 }
 
-export function listRepos(): { path: string; name: string }[] {
-  return [...repos.keys()].map((p) => ({ path: p, name: basename(p) }))
+export function listRepos(): RepoInfo[] {
+  return [...repos.keys()].map(repoInfo)
 }
 
-export function setActiveRepo(path: string): { path: string; name: string } | null {
+export function setActiveRepo(path: string): RepoInfo | null {
   if (!repos.has(path)) return null
   activeRoot = path
-  return { path, name: basename(path) }
+  return repoInfo(path)
 }
 
 export function closeRepo(path: string): void {
   repos.delete(path)
   if (activeRoot === path) activeRoot = [...repos.keys()][0] ?? null
+}
+
+const WALK_IGNORE = new Set([
+  'node_modules',
+  '.git',
+  'out',
+  'dist',
+  'release',
+  'build',
+  '.next',
+  'coverage',
+  '.venv',
+  'venv',
+  '__pycache__',
+  '.cache'
+])
+
+// Listar filer under en icke-git-mapp genom att gå igenom trädet (git ls-files
+// funkar ju inte utan repo). Ignorerar tunga mappar och har ett tak.
+async function walkFiles(root: string): Promise<string[]> {
+  const out: string[] = []
+  const stack: string[] = ['']
+  while (stack.length && out.length < 20000) {
+    const rel = stack.pop() as string
+    const abs = rel ? join(root, rel) : root
+    let entries
+    try {
+      entries = await readdir(abs, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (WALK_IGNORE.has(e.name)) continue
+        stack.push(rel ? `${rel}/${e.name}` : e.name)
+      } else if (e.isFile()) {
+        out.push(rel ? `${rel}/${e.name}` : e.name)
+      }
+    }
+  }
+  return out.sort()
 }
 
 export async function cloneRepo(url: string, parentDir: string): Promise<string> {
@@ -105,8 +172,18 @@ export async function cloneRepo(url: string, parentDir: string): Promise<string>
   return target
 }
 
+const EMPTY_STATUS: RepoStatus = {
+  current: '',
+  tracking: null,
+  ahead: 0,
+  behind: 0,
+  files: [],
+  conflicted: []
+}
+
 export async function status(root?: string): Promise<RepoStatus> {
-  const g = requireGit(root)
+  const g = gitFor(root)
+  if (!g) return EMPTY_STATUS // vanlig mapp utan git → inga ändringar
   const s = await g.status()
   const files = s.files.map((f) => ({
     path: f.path,
@@ -125,8 +202,9 @@ export async function status(root?: string): Promise<RepoStatus> {
 }
 
 export async function listFiles(root?: string): Promise<string[]> {
+  const g = gitFor(root)
+  if (!g) return walkFiles(rootDir(root)) // vanlig mapp → gå igenom trädet
   // Alla spårade + ej ignorerade filer (respekterar .gitignore).
-  const g = requireGit(root)
   const out = await g.raw(['ls-files', '--cached', '--others', '--exclude-standard'])
   return out
     .split('\n')
@@ -146,7 +224,8 @@ export async function resolveSide(
 }
 
 export async function branches(root?: string): Promise<BranchInfo[]> {
-  const g = requireGit(root)
+  const g = gitFor(root)
+  if (!g) return [] // ingen git → inga grenar
   let list: BranchInfo[]
   try {
     // Sortera på senaste commit (nyast först) via for-each-ref.
@@ -341,6 +420,12 @@ export async function publishToGitHub(
   cloneUrl: string,
   root?: string
 ): Promise<void> {
+  // Vanlig mapp utan git → initiera först (publicering gör den till ett repo).
+  if (!isGitRoot(root)) {
+    const key = rootDir(root)
+    await simpleGit(key).init()
+    await register(key)
+  }
   const g = requireGit(root)
 
   // 1. Se till att det finns minst en commit (git init ger en "unborn" HEAD).
@@ -382,8 +467,8 @@ async function hasCommits(g: SimpleGit): Promise<boolean> {
 }
 
 export async function log(limit = 100): Promise<CommitLogEntry[]> {
-  const g = requireGit()
-  if (!(await hasCommits(g))) return []
+  const g = gitFor()
+  if (!g || !(await hasCommits(g))) return []
   const res = await g.log({
     maxCount: limit,
     format: {
@@ -568,7 +653,8 @@ export async function stashSave(message?: string, root?: string): Promise<void> 
 }
 
 export async function stashList(root?: string): Promise<StashEntry[]> {
-  const g = requireGit(root)
+  const g = gitFor(root)
+  if (!g) return []
   const raw = await g.raw(['stash', 'list', '--format=%gd|%ci|%s'])
   return raw
     .split('\n')
@@ -589,7 +675,8 @@ export async function stashDrop(index: number, root?: string): Promise<void> {
 }
 
 export async function remoteOwnerRepo(): Promise<{ owner: string; repo: string } | null> {
-  const g = requireGit()
+  const g = gitFor()
+  if (!g) return null
   const remotes = await g.getRemotes(true)
   const origin = remotes.find((r) => r.name === 'origin') ?? remotes[0]
   const url = origin?.refs?.fetch

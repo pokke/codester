@@ -16,7 +16,6 @@ import type {
   StashEntry
 } from '../../../shared/types'
 import { useToast } from '../ui/Toast'
-import { useConfirm } from '../ui/Confirm'
 
 // Hjälpare som packar upp Result-kuvert och visar fel som toast.
 function useUnwrap(): <T>(p: Promise<Result<T>>, errPrefix?: string) => Promise<T | undefined> {
@@ -55,6 +54,7 @@ interface RepoContextValue extends RepoState {
   openDialog: () => Promise<void>
   cloneAndOpen: (url: string) => Promise<void>
   addFolder: () => Promise<void>
+  initGit: () => Promise<void>
   switchRepo: (path: string) => Promise<void>
   closeFolder: (path: string) => Promise<void>
   refresh: () => Promise<void>
@@ -89,7 +89,6 @@ const Ctx = createContext<RepoContextValue | null>(null)
 export function RepoProvider({ children }: { children: ReactNode }): JSX.Element {
   const unwrap = useUnwrap()
   const { notify } = useToast()
-  const confirm = useConfirm()
   const [state, setState] = useState<RepoState>({
     repo: null,
     repos: [],
@@ -243,31 +242,30 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
     [unwrap, withBusy, setRepo, notify]
   )
 
-  // Lägg till/öppna en mapp i arbetsytan. Är den inte ett git-repo erbjuds
-  // git init så även oversionerade projekt kan öppnas smidigt. Den nyss
-  // tillagda mappen blir aktiv så man byter till projektet direkt.
+  // Lägg till/öppna en mapp i arbetsytan. Behöver INTE vara ett git-repo –
+  // en vanlig mapp öppnas som den är (filträd fungerar, git-init erbjuds sedan
+  // via en knapp). Den nyss tillagda mappen blir aktiv direkt.
   const addFolder = useCallback(async () => {
     const path = await unwrap(window.api.repo.pickFolder())
     if (!path) return
-    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
-    const isGit = await unwrap(window.api.repo.isGit(path))
-    let info: { path: string; name: string } | undefined
-    if (isGit) {
-      info = await unwrap(window.api.repo.add(path), 'Kunde inte lägga till mapp')
-    } else {
-      const ok = await confirm({
-        message: `"${name}" är inte ett Git-repo än. Vill du skapa ett här (git init) så du kan versionshantera projektet?`,
-        confirmLabel: 'Skapa Git-repo'
-      })
-      if (!ok) return
-      info = await unwrap(window.api.repo.init(path), 'Kunde inte initiera Git-repo')
-    }
+    const info = await unwrap(window.api.repo.add(path), 'Kunde inte öppna mapp')
     if (!info) return
     await refreshRepos()
     const active = await unwrap(window.api.repo.setActive(info.path))
     if (active) await setRepo(active)
-    notify(isGit ? `La till ${info.name}` : `Skapade Git-repo i ${info.name}`, 'success')
-  }, [unwrap, confirm, refreshRepos, setRepo, notify])
+    notify(info.isGit ? `La till ${info.name}` : `Öppnade ${info.name} (ej Git)`, 'success')
+  }, [unwrap, refreshRepos, setRepo, notify])
+
+  // Initiera Git i den aktiva mappen (erbjudande, inte krav).
+  const initGit = useCallback(async () => {
+    if (!state.repo) return
+    const info = await unwrap(window.api.repo.init(state.repo.path), 'Kunde inte initiera Git')
+    if (!info) return
+    await refreshRepos()
+    const active = await unwrap(window.api.repo.setActive(info.path))
+    if (active) await setRepo(active)
+    notify(`Initierade Git i ${info.name}`, 'success')
+  }, [state.repo, unwrap, refreshRepos, setRepo, notify])
 
   // Byt aktivt repo (källkontroll/branch-vy följer med)
   const switchRepo = useCallback(
@@ -552,6 +550,7 @@ export function RepoProvider({ children }: { children: ReactNode }): JSX.Element
         openDialog,
         cloneAndOpen,
         addFolder,
+        initGit,
         switchRepo,
         closeFolder,
         refresh,
