@@ -198,7 +198,10 @@ export function App(): JSX.Element {
     return <EditorArea />
   }
 
-  const showSidebar = repo && !sidebarHidden && (view === 'editor' || view === 'history')
+  // Sidofältet visas i editor-/historik-vyn – och även bredvid en maximerad
+  // terminal, så man kan bläddra i filer/grenar med terminalen stor.
+  const showSidebar =
+    repo && !sidebarHidden && (maximized || view === 'editor' || view === 'history')
 
   return (
     <div className="app">
@@ -226,14 +229,17 @@ export function App(): JSX.Element {
           onOpenPalette={() => setShowPalette(true)}
           badges={{ github: ghUnread }}
         />
-        <div className="main-area">
-        {!maximized && (
-          <div className="workbench">
+        <div className={`main-area ${maximized ? 'row-max' : ''}`}>
+        {(!maximized || showSidebar) && (
+          <div className={`workbench ${maximized ? 'sidebar-only' : ''}`}>
             {showSidebar && (
               <>
                 <div className="pane sidebar-pane" style={{ width: 'var(--sidebar-w, 250px)' }}>
                   <Sidebar
-                    onOpenEditor={() => setView('editor')}
+                    onOpenEditor={() => {
+                      setPanelMax(false)
+                      setView('editor')
+                    }}
                     tab={sidebarTab}
                     onTabChange={setSidebarTab}
                   />
@@ -241,7 +247,7 @@ export function App(): JSX.Element {
                 <Resizer side="sidebar" />
               </>
             )}
-            <div className="pane center-pane">{renderCenter()}</div>
+            {!maximized && <div className="pane center-pane">{renderCenter()}</div>}
           </div>
         )}
 

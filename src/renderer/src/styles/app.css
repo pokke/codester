@@ -2605,6 +2605,17 @@ code {
   flex: 1;
   min-height: 0;
 }
+/* Maximerad MED sidofält: sidofältet till vänster, terminalen fyller resten */
+.main-area.row-max {
+  flex-direction: row;
+}
+.workbench.sidebar-only {
+  flex: 0 0 auto;
+}
+.main-area.row-max .bottom-panel.maximized {
+  border-top: none;
+  border-left: 1px solid var(--border);
+}
 .panel-tabs {
   display: flex;
   align-items: center;
