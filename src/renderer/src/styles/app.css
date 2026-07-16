@@ -2263,11 +2263,18 @@ code {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  /* Extra botten-padding så xterms sista rad (t.ex. prompten) aldrig klipps mot
-     panelkanten/statusraden. FitAddon räknar bort host-paddingen. */
-  padding: 8px 10px 12px;
+  /* VIKTIGT: ingen padding här. FitAddon mäter värdens bredd/höjd men räknar
+     bara bort .xterm-elementets padding (0), inte värdens – så padding här
+     ger en kolumn/rad för mycket och innehållet spiller ut. Luft mot kanterna
+     hanteras utanför (.center-terminal padding-bottom, .xterm egen padding). */
+  padding: 0;
   overflow: hidden;
   background: var(--bg);
+}
+/* Liten vänster-/topp-inramning läggs på xterm-elementet – FitAddon räknar bort
+   den korrekt (till skillnad från värdens padding). */
+.xterm-host .xterm {
+  padding: 4px 0 0 6px;
 }
 .xterm-host .xterm {
   height: 100%;
