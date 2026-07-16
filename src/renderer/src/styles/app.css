@@ -2840,11 +2840,17 @@ code {
   display: flex;
   overflow: hidden;
   background: var(--bg);
+  /* Liten luft mellan cellkanten och terminalen. Fokus-ramen (::after) dras in
+     2px från kanten så den syns på alla sidor (annars hamnar högerramen i sista
+     pixelkolumnen mot fönsterkanten och försvinner). Padding 6px − 2px inset ger
+     ~4px luft mellan ram och text. OBS: padding här (på cellen), aldrig på
+     .xterm-host – det senare räknar FitAddon fel på och ger overflow. */
+  padding: 6px;
 }
 .term-cell.focused::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 2px;
   pointer-events: none;
   border: 1px solid var(--accent);
 }
