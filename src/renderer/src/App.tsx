@@ -87,6 +87,17 @@ export function App(): JSX.Element {
     return () => window.removeEventListener('resize', clamp)
   }, [])
 
+  // Maximerad panel: terminalen/problem fyller hela ytan (dölj editorn) – bäst
+  // för att köra en agent (t.ex. Claude Code) i terminalen. Kom ihåg valet.
+  const [panelMax, setPanelMax] = useState(() => localStorage.getItem('codester.panelMax') === '1')
+  useEffect(() => {
+    localStorage.setItem('codester.panelMax', panelMax ? '1' : '0')
+  }, [panelMax])
+  // Läses i den globala tangenthanteraren utan att göra om lyssnaren.
+  const panelTabRef = useRef(panelTab)
+  panelTabRef.current = panelTab
+  const maximized = !!panelTab && panelMax
+
   // Kom ihåg om terminal-/problem-panelen var öppen (överlever omstart/uppdatering)
   useEffect(() => {
     localStorage.setItem('codester.panelTab', panelTab ?? '')
@@ -169,6 +180,9 @@ export function App(): JSX.Element {
       } else if (k === '0') {
         e.preventDefault() // Ctrl+0 → återställ zoom
         update({ uiScale: 1 })
+      } else if (e.shiftKey && e.key === 'Enter' && panelTabRef.current) {
+        e.preventDefault() // Ctrl+Shift+Enter → maximera/återställ panelen (när öppen)
+        setPanelMax((v) => !v)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -199,31 +213,39 @@ export function App(): JSX.Element {
           view={view}
           onChange={(id) => {
             if (id === 'terminal' || id === 'problems') togglePanel(id)
-            else setView(id)
+            else {
+              // Byter man till en riktig vy medan panelen är maximerad måste vi
+              // återställa den, annars göms vyn bakom terminalen.
+              setPanelMax(false)
+              setView(id)
+            }
           }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPalette={() => setShowPalette(true)}
           badges={{ github: ghUnread }}
         />
         <div className="main-area">
-        <div className="workbench">
-          {showSidebar && (
-            <>
-              <div className="pane sidebar-pane" style={{ width: 'var(--sidebar-w, 250px)' }}>
-                <Sidebar
-                  onOpenEditor={() => setView('editor')}
-                  tab={sidebarTab}
-                  onTabChange={setSidebarTab}
-                />
-              </div>
-              <Resizer side="sidebar" />
-            </>
-          )}
-          <div className="pane center-pane">{renderCenter()}</div>
-        </div>
+        {!maximized && (
+          <div className="workbench">
+            {showSidebar && (
+              <>
+                <div className="pane sidebar-pane" style={{ width: 'var(--sidebar-w, 250px)' }}>
+                  <Sidebar
+                    onOpenEditor={() => setView('editor')}
+                    tab={sidebarTab}
+                    onTabChange={setSidebarTab}
+                  />
+                </div>
+                <Resizer side="sidebar" />
+              </>
+            )}
+            <div className="pane center-pane">{renderCenter()}</div>
+          </div>
+        )}
 
         {panelTab && (
           <>
+            {!maximized && (
             <div
               className="panel-resizer"
               title="Dra för att ändra höjd"
@@ -243,7 +265,11 @@ export function App(): JSX.Element {
                 window.addEventListener('mouseup', up)
               }}
             />
-            <div className="bottom-panel" style={{ height: panelHeight }}>
+            )}
+            <div
+              className={`bottom-panel ${maximized ? 'maximized' : ''}`}
+              style={maximized ? undefined : { height: panelHeight }}
+            >
               <div className="panel-tabs">
                 <button
                   className={panelTab === 'terminal' ? 'active' : ''}
@@ -258,6 +284,17 @@ export function App(): JSX.Element {
                   Problem
                 </button>
                 <span className="spacer" />
+                <button
+                  className="btn ghost icon"
+                  title={
+                    maximized
+                      ? 'Återställ panelstorlek (Ctrl+Shift+Enter)'
+                      : 'Maximera panelen – fyll ytan (Ctrl+Shift+Enter)'
+                  }
+                  onClick={() => setPanelMax((v) => !v)}
+                >
+                  {maximized ? '⤡' : '⤢'}
+                </button>
                 <button
                   className="btn ghost icon"
                   title="Stäng panel"

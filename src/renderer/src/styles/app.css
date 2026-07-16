@@ -2600,6 +2600,11 @@ code {
   border-top: 1px solid var(--border);
   background: var(--bg);
 }
+/* Maximerad: fyll hela main-area (workbench är dold) i stället för fast höjd */
+.bottom-panel.maximized {
+  flex: 1;
+  min-height: 0;
+}
 .panel-tabs {
   display: flex;
   align-items: center;
