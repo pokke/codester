@@ -80,6 +80,32 @@ export function App(): JSX.Element {
     if (view === 'terminal') setTermMounted(true)
   }, [view])
 
+  // Manuell "Sök efter uppdateringar" – ge återkoppling via toast.
+  const manualCheckRef = useRef(false)
+  const checkUpdates = (): void => {
+    manualCheckRef.current = true
+    notify('Söker efter uppdateringar…', 'info')
+    window.api.update.check()
+  }
+  useEffect(
+    () =>
+      window.api.update.on((e) => {
+        if (!manualCheckRef.current) return
+        if (e.type === 'update:status' && e.payload === 'none') {
+          notify('Du har den senaste versionen ✓', 'success')
+          manualCheckRef.current = false
+        } else if (e.type === 'update:available') {
+          notify(`Ny version ${String(e.payload)} hittad – laddar ner…`, 'success')
+          manualCheckRef.current = false
+        } else if (e.type === 'update:error') {
+          notify('Kunde inte söka efter uppdateringar', 'error')
+          manualCheckRef.current = false
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+
   // Stänger man sista öppna filen i editorn → gå till terminalen (bra för
   // agent-flöde: klar med filerna, tillbaka till Claude Code).
   const prevTabsRef = useRef(openTabs.length)
@@ -210,6 +236,7 @@ export function App(): JSX.Element {
           }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPalette={() => setShowPalette(true)}
+          onCheckUpdates={checkUpdates}
           badges={{ github: ghUnread }}
         />
         <div className="main-area">

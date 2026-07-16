@@ -114,7 +114,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('update:install', () => quitAndInstall())
-  ipcMain.handle('update:check', () => checkNow())
+  ipcMain.handle('update:check', () => checkNow(true))
   // Blinka i aktivitetsfältet när något kräver uppmärksamhet (t.ex. en agent i
   // terminalen) och fönstret inte är fokuserat.
   ipcMain.on('window:flash', () => {

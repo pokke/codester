@@ -5,6 +5,7 @@ interface Props {
   onChange: (v: View) => void
   onOpenSettings: () => void
   onOpenPalette: () => void
+  onCheckUpdates: () => void
   badges?: Partial<Record<View, number>>
 }
 
@@ -22,6 +23,7 @@ export function ActivityBar({
   onChange,
   onOpenSettings,
   onOpenPalette,
+  onCheckUpdates,
   badges
 }: Props): JSX.Element {
   return (
@@ -41,6 +43,9 @@ export function ActivityBar({
         )
       })}
       <div style={{ flex: 1 }} />
+      <button className="act" title="Sök efter uppdateringar" onClick={onCheckUpdates}>
+        ⟳
+      </button>
       <button className="act" title="Kommandopalett (Ctrl+Shift+P)" onClick={onOpenPalette}>
         ⌘
       </button>

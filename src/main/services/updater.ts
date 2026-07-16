@@ -38,11 +38,12 @@ export function quitAndInstall(): void {
 }
 
 let lastCheck = 0
-export function checkNow(): void {
+export function checkNow(force = false): void {
   if (!app.isPackaged) return
   const now = Date.now()
-  // Strypning: minst 1 min mellan kontroller (t.ex. vid upprepad fönsterfokus)
-  if (now - lastCheck < 60 * 1000) return
+  // Strypning: minst 1 min mellan automatiska kontroller (t.ex. vid upprepad
+  // fönsterfokus). En manuell "Sök efter uppdateringar" (force) kör alltid.
+  if (!force && now - lastCheck < 60 * 1000) return
   lastCheck = now
   autoUpdater.checkForUpdates().catch(() => {
     /* nätverksfel m.m. – ignoreras tyst */
