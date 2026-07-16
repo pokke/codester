@@ -2655,6 +2655,10 @@ code {
   min-height: 0;
   display: flex;
   overflow: hidden;
+  /* Garanterad lucka UTANFÖR terminalen (WebGL-canvasen målar in i xterm-
+     värdens padding, så den luckan syns inte). Här kan varken canvas eller
+     clip nå → sista raden ligger alltid ovanför panelkanten/statusraden. */
+  padding-bottom: 6px;
 }
 .panel-content > *,
 .panel-view {
