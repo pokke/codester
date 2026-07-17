@@ -677,6 +677,12 @@
   border-radius: var(--radius);
   overflow: hidden;
 }
+/* Diskret markering att aktiv fil är ändrad sedan HEAD (utan att tvinga diff) */
+.changed-badge {
+  font-size: 11px;
+  color: var(--modified, var(--synType));
+  white-space: nowrap;
+}
 .seg-toggle button {
   flex: 1;
   padding: calc(var(--space) * 0.7);

@@ -96,7 +96,6 @@ export function EditorGroup({
   const blameCol = useRef<MonacoEditor.IEditorDecorationsCollection | null>(null)
 
   const change = status?.files.find((f) => f.path === activePath)
-  const hasChange = !!change
   const isConflicted = !!activePath && (status?.conflicted ?? []).includes(activePath)
 
   // Applicera Codesters tema på Monaco när temat ändras
@@ -105,13 +104,13 @@ export function EditorGroup({
     monaco.editor.setTheme(defineMonacoTheme(getTheme(settings.themeId)))
   }, [monaco, settings.themeId])
 
-  // Välj förnuftigt standardläge när filen byts. Beror på `hasChange` (boolean)
-  // och INTE på change-objektets identitet – annars körde effekten vid varje
-  // status-omladdning (filbevakaren) och slog tillbaka t.ex. Redigera → Diff.
+  // Öppna alltid i REDIGERINGSLÄGE när man byter fil. Ändringar visas via
+  // seg-växlaren (Diff/Hunkar) som man väljer själv – vi slänger inte in diffen.
+  // Deps = bara `activePath`: en status-omladdning (filbevakaren) eller att
+  // filen blir ändrad ska INTE slå tillbaka läget till diff.
   useEffect(() => {
-    if (isConflicted || !hasChange || activeLine) setMode('edit')
-    else setMode((m) => (m === 'hunks' ? 'hunks' : 'diff'))
-  }, [activePath, isConflicted, hasChange, activeLine])
+    setMode('edit')
+  }, [activePath])
 
   // Hoppa till rad (t.ex. från en sökträff)
   useEffect(() => {
@@ -429,17 +428,31 @@ export function EditorGroup({
         ) : (
           <>
             {canDiff && (
-              <div className="seg-toggle small">
-                <button className={mode === 'diff' ? 'active' : ''} onClick={() => setMode('diff')}>
-                  Diff
-                </button>
-                <button className={mode === 'hunks' ? 'active' : ''} onClick={() => setMode('hunks')}>
-                  Hunkar
-                </button>
-                <button className={mode === 'edit' ? 'active' : ''} onClick={() => setMode('edit')}>
-                  Redigera
-                </button>
-              </div>
+              <>
+                <span className="changed-badge" title="Ändrad sedan senaste commit">
+                  ● ändrad
+                </span>
+                <div className="seg-toggle small">
+                  <button
+                    className={mode === 'edit' ? 'active' : ''}
+                    onClick={() => setMode('edit')}
+                  >
+                    Redigera
+                  </button>
+                  <button
+                    className={mode === 'diff' ? 'active' : ''}
+                    onClick={() => setMode('diff')}
+                  >
+                    Diff
+                  </button>
+                  <button
+                    className={mode === 'hunks' ? 'active' : ''}
+                    onClick={() => setMode('hunks')}
+                  >
+                    Hunkar
+                  </button>
+                </div>
+              </>
             )}
             <span className="muted small">{dirty ? 'Osparat · Ctrl+S' : 'Sparat'}</span>
             <button
