@@ -254,6 +254,11 @@ export function EditorGroup({
   }
 
   // Sparar en valfri flik (aktiv → live-innehåll, annars dess buffert).
+  // Prettier-fel innehåller en flerradig kodram – bara första raden (meddelande
+  // + rad:kolumn) är läsbar i en toast.
+  const formatError = (e: unknown): string =>
+    (e instanceof Error ? e.message : String(e)).split('\n')[0].trim()
+
   const savePath = async (path: string): Promise<boolean> => {
     let content = path === activePath ? editedRef.current : buffers.current.get(path)
     if (content === undefined) return true // inget osparat
@@ -264,7 +269,8 @@ export function EditorGroup({
         content = await formatCode(content, plang)
         didFormat = true
       } catch (e) {
-        notify(`Formatering misslyckades: ${e instanceof Error ? e.message : e}`, 'error')
+        // Formatering är best-effort – filen sparas ändå (oformaterad).
+        notify(`Formatering misslyckades: ${formatError(e)} · sparade oformaterat`, 'error')
       }
     }
     const res = await window.api.git.saveFile(path, content)
@@ -351,7 +357,7 @@ export function EditorGroup({
       ed.executeEdits('format', [{ range: model.getFullModelRange(), text: formatted }])
       ed.pushUndoStop()
     } catch (e) {
-      notify(`Formatering misslyckades: ${e instanceof Error ? e.message : e}`, 'error')
+      notify(`Formatering misslyckades: ${formatError(e)}`, 'error')
     }
   }
   formatDocRef.current = formatDoc
