@@ -1,122 +1,147 @@
 # Codester
 
 En lättviktig kod- och Git-klient för Windows. Koppla mot GitHub, överblicka
-branches, läs kod med tydlig syntaxfärgning och committa – utan kommandoradens
-friktion eller de tunga IDE:ernas komplexitet.
+branches, läs och redigera kod, committa – och kör agentverktyg som Claude Code i
+en förstklassig integrerad terminal. Utan kommandoradens friktion eller de tunga
+IDE:ernas komplexitet.
 
 **Ledord:** Enkelhet · Tydlighet · Personlig anpassning.
 
 ## Teknik
 
-- **Electron** – skrivbordsskal för Windows
-- **React + TypeScript** – gränssnitt
+- **Electron 31** – skrivbordsskal för Windows
+- **React 18 + TypeScript** – gränssnitt
 - **electron-vite** – byggverktyg och dev-server
-- Temasystem byggt på CSS-variabler (lätt att anpassa och utöka)
+- **simple-git** – all git-logik (i main-processen)
+- **Monaco** – editorn (samma motor som VS Code), buntad lokalt
+- **xterm.js + @lydell/node-pty** – riktig PTY-terminal (conpty)
+- **electron-updater** – auto-uppdatering via GitHub Releases
+- Temasystem byggt på CSS-variabler
 
 ## Kom igång
 
 ```bash
 npm install      # installera beroenden
 npm run dev      # starta appen i utvecklingsläge (hot reload)
-npm run build    # produktionsbygge
-npm run dist     # bygg en Windows-installer (.exe)
 npm run typecheck
+npm run build    # produktionsbygge
+npm run dist     # bygg en Windows-installer (.exe) – görs normalt av CI
 ```
 
-## Status: Fas 0–4 implementerade ✅
+## Funktioner
 
-**Fas 0 – Skelett**
-- Electron + React + TypeScript, eget fönster, 3-zonslayout + aktivitetsfält
-- Temasystem (5 teman) + anpassning: accent, teckenstorlek, UI-skala, täthet
+### Arbetsyta
 
-**Fas 1 – MVP (Must)**
-- Git-motor i main-processen (`simple-git`): status, branches, diff, stage/unstage,
-  discard, commit, push/pull/fetch
-- Öppna lokalt repo och klona via dialog
-- GitHub-inloggning med Personal Access Token, krypterad via Windows DPAPI
-  (`safeStorage`), listning + kloning av dina repon
-- **Monaco-editor** (samma motor som VS Code) med diff-vy mot HEAD och
-  redigeringsläge med spara
+- **Flera projekt** – öppna flera mappar; växla aktivt projekt i väljaren. Filträd,
+  ändringar, grenar och terminaler följer med.
+- **Mappar utan Git** – öppna vilken mapp som helst. Git-init erbjuds via en knapp,
+  det är inget krav.
+- **Filutforskare** – virtualiserat träd med multi-select, drag-flytt, kontextmeny
+  (skapa/byt namn/radera/klipp ut/kopiera/klistra in) och git-statusfärger.
+- **Sök & ersätt** i hela repot, fritext med träfflista och hopp till rad.
 
-**Fas 2 – Komfort (Should)**
-- Commit-historik med refs
-- Filredigering med spara
-- **Filutforskare** – bläddra hela repots filträd och läs/redigera vilken fil som helst
-- **Merge-konflikthantering** – upptäck konflikter, välj vår/deras sida, markera som löst
-- **Justerbara paneler** – dra för att ändra bredd på sidofält/commit-panel (sparas)
-- Sök/filter bland repon, pull request-listning
-- Visnings-/panelväxling (editor · historik · GitHub), dölj commit-panelen
+### Git
 
-**Fas 3 – Polish (Could)**
-- Kommandopalett (Ctrl+P) – byt branch, tema, kör git-kommandon
-- Förslag på commit-meddelande (✨) utifrån stagade filer
-- Blame-stöd i git-lagret, 5 teman
+- Status, staging (per fil och per hunk), discard, commit (+ amend), push/pull/fetch
+- **Grenar** – main överst, sedan senast ändrad. Skapa, checka ut, ta bort
+  (lokalt **och** på origin) med skydd mot ej mergade grenar.
+- **Historik** – commit-graf (SVG-lanes), commit-detaljer med full diff, fil-tidslinje
+- **Merge-konflikter** – 3-vägs merge-editor, lös per block eller hela filen
+- **Stash** – stasha, lista, pop, ta bort
+- **Blame** – inline-annotering
 
-**Fas 4 – Release**
-- `electron-builder` konfigurerad för Windows NSIS-installer (`npm run dist`),
-  anpassningsbar installationsmapp + genvägar
-- Code signing förberett via `CSC_LINK`/`CSC_KEY_PASSWORD` – se [SIGNING.md](SIGNING.md)
-- `npm run dist` bygger `release/Codester-Setup-<version>.exe` (verifierat lokalt).
-  Kräver Windows **Developer Mode** eller admin första gången (symlänk-uppackning)
+### GitHub
 
-**Commit-graf & merge**
-- Grafisk **commit-graf** i historiken (SVG-lanes med grenar/merges)
-- **3-vägs merge-editor**: lös konflikter per block (våra/deras/båda) eller hela filen
-- **OAuth Device Flow**-inloggning (utöver PAT) – kräver ett OAuth-client-ID
+Två-nivå-navigering: **Mitt konto** (Repositories · Sök · Notiser · Gists) och
+**Detta repo** (Översikt · Pull requests · Issues · Actions · Releaser).
 
-**Senaste omgången**
-- **Commit-detaljer** – klicka en commit i historiken → se ändrade filer + full diff
-- **Sök i hela repot** – fritextsökning (git grep) med träfflista och hopp till rad
-- **App-ikon & branding** – egen ikon för fönster + installer (`npm run icons`), About-dialog
-- **Auto-uppdatering** – filbevakning (chokidar) uppdaterar git-status automatiskt
+- **Pull requests** – lista, detaljvy med diff + checks, konversation (kommentarer
+  och reviews), skapa, granska, merga, checka ut lokalt, stäng/återöppna
+- **Issues** – lista, detalj med kommentarer, skapa med labels/assignees, stäng
+- **Actions** – körningar med jobb/steg, avbryt, kör om (felade eller alla),
+  live-uppdatering var 3:e sek medan bygget kör
+- **Releaser** – assets (t.ex. `latest.yml`/`.exe`), skapa, redigera, publicera, radera
+- **Notiser** – inkorg med olästräknare på aktivitetsfältet
+- **Publicera på GitHub** – lokalt repo utan remote? Skapa repo och pusha med ett klick
+  (git-init sker automatiskt vid behov)
 
-**Tidigare extra**
-- **Integrerad terminal** – uthålligt PowerShell-skal i repo-mappen, med
-  kommandohistorik (↑/↓). Strömmad utdata, ANSI-rensad. (Ej full PTY – TUI-program
-  som vim stöds inte.)
-- **Stash** – stasha alla ändringar, lista, pop och ta bort
-- **10 inbyggda teman** – Dark+, Light+, One Dark, Dracula, Nord, Monokai,
-  Solarized Dark/Light, GitHub Dark, Gruvbox Dark
-- **CI** – [GitHub Actions-workflow](.github/workflows/build.yml) som bygger och
-  paketerar installern på `windows-latest` (kringgår lokala symlänk-rättigheter),
-  laddar upp den som artefakt och bifogar den till GitHub Releases vid `v*`-taggar
+Git-nätverk mot github.com autentiseras med din token via en engångs-`extraheader` –
+token hamnar aldrig i `.git/config`.
 
-> Verifierat: `npm run typecheck`, `npm run build` och app-boot passerar rent.
+### Editor
+
+- **Monaco** med diff mot HEAD, redigering, spara, format vid spara (Prettier)
+- **Radbrytning** (Alt+Z), sticky scroll, minimap, kommandopalett, quick open
+- Språkstöd via LSP + snippets (`snippets/<lang>.json`)
+
+### Terminal
+
+Byggd för att köra agentverktyg (t.ex. **Claude Code**) på bästa sätt:
+
+- **Riktig PTY** (conpty) med truecolor – interaktiva TUI:er, pilmenyer, Ctrl+C
+- **Egen center-vy** – fyller ytan; sidofältet kan visas bredvid
+- **Split-layout** – 1, 2 sida vid sida, 2 på varandra eller 2×2 (fyra agenter samtidigt)
+- **Claude Code-knapp** – startar `claude` i fokuserad terminal (med PATH-koll)
+- **Klickbara `fil:rad`** i utdata → öppnar filen i editorn; URL:er externt
+- **WebGL-rendering** för slät token-streaming, 10 000 rader scrollback
+- **Sök** (Ctrl+F), kopiera/klistra (högerklick eller Ctrl+Shift+C/V)
+- **Notis + taskbar-blink** när agenten är klar eller väntar (terminal-bell)
+- Sessioner per projekt, överlever vy-byten
+
+### Övrigt
+
+- **10 teman** – Dark+, Light+, One Dark, Dracula, Nord, Monokai, Solarized Dark/Light,
+  GitHub Dark, Gruvbox Dark. Plus accent, teckenstorlek, UI-skala, täthet.
+- **Redigerbar konfiguration** – `settings.json`, `keybindings.json`, snippets
+- **Auto-uppdatering** – kollar GitHub Releases vid start och var 5:e minut;
+  knapp i aktivitetsfältet för att söka direkt. Installerar tyst och startar om.
+- **Filbevakning** (chokidar) – git-status och filträd uppdateras automatiskt, även
+  när ett agentverktyg ändrar filer på disk.
 
 ## Säkerhet
 
-- GitHub-token lagras aldrig i klartext – krypteras med OS:ets nyckelvalv (DPAPI).
-- All GitHub- och Git-logik körs i main-processen; renderern når den bara via en
-  typad, kontextisolerad `window.api`-brygga (contextIsolation på, ingen nodeIntegration).
-- Strikt Content-Security-Policy; Monaco buntas lokalt (inget laddas från CDN).
+- GitHub-token lagras aldrig i klartext – krypteras med OS:ets nyckelvalv (DPAPI via
+  `safeStorage`) och lämnar aldrig main-processen.
+- All GitHub- och Git-logik körs i main; renderern når den bara via en typad,
+  kontextisolerad `window.api`-brygga (contextIsolation på, ingen nodeIntegration).
+- Externa länkar öppnas bara för `https`/`http`/`mailto` (scheme-allowlist).
+- Strikt Content-Security-Policy; Monaco buntas lokalt (inget från CDN).
 
-## Roadmap (MoSCoW)
+## Bygge & release
 
-| Fas | Innehåll | Status |
-|-----|----------|--------|
-| **0 – Skelett** | Projekt, layout, temasystem | ✅ |
-| **1 – MVP (Must)** | GitHub-auth, klona, branches, diff, stage, commit, push/pull, Monaco | ✅ |
-| **2 – Komfort (Should)** | Historik, redigering, sök, pull requests, panel-layout | ✅ |
-| **3 – Polish (Could)** | Kommandopalett, commit-förslag, blame, fler teman | ✅ |
-| **4 – Release** | Installer (NSIS) | ✅ konfig |
+CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)) bygger på
+`windows-latest`, paketerar NSIS-installern och bifogar den till GitHub Releases.
 
-### Kvar att bygga vidare på
-- Faktiskt signerad installer (kräver code signing-certifikat, se SIGNING.md);
-  bygget i sig löses av CI-workflowen ovan
-- Full PTY-terminal (node-pty) för interaktiva program
-- AI-integration (pausad på användarens begäran)
+- **Push av en `v*`-tagg** → bygger och publicerar (bara om det är den högsta taggen).
+- **Manuell körning** (Actions → Run workflow) → bygger valfri/senaste tagg.
+- Code signing är förberett via `CSC_LINK`/`CSC_KEY_PASSWORD` – se [SIGNING.md](SIGNING.md).
+  Utan certifikat byggs installern osignerad.
+
+> **Obs:** GitHub triggar inte tagg-workflows om man pushar fler än tre taggar
+> samtidigt. Pusha en tagg i taget.
 
 ## Projektstruktur
 
 ```
 src/
-  main/        Electron main-process (fönster, IPC)
-  preload/     Säker brygga renderer ⇄ main
-  renderer/
-    src/
-      components/   UI-komponenter (Sidebar, CodeView, Inspector, ...)
-      themes/       Temadefinitioner
-      settings/     Inställnings-context (tema, anpassning)
-      data/         Mockdata (ersätts i Fas 1)
-      styles/       CSS
+  main/            Electron main-process
+    services/      git, github, terminal, updater, watcher, lsp, files, store …
+    ipc.ts         IPC-handlers (Result<T>-kuvert)
+  preload/         Säker, typad brygga renderer ⇄ main (window.api)
+  shared/          Delade typer
+  renderer/src/
+    components/    UI (Sidebar, EditorGroup, TerminalView, GitHub*, …)
+    editor/        Monaco-integration, LSP, markers, snippets
+    state/         RepoContext (arbetsyta, git-state)
+    settings/      Inställnings-context
+    themes/        Temadefinitioner
+    ui/            Delade primitiver (Toast, Confirm, Markdown, States, …)
+    styles/        CSS
 ```
+
+## Kvar att bygga vidare på
+
+- Faktiskt signerad installer (kräver code signing-certifikat, se SIGNING.md)
+- Editor/terminal-split (se båda samtidigt)
+- Intern djuplänkning från notiser/sök till interna detaljvyer
+- AI-integration (pausad på användarens begäran)
