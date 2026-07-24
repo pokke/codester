@@ -39,8 +39,12 @@ jobs:
           # Kanaler jämförs var för sig: en beta ska inte blockeras av en stabil
           # release (eller tvärtom). Prerelease = taggen innehåller bindestreck
           # (t.ex. v0.2.0-beta.1) → publiceras som prerelease, egen updater-kanal.
-          highest_stable="$(git tag -l 'v*' | grep -v -- '-' | sort -V | tail -n1)"
-          highest_pre="$(git tag -l 'v*' | grep -- '-' | sort -V | tail -n1)"
+          #
+          # OBS: GitHub kör bash med -eo pipefail. `grep` returnerar 1 när inget
+          # matchar (t.ex. innan första betataggen finns), vilket annars dödar
+          # hela steget – därför `|| true` på båda pipelines.
+          highest_stable="$(git tag -l 'v*' | grep -v -- '-' | sort -V | tail -n1 || true)"
+          highest_pre="$(git tag -l 'v*' | grep -e '-' | sort -V | tail -n1 || true)"
 
           decide() { # $1 = tagg → sätter release/prerelease-outputs
             local t="$1"
@@ -66,14 +70,19 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manuell körning: bygg vald tagg, annars nyaste stabila.
             target="${{ github.event.inputs.tag }}"
-            [ -z "$target" ] && target="$highest_stable"
+            if [ -z "$target" ]; then
+              target="$highest_stable"
+            fi
             if ! git rev-parse -q --verify "refs/tags/$target" >/dev/null; then
               echo "::error::Taggen $target finns inte."
               exit 1
             fi
             echo "release=true" >> "$GITHUB_OUTPUT"
-            [[ "$target" == *-* ]] && echo "prerelease=true" >> "$GITHUB_OUTPUT" \
-                                   || echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            if [[ "$target" == *-* ]]; then
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            fi
             echo "target=$target" >> "$GITHUB_OUTPUT"
             echo "::notice::Manuell körning bygger tagg $target"
           elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
