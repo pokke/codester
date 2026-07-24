@@ -1,14 +1,12 @@
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
+// electron-vite 5 externaliserar beroenden för main/preload som standard
+// (tidigare `externalizeDepsPlugin()`, borttagen i 5).
 export default defineConfig({
-  main: {
-    plugins: [externalizeDepsPlugin()]
-  },
-  preload: {
-    plugins: [externalizeDepsPlugin()]
-  },
+  main: {},
+  preload: {},
   renderer: {
     resolve: {
       alias: {
