@@ -19,6 +19,37 @@ type Scope = 'account' | 'repo'
 type AccountTab = 'repos' | 'search' | 'notifs' | 'gists'
 type RepoTab = 'overview' | 'pulls' | 'issues' | 'actions' | 'releases'
 
+// Kom ihåg var man var i GitHub-vyn. Panelen avmonteras när man byter till
+// t.ex. terminalen, så utan detta hamnar man tillbaka på Översikt varje gång.
+// Sparas även mellan omstarter.
+const NAV_KEY = 'codester.github.nav'
+type Nav = { scope: Scope; accountTab: AccountTab; repoTab: RepoTab }
+const NAV_DEFAULT: Nav = { scope: 'repo', accountTab: 'repos', repoTab: 'overview' }
+const SCOPES: Scope[] = ['account', 'repo']
+const ACCOUNT_TABS: AccountTab[] = ['repos', 'search', 'notifs', 'gists']
+const REPO_TABS: RepoTab[] = ['overview', 'pulls', 'issues', 'actions', 'releases']
+
+function loadNav(): Nav {
+  try {
+    const raw = localStorage.getItem(NAV_KEY)
+    if (!raw) return NAV_DEFAULT
+    const s = JSON.parse(raw) as Partial<Nav>
+    // Validera mot kända värden – ett gammalt/manipulerat värde ska inte
+    // kunna ge en tom vy.
+    return {
+      scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : NAV_DEFAULT.scope,
+      accountTab: ACCOUNT_TABS.includes(s.accountTab as AccountTab)
+        ? (s.accountTab as AccountTab)
+        : NAV_DEFAULT.accountTab,
+      repoTab: REPO_TABS.includes(s.repoTab as RepoTab)
+        ? (s.repoTab as RepoTab)
+        : NAV_DEFAULT.repoTab
+    }
+  } catch {
+    return NAV_DEFAULT
+  }
+}
+
 type RepoSort = 'updated' | 'name' | 'stars'
 
 const LANG_COLORS: Record<string, string> = {
@@ -66,9 +97,14 @@ export function GitHubPanel(): JSX.Element {
   const [user, setUser] = useState<GitHubUser | null>(null)
   const [token, setToken] = useState('')
   const [repos, setRepos] = useState<GitHubRepo[]>([])
-  const [scope, setScope] = useState<Scope>('repo')
-  const [accountTab, setAccountTab] = useState<AccountTab>('repos')
-  const [repoTab, setRepoTab] = useState<RepoTab>('overview')
+  const [scope, setScope] = useState<Scope>(() => loadNav().scope)
+  const [accountTab, setAccountTab] = useState<AccountTab>(() => loadNav().accountTab)
+  const [repoTab, setRepoTab] = useState<RepoTab>(() => loadNav().repoTab)
+
+  // Spara navigeringsläget så man kommer tillbaka dit man var.
+  useEffect(() => {
+    localStorage.setItem(NAV_KEY, JSON.stringify({ scope, accountTab, repoTab }))
+  }, [scope, accountTab, repoTab])
   const [remote, setRemote] = useState<{ owner: string; repo: string } | null>(null)
   const [filter, setFilter] = useState('')
   const [clientId, setClientId] = useState<string | null>(null)
