@@ -1,4 +1,5 @@
-import { ipcMain, dialog, BrowserWindow, clipboard } from 'electron'
+import { ipcMain, dialog, BrowserWindow, clipboard, app } from 'electron'
+import { dirname } from 'path'
 import type { Result } from '../shared/types'
 import * as git from './services/git'
 import * as github from './services/github'
@@ -9,6 +10,15 @@ import * as config from './services/config'
 import * as lang from './services/lang'
 import * as lsp from './services/lsp'
 import * as langservers from './services/langservers'
+
+// Var mappdialogerna ska börja. Från Electron 43 öppnas Downloads när
+// defaultPath saknas (tidigare mindes OS:et senast använda mapp) – för en
+// git-klient vill vi i stället landa där projekten ligger: aktiva repots
+// föräldermapp, annars hemkatalogen.
+function dialogStartDir(): string {
+  const root = git.getRepoPath()
+  return root ? dirname(root) : app.getPath('home')
+}
 
 // Bevaka alla arbetsytans repon (multi-root) så ändringar i valfritt repo
 // uppdaterar vyerna.
@@ -34,6 +44,7 @@ export function registerIpc(): void {
   handle('repo:openDialog', async () => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
+      defaultPath: dialogStartDir(),
       properties: ['openDirectory'],
       title: 'Öppna git-repo'
     })
@@ -56,6 +67,7 @@ export function registerIpc(): void {
   handle('repo:addDialog', async () => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
+      defaultPath: dialogStartDir(),
       properties: ['openDirectory'],
       title: 'Lägg till mapp i arbetsytan'
     })
@@ -68,6 +80,7 @@ export function registerIpc(): void {
   handle('repo:pickFolder', async () => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
+      defaultPath: dialogStartDir(),
       properties: ['openDirectory'],
       title: 'Öppna mapp / projekt'
     })
@@ -100,6 +113,7 @@ export function registerIpc(): void {
   handle('repo:cloneDialog', async (url: string) => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
+      defaultPath: dialogStartDir(),
       properties: ['openDirectory', 'createDirectory'],
       title: 'Välj mapp att klona till'
     })
