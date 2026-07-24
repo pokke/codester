@@ -56,6 +56,12 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
         cols: 80,
         rows: 24,
         cwd: dir,
+        // Använd den conpty.dll som följer med node-pty i stället för Windows
+        // egen. Ger samma PTY-beteende oavsett vilken Windows-build användaren
+        // kör – vissa builds har en ConPTY som får pwsh att krascha
+        // (FailFast 0x80131623) när man avslutar ett TUI-program, vilket är
+        // precis vad t.ex. Claude Code är. Den medföljande är förbi den buggen.
+        useConptyDll: true,
         // TERM + COLORTERM så CLI-verktyg (t.ex. Claude Code) vet att de kan
         // använda 256-färg/truecolor och full TUI.
         env: {
