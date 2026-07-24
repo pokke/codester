@@ -2,7 +2,7 @@ name: Build Windows installer
 
 on:
   push:
-    branches: [main]
+    branches: [main, next] # next = betabranch (typecheck + build, ingen release)
     tags: ['v*']
   pull_request:
     branches: [main]
@@ -36,31 +36,55 @@ jobs:
         id: guard
         shell: bash
         run: |
-          highest="$(git tag -l 'v*' | sort -V | tail -n1)"
+          # Kanaler jämförs var för sig: en beta ska inte blockeras av en stabil
+          # release (eller tvärtom). Prerelease = taggen innehåller bindestreck
+          # (t.ex. v0.2.0-beta.1) → publiceras som prerelease, egen updater-kanal.
+          highest_stable="$(git tag -l 'v*' | grep -v -- '-' | sort -V | tail -n1)"
+          highest_pre="$(git tag -l 'v*' | grep -- '-' | sort -V | tail -n1)"
+
+          decide() { # $1 = tagg → sätter release/prerelease-outputs
+            local t="$1"
+            if [[ "$t" == *-* ]]; then
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+              if [ "$t" = "$highest_pre" ]; then
+                echo "release=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "release=false" >> "$GITHUB_OUTPUT"
+                echo "::notice::Hoppar över: $t är inte nyaste betataggen ($highest_pre finns)."
+              fi
+            else
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+              if [ "$t" = "$highest_stable" ]; then
+                echo "release=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "release=false" >> "$GITHUB_OUTPUT"
+                echo "::notice::Hoppar över: $t är inte nyaste stabila taggen ($highest_stable finns)."
+              fi
+            fi
+          }
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Manuell körning: bygg vald tagg, annars den nyaste.
+            # Manuell körning: bygg vald tagg, annars nyaste stabila.
             target="${{ github.event.inputs.tag }}"
-            [ -z "$target" ] && target="$highest"
+            [ -z "$target" ] && target="$highest_stable"
             if ! git rev-parse -q --verify "refs/tags/$target" >/dev/null; then
               echo "::error::Taggen $target finns inte."
               exit 1
             fi
             echo "release=true" >> "$GITHUB_OUTPUT"
+            [[ "$target" == *-* ]] && echo "prerelease=true" >> "$GITHUB_OUTPUT" \
+                                   || echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "target=$target" >> "$GITHUB_OUTPUT"
             echo "::notice::Manuell körning bygger tagg $target"
           elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             current="${GITHUB_REF_NAME}"
             echo "target=$current" >> "$GITHUB_OUTPUT"
-            echo "Denna tagg: $current — högsta taggen: $highest"
-            if [ "$current" = "$highest" ]; then
-              echo "release=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "release=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::Hoppar över release: $current är inte den nyaste taggen ($highest finns)."
-            fi
+            echo "Denna tagg: $current · nyaste stabila: $highest_stable · nyaste beta: $highest_pre"
+            decide "$current"
           else
-            # Push till main / PR: bara CI (typecheck + build), ingen release.
+            # Push till main / branch / PR: bara CI (typecheck + build), ingen release.
             echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout target tag (manuell körning)
@@ -109,10 +133,14 @@ jobs:
         with:
           # Sätt taggen explicit (github.ref är main vid manuell körning).
           tag_name: ${{ steps.guard.outputs.target }}
-          # Installer + manifest (latest.yml) + blockmap krävs för auto-update
+          # Prerelease → markeras som sådan på GitHub och syns inte som "Latest".
+          prerelease: ${{ steps.guard.outputs.prerelease == 'true' }}
+          # Installer + manifest + blockmap krävs för auto-update. Glob på *.yml
+          # eftersom betabyggen ger beta.yml i stället för latest.yml (kanalen
+          # härleds ur versionen, t.ex. 0.2.0-beta.1 → beta).
           files: |
             release/*.exe
-            release/latest.yml
+            release/*.yml
             release/*.blockmap
           draft: false
           fail_on_unmatched_files: true

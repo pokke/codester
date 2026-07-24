@@ -1,6 +1,6 @@
 {
   "name": "codester",
-  "version": "0.1.111",
+  "version": "0.2.0",
   "description": "Codester – en lättviktig kod- och Git-klient för Windows",
   "main": "./out/main/index.js",
   "author": "Codester Team",
@@ -19,7 +19,7 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "electron": "^31.0.0",
+    "electron": "^43.2.0",
     "electron-builder": "^24.13.0",
     "electron-vite": "^2.3.0",
     "png-to-ico": "^3.0.1",
