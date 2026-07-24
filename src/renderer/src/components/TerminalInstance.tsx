@@ -80,6 +80,7 @@ export function TerminalInstance({
 
   useEffect(() => {
     if (!hostRef.current) return
+    const host = hostRef.current // fast referens – ref:en kan nollas vid unmount
     const term = new Terminal({
       // Föredra Nerd Font (powerline/ikon-glyfer) om användaren har någon
       // installerad, annars fallback till Cascadia/Consolas.
@@ -99,10 +100,14 @@ export function TerminalInstance({
     term.open(hostRef.current)
     // GPU-renderare för slät utskrift vid hög genomströmning (t.ex. en agent
     // som streamar). Vid förlorad WebGL-kontext faller xterm tillbaka på DOM.
+    // (Chromium 137+ har ingen SwiftShader-fallback – getContext kan returnera
+    // null på maskiner utan användbar GPU, därav try/catch.)
+    let webgl: WebglAddon | null = null
     try {
-      const webgl = new WebglAddon()
-      webgl.onContextLoss(() => webgl.dispose())
-      term.loadAddon(webgl)
+      const addon = new WebglAddon()
+      addon.onContextLoss(() => addon.dispose())
+      term.loadAddon(addon)
+      webgl = addon
     } catch {
       /* ingen WebGL → DOM-renderaren (default) används */
     }
@@ -226,6 +231,26 @@ export function TerminalInstance({
       ro.disconnect()
       unsubData()
       unsubMode()
+      // Frigör WebGL-kontexten EXPLICIT innan terminalen rivs. Chromium tillåter
+      // bara ~16 levande kontexter per dokument och vräker den ÄLDSTA när taket
+      // nås – vilket kan blanka en terminal som fortfarande visas. xterm 6.0
+      // frigör inte kontexten deterministiskt vid dispose (fixat först efter
+      // 6.0), så vi tvingar det via WEBGL_lose_context. Utan detta läcker en
+      // kontext per öppnad/stängd terminal.
+      if (webgl) {
+        // Bara WebGL-renderaren skapar canvas i värden – DOM-renderaren använder
+        // span-element. Så finns det canvas här hör den till kontexten vi äger.
+        const canvases = Array.from(host.querySelectorAll('canvas'))
+        try {
+          webgl.dispose()
+        } catch {
+          /* redan disposad, t.ex. efter tidigare context loss */
+        }
+        for (const c of canvases) {
+          const gl = c.getContext('webgl2') as WebGL2RenderingContext | null
+          gl?.getExtension('WEBGL_lose_context')?.loseContext()
+        }
+      }
       term.dispose()
       termRef.current = null
     }
