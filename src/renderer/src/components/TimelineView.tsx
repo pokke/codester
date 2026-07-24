@@ -6,9 +6,18 @@ import { rowA11y } from '../ui/a11y'
 
 // Tidslinje (VS Code-stil): glanceable git-historik för den aktiva filen,
 // längst ner i Filer-fliken. Klick öppnar diffen för den versionen.
+
+// Startar hopfälld (tar då bara rubrikens höjd och hämtar ingen historik).
+// Användarens val sparas och gäller framöver.
+const OPEN_KEY = 'codester.timeline.open'
+
 export function TimelineView(): JSX.Element {
   const { activePath, revision } = useRepo()
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(() => localStorage.getItem(OPEN_KEY) === '1')
+
+  useEffect(() => {
+    localStorage.setItem(OPEN_KEY, open ? '1' : '0')
+  }, [open])
   const [commits, setCommits] = useState<CommitLogEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [modalRev, setModalRev] = useState<string | null>(null)
