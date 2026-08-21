@@ -1,6 +1,6 @@
 {
   "name": "codester",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Codester – en lättviktig kod- och Git-klient för Windows",
   "main": "./out/main/index.js",
   "author": "Codester Team",

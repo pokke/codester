@@ -22,6 +22,19 @@ export function CommitBox(): JSX.Element {
 
   const canCommit = !!message.trim() && (stagedCount > 0 || amend) && !busy
 
+  // Varför går det inte att committa just nu? En avstängd knapp utan förklaring
+  // är svår att förstå – särskilt skillnaden mellan "inget stagat" och "inga
+  // ändringar alls".
+  const blockedReason = busy
+    ? 'Arbetar…'
+    : !message.trim()
+      ? 'Skriv ett commit-meddelande'
+      : stagedCount === 0 && !amend
+        ? files.length > 0
+          ? 'Inget är stagat – stagea filer i listan ovan (eller kryssa i Amend)'
+          : 'Inga ändringar att committa'
+        : ''
+
   const doCommit = async (): Promise<void> => {
     if (!canCommit) return
     const ok = await commit(message, amend)
@@ -54,7 +67,11 @@ export function CommitBox(): JSX.Element {
         }}
       />
       <div className="commit-row-actions">
-        <label className="checkbox-row" style={{ fontSize: 12 }}>
+        <label
+          className="checkbox-row"
+          style={{ fontSize: 12 }}
+          title="Ändra den senaste committen i stället för att skapa en ny. Meddelandet hämtas från den."
+        >
           <input type="checkbox" checked={amend} onChange={(e) => toggleAmend(e.target.checked)} />
           Amend
         </label>
@@ -65,10 +82,12 @@ export function CommitBox(): JSX.Element {
       <button
         className="btn primary full"
         disabled={!canCommit}
+        title={blockedReason || undefined}
         onClick={doCommit}
       >
         {amend ? 'Ändra commit' : `Committa ${stagedCount > 0 ? `(${stagedCount})` : ''}`}
       </button>
+      {blockedReason && <div className="commit-blocked">{blockedReason}</div>}
       <div style={{ display: 'flex', gap: 'var(--space)' }}>
         <button className="btn full" disabled={busy} onClick={() => pull()}>
           ↓ Pull

@@ -2902,3 +2902,11 @@ code {
   align-items: center;
   justify-content: space-between;
 }
+
+/* Förklaring under commit-knappen när den är avstängd */
+.commit-blocked {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: -2px;
+}
