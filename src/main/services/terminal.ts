@@ -1,4 +1,4 @@
-import { spawn, execFile, type ChildProcessWithoutNullStreams } from 'child_process'
+import { spawn, execFile, execFileSync, type ChildProcessWithoutNullStreams } from 'child_process'
 import { homedir } from 'os'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
@@ -50,6 +50,22 @@ function historyFile(id: string): string {
   return join(dir, `${id.replace(/[^a-z0-9_-]/gi, '_')}.txt`)
 }
 
+// Vilket PowerShell som ska köras. Föredra PowerShell 7 (pwsh) när det finns i
+// PATH – det stödjer bracketed paste, så flerradig inklistring väntar på Enter i
+// stället för att köra rad ett direkt. Annars Windows PowerShell 5.1 (finns
+// alltid). Resultatet cachas – PATH ändras inte under körning.
+let resolvedShell: string | null = null
+function powershellExe(): string {
+  if (resolvedShell) return resolvedShell
+  try {
+    execFileSync('where', ['pwsh'], { stdio: 'ignore' })
+    resolvedShell = 'pwsh.exe'
+  } catch {
+    resolvedShell = 'powershell.exe'
+  }
+  return resolvedShell
+}
+
 function spawnSession(id: string, sender: WebContents, cwd: string | null): void {
   const dir = cwd ?? homedir()
   const session: Session = { pty: null, pipe: null, sender, buffer: '', mode: 'pty' }
@@ -72,7 +88,7 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
     try {
       const hist = historyFile(id).replace(/'/g, "''")
       const pty = ptyLib.spawn(
-        'powershell.exe',
+        powershellExe(),
         ['-NoExit', '-Command', `try { Set-PSReadLineOption -HistorySavePath '${hist}' } catch {}`],
         {
         name: 'xterm-256color',
@@ -103,7 +119,7 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
     }
   }
 
-  const pipe = spawn('powershell.exe', ['-NoLogo', '-NoExit', '-Command', '-'], {
+  const pipe = spawn(powershellExe(), ['-NoLogo', '-NoExit', '-Command', '-'], {
     cwd: dir,
     windowsHide: true
   })
