@@ -334,7 +334,11 @@ export function TerminalInstance({
   const pasteClipboard = async (): Promise<void> => {
     if (modeRef.current !== 'pty') return
     const r = await window.api.clipboard.read()
-    if (r.ok && r.data) window.api.terminal.input(id, r.data)
+    // term.paste() (i stället för rå input) normaliserar radslut och lindar in
+    // klippet i "bracketed paste" när skalet stödjer det (PSReadLine gör det).
+    // Då klistras flera rader in som ETT redigerbart block – skalet kör inte
+    // rad ett direkt, utan väntar tills man själv trycker Enter.
+    if (r.ok && r.data) termRef.current?.paste(r.data)
   }
   // Högerklick: kopiera om något är markerat, annars klistra in.
   const onContextMenu = (e: React.MouseEvent): void => {
