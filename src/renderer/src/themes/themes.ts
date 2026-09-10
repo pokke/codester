@@ -40,7 +40,10 @@ export const themes: Theme[] = [
       border: '#333333',
       text: '#d4d4d4',
       textMuted: '#858585',
-      accent: '#0e639c',
+      // #0e639c gav bara 2.6:1 mot bakgrunden – för lågt när accenten används
+      // som kontur/text (aktiv flik, fokusring). #007acc ger 3.7:1 mot bg och
+      // behåller 4.5:1 för vit text på accent-fylld knapp.
+      accent: '#007acc',
       accentText: '#ffffff',
       added: '#487e02',
       removed: '#a31515',
