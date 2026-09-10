@@ -23,9 +23,20 @@ try {
 interface Session {
   pty: IPty | null
   pipe: ChildProcessWithoutNullStreams | null
+  // Aktuell renderer. Uppdateras vid återanslutning (t.ex. efter projektbyte)
+  // så live-utdata alltid går till den xterm som är monterad nu.
+  sender: WebContents
+  // Rå utdata hittills, så en ny xterm kan spela upp allt och återskapa både
+  // skärmbild och scrollback vid återanslutning. Kapad till de sista tecknen.
+  buffer: string
+  mode: 'pty' | 'pipe'
 }
 
 const sessions = new Map<string, Session>()
+
+// Hur mycket rå terminalutdata som sparas per session för återuppspelning.
+// ~200k tecken räcker gott för scrollbacken utan att växa obegränsat.
+const MAX_BUFFER = 200_000
 
 // Egen PSReadLine-historikfil per terminal-id → pil-upp blir separat per
 // terminal och sparas mellan körningar (id kodar repo+nummer, se renderern).
@@ -41,8 +52,20 @@ function historyFile(id: string): string {
 
 function spawnSession(id: string, sender: WebContents, cwd: string | null): void {
   const dir = cwd ?? homedir()
-  const send = (channel: string, payload: unknown): void => {
-    if (!sender.isDestroyed()) sender.send(channel, payload)
+  const session: Session = { pty: null, pipe: null, sender, buffer: '', mode: 'pty' }
+  sessions.set(id, session)
+
+  // Utdata: spara i bufferten (kapad) OCH skicka till aktuell renderer.
+  const emit = (text: string): void => {
+    session.buffer += text
+    if (session.buffer.length > MAX_BUFFER) {
+      session.buffer = session.buffer.slice(session.buffer.length - MAX_BUFFER)
+    }
+    if (!session.sender.isDestroyed()) session.sender.send('terminal:data', { id, text })
+  }
+  const setMode = (mode: 'pty' | 'pipe'): void => {
+    session.mode = mode
+    if (!session.sender.isDestroyed()) session.sender.send('terminal:mode', { id, mode })
   }
 
   if (ptyLib) {
@@ -70,10 +93,10 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
           COLORTERM: 'truecolor'
         } as Record<string, string>
       })
-      pty.onData((d) => send('terminal:data', { id, text: d }))
-      pty.onExit(() => send('terminal:data', { id, text: '\r\n[skalet avslutades]\r\n' }))
-      sessions.set(id, { pty, pipe: null })
-      send('terminal:mode', { id, mode: 'pty' })
+      pty.onData((d) => emit(d))
+      pty.onExit(() => emit('\r\n[skalet avslutades]\r\n'))
+      session.pty = pty
+      setMode('pty')
       return
     } catch {
       /* faller igenom till pipe */
@@ -84,23 +107,33 @@ function spawnSession(id: string, sender: WebContents, cwd: string | null): void
     cwd: dir,
     windowsHide: true
   })
-  pipe.stdout.on('data', (d: Buffer) => send('terminal:data', { id, text: d.toString() }))
-  pipe.stderr.on('data', (d: Buffer) => send('terminal:data', { id, text: d.toString() }))
-  pipe.on('exit', (code) =>
-    send('terminal:data', { id, text: `\r\n[skalet avslutades med kod ${code ?? 0}]\r\n` })
-  )
-  sessions.set(id, { pty: null, pipe })
-  send('terminal:mode', { id, mode: 'pipe' })
-  send('terminal:data', { id, text: `Codester-terminal · ${dir}\r\n` })
+  pipe.stdout.on('data', (d: Buffer) => emit(d.toString()))
+  pipe.stderr.on('data', (d: Buffer) => emit(d.toString()))
+  pipe.on('exit', (code) => emit(`\r\n[skalet avslutades med kod ${code ?? 0}]\r\n`))
+  session.pipe = pipe
+  setMode('pipe')
+  emit(`Codester-terminal · ${dir}\r\n`)
   // Pipe-läget saknar riktig PTY → interaktiva TUI-verktyg fungerar inte fullt ut.
-  send('terminal:data', {
-    id,
-    text: '\x1b[33m⚠ Riktig PTY saknas – interaktiva verktyg (t.ex. Claude Code) fungerar inte fullt ut i det här läget.\x1b[0m\r\n'
-  })
+  emit(
+    '\x1b[33m⚠ Riktig PTY saknas – interaktiva verktyg (t.ex. Claude Code) fungerar inte fullt ut i det här läget.\x1b[0m\r\n'
+  )
 }
 
 export function ensureTerminal(id: string, sender: WebContents, cwd: string | null): void {
-  if (!sessions.has(id)) spawnSession(id, sender, cwd)
+  const existing = sessions.get(id)
+  if (existing) {
+    // Sessionen lever redan (t.ex. man bytte projekt och är tillbaka). Rikta om
+    // live-utdata till den nya xterm och spela upp allt hittills, så skärmbild
+    // och scrollback återskapas – annars ritas ny text mot en tom xterm med
+    // markören på fel plats.
+    existing.sender = sender
+    if (!sender.isDestroyed()) {
+      sender.send('terminal:mode', { id, mode: existing.mode })
+      if (existing.buffer) sender.send('terminal:data', { id, text: existing.buffer })
+    }
+    return
+  }
+  spawnSession(id, sender, cwd)
 }
 
 export function startTerminal(id: string, sender: WebContents, cwd: string | null): void {
