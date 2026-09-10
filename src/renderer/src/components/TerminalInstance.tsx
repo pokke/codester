@@ -182,8 +182,9 @@ export function TerminalInstance({
       }
     })
 
-    // Kopiera/klistra: Ctrl+Shift+C/V, samt Ctrl+C när något är markerat
-    // (annars går Ctrl+C vidare som avbryt-signal till skalet).
+    // Kopiera/klistra: Ctrl+V (och Ctrl+Shift+V) klistrar in – Windows-konvention
+    // som i VS Code/Windows Terminal. Ctrl+Shift+C kopierar; Ctrl+C kopierar bara
+    // när något är markerat (annars går det vidare som avbryt-signal till skalet).
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
       const k = e.key.toLowerCase()
@@ -195,7 +196,7 @@ export function TerminalInstance({
         copySelection()
         return false
       }
-      if (e.ctrlKey && e.shiftKey && k === 'v') {
+      if (e.ctrlKey && k === 'v') {
         pasteClipboard()
         return false
       }
