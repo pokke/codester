@@ -197,6 +197,10 @@ export function TerminalInstance({
         return false
       }
       if (e.ctrlKey && k === 'v') {
+        // preventDefault stoppar webblasarens NATIVA paste (Ctrl+V klistrar in i
+        // xterms dolda textarea -> term.onData). Utan den skickas urklippet tva
+        // ganger: en gang av webblasaren och en gang av pasteClipboard nedan.
+        e.preventDefault()
         pasteClipboard()
         return false
       }
