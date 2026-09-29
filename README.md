@@ -9,7 +9,7 @@ IDE:ernas komplexitet.
 
 ## Teknik
 
-- **Electron 31** – skrivbordsskal för Windows
+- **Electron 43** – skrivbordsskal för Windows
 - **React 18 + TypeScript** – gränssnitt
 - **electron-vite** – byggverktyg och dev-server
 - **simple-git** – all git-logik (i main-processen)
@@ -84,9 +84,11 @@ Byggd för att köra agentverktyg (t.ex. **Claude Code**) på bästa sätt:
 - **Claude Code-knapp** – startar `claude` i fokuserad terminal (med PATH-koll)
 - **Klickbara `fil:rad`** i utdata → öppnar filen i editorn; URL:er externt
 - **WebGL-rendering** för slät token-streaming, 10 000 rader scrollback
-- **Sök** (Ctrl+F), kopiera/klistra (högerklick eller Ctrl+Shift+C/V)
+- **Sök** (Ctrl+F), kopiera/klistra (Ctrl+V, högerklick eller Ctrl+Shift+C/V).
+  Flera rader frågar först när skalet skulle köra dem direkt.
+- **PowerShell 7** används när det finns, annars Windows PowerShell 5.1
 - **Notis + taskbar-blink** när agenten är klar eller väntar (terminal-bell)
-- Sessioner per projekt, överlever vy-byten
+- Sessioner per projekt – överlever vy- och projektbyten med historiken kvar
 
 ### Övrigt
 
@@ -95,8 +97,10 @@ Byggd för att köra agentverktyg (t.ex. **Claude Code**) på bästa sätt:
 - **Redigerbar konfiguration** – `settings.json`, `keybindings.json`, snippets
 - **Auto-uppdatering** – kollar GitHub Releases vid start och var 5:e minut;
   knapp i aktivitetsfältet för att söka direkt. Installerar tyst och startar om.
-- **Filbevakning** (chokidar) – git-status och filträd uppdateras automatiskt, även
-  när ett agentverktyg ändrar filer på disk.
+- **Filbevakning** (en rekursiv bevakning per projekt) – git-status och filträd
+  uppdateras automatiskt, även när ett agentverktyg ändrar filer på disk.
+  Gitignorerade filer (t.ex. en databas som en app skriver till) utlöser ingen
+  omladdning.
 
 ## Säkerhet
 
