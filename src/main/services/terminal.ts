@@ -51,8 +51,7 @@ function historyFile(id: string): string {
 }
 
 // Vilket PowerShell som ska köras. Föredra PowerShell 7 (pwsh) när det finns i
-// PATH – det stödjer bracketed paste, så flerradig inklistring väntar på Enter i
-// stället för att köra rad ett direkt. Annars Windows PowerShell 5.1 (finns
+// PATH – nyare skal och PSReadLine. Annars Windows PowerShell 5.1 (finns
 // alltid). Resultatet cachas – PATH ändras inte under körning.
 let resolvedShell: string | null = null
 function powershellExe(): string {

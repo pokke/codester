@@ -6,6 +6,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { useSettings } from '../settings/SettingsContext'
 import { useRepo } from '../state/RepoContext'
+import { useConfirm } from '../ui/Confirm'
 import { getTheme, type Theme } from '../themes/themes'
 
 function xtermTheme(t: Theme): Record<string, string> {
@@ -51,6 +52,7 @@ export function TerminalInstance({
 }): JSX.Element {
   const { settings } = useSettings()
   const { repo, selectPath } = useRepo()
+  const confirm = useConfirm()
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -334,11 +336,25 @@ export function TerminalInstance({
   const pasteClipboard = async (): Promise<void> => {
     if (modeRef.current !== 'pty') return
     const r = await window.api.clipboard.read()
-    // term.paste() (i stället för rå input) normaliserar radslut och lindar in
-    // klippet i "bracketed paste" när skalet stödjer det (PSReadLine gör det).
-    // Då klistras flera rader in som ETT redigerbart block – skalet kör inte
-    // rad ett direkt, utan väntar tills man själv trycker Enter.
-    if (r.ok && r.data) termRef.current?.paste(r.data)
+    const term = termRef.current
+    if (!r.ok || !r.data || !term) return
+    // Utan bracketed paste kör skalet varje rad direkt när den klistras in.
+    // PSReadLine slår inte på läget under ConPTY (varken i 5.1 eller 7), så
+    // fråga först – som VS Code gör. Program som slår på det (t.ex. Claude
+    // Code) får klippet som ett block, och då behövs ingen fråga.
+    const lines = r.data.replace(/\r?\n$/, '').split(/\r?\n/).length
+    if (lines > 1 && !term.modes.bracketedPasteMode) {
+      const ok = await confirm({
+        title: 'Klistra in flera rader?',
+        message: `Du klistrar in ${lines} rader. Skalet kör varje rad direkt, utan att vänta på Enter.`,
+        confirmLabel: 'Klistra in'
+      })
+      term.focus()
+      if (!ok) return
+    }
+    // term.paste() normaliserar radslut och lindar in klippet i bracketed paste
+    // när programmet i terminalen har slagit på det.
+    term.paste(r.data)
   }
   // Högerklick: kopiera om något är markerat, annars klistra in.
   const onContextMenu = (e: React.MouseEvent): void => {
