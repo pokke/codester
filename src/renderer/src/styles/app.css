@@ -1396,6 +1396,9 @@
 .pr-state.merged {
   background: #8957e5;
 }
+.pr-state.closed {
+  background: var(--git-deleted);
+}
 .add {
   color: var(--git-added);
 }

@@ -4,6 +4,7 @@ import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Confirm'
 import { ContextMenu, type MenuState } from '../ui/ContextMenu'
 import { Icon } from '../ui/Icon'
+import { classifyStatus, type StatusKind } from '../ui/gitStatus'
 import type { RepoStatus } from '../../../shared/types'
 
 interface TreeNode {
@@ -39,18 +40,13 @@ function sortedChildren(node: TreeNode): TreeNode[] {
 }
 
 function statusMaps(status: RepoStatus | null): {
-  byPath: Map<string, 'added' | 'modified' | 'deleted'>
+  byPath: Map<string, StatusKind>
   dirtyDirs: Set<string>
 } {
-  const byPath = new Map<string, 'added' | 'modified' | 'deleted'>()
+  const byPath = new Map<string, StatusKind>()
   const dirtyDirs = new Set<string>()
   for (const f of status?.files ?? []) {
-    const t = f.status.includes('D')
-      ? 'deleted'
-      : f.status.includes('A') || f.status.includes('?')
-        ? 'added'
-        : 'modified'
-    byPath.set(f.path, t)
+    byPath.set(f.path, classifyStatus(f.status))
     const parts = f.path.split('/')
     for (let i = 1; i < parts.length; i++) dirtyDirs.add(parts.slice(0, i).join('/'))
   }

@@ -4,12 +4,7 @@ import type { CommitLogEntry, FileChange } from '../../../shared/types'
 import { defineMonacoTheme, languageForPath } from '../editor/monaco'
 import { useSettings } from '../settings/SettingsContext'
 import { getTheme } from '../themes/themes'
-
-function statusClass(status: string): string {
-  if (status.startsWith('A')) return 'added'
-  if (status.startsWith('D')) return 'removed'
-  return 'modified'
-}
+import { statusClass } from '../ui/gitStatus'
 
 export function CommitDetails({
   commit,

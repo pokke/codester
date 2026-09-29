@@ -7,13 +7,8 @@ import { TimelineView } from './TimelineView'
 import { CommitBox } from './CommitBox'
 import { Icon } from '../ui/Icon'
 import { rowA11y } from '../ui/a11y'
+import { statusClass } from '../ui/gitStatus'
 import type { FileChange, SearchHit } from '../../../shared/types'
-
-function statusClass(status: string): string {
-  if (status.includes('A') || status.includes('?')) return 'added'
-  if (status.includes('D')) return 'removed'
-  return 'modified'
-}
 
 export type SidebarTab = 'changes' | 'files' | 'search'
 

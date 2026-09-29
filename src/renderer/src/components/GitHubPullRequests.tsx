@@ -160,8 +160,11 @@ function PrDetail({ number, onBack }: { number: number; onBack: () => void }): J
             {pr.title} <span className="muted">#{pr.number}</span>
           </h2>
           <div className="pr-detail-meta">
-            <span className={`pr-state ${pr.merged ? 'merged' : pr.draft ? 'draft' : 'open'}`}>
-              {pr.merged ? 'Merged' : pr.draft ? 'Utkast' : 'Öppen'}
+            {/* merged först – mergade PR:er har också state 'closed' */}
+            <span
+              className={`pr-state ${pr.merged ? 'merged' : pr.state === 'closed' ? 'closed' : pr.draft ? 'draft' : 'open'}`}
+            >
+              {pr.merged ? 'Merged' : pr.state === 'closed' ? 'Stängd' : pr.draft ? 'Utkast' : 'Öppen'}
             </span>
             <span className="path-dim">
               {pr.headRef} → {pr.baseRef} · @{pr.author}
