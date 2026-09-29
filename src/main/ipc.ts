@@ -1,6 +1,7 @@
 import { ipcMain, dialog, BrowserWindow, clipboard, app } from 'electron'
 import { dirname } from 'path'
 import type { Result } from '../shared/types'
+import type { IpcHandlerMap } from '../shared/ipc'
 import * as git from './services/git'
 import * as github from './services/github'
 import * as terminal from './services/terminal'
@@ -39,9 +40,12 @@ function handle<T>(channel: string, fn: (...args: any[]) => Promise<T> | T): voi
   })
 }
 
-export function registerIpc(): void {
+// Alla invoke-kanaler: kanalnamn → hanterare. Kontrolleras mot IPC-kontraktet
+// (shared/ipc.ts): saknad, överflödig eller felaktigt typad kanal blir ett
+// kompileringsfel.
+const handlers = {
   // --- Repo / dialog ---
-  handle('repo:openDialog', async () => {
+  'repo:openDialog': async () => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
       defaultPath: dialogStartDir(),
@@ -52,19 +56,19 @@ export function registerIpc(): void {
     const info = await git.openRepo(res.filePaths[0])
     watchWorkspace()
     return info
-  })
-  handle('repo:open', async (path: string) => {
+  },
+  'repo:open': async (path: string) => {
     const info = await git.openRepo(path)
     watchWorkspace()
     return info
-  })
-  handle('repo:current', () => git.getRepoPath())
-  handle('repo:add', async (path: string) => {
+  },
+  'repo:current': () => git.getRepoPath(),
+  'repo:add': async (path: string) => {
     const info = await git.addRepo(path)
     watchWorkspace()
     return info
-  })
-  handle('repo:addDialog', async () => {
+  },
+  'repo:addDialog': async () => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
       defaultPath: dialogStartDir(),
@@ -75,9 +79,9 @@ export function registerIpc(): void {
     const info = await git.addRepo(res.filePaths[0])
     watchWorkspace()
     return info
-  })
+  },
   // Väljer bara en mapp – ingen git-koll (renderern avgör init vs add).
-  handle('repo:pickFolder', async () => {
+  'repo:pickFolder': async () => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
       defaultPath: dialogStartDir(),
@@ -86,31 +90,30 @@ export function registerIpc(): void {
     })
     if (res.canceled || !res.filePaths[0]) return null
     return res.filePaths[0]
-  })
-  handle('repo:isGit', (path: string) => git.isGitRepo(path))
-  handle('repo:init', async (path: string) => {
+  },
+  'repo:isGit': (path: string) => git.isGitRepo(path),
+  'repo:init': async (path: string) => {
     const info = await git.initRepo(path)
     watchWorkspace()
     return info
-  })
+  },
   // --- Urklipp (systemets, via Electron) ---
-  handle('clipboard:write', (text: string) => {
+  'clipboard:write': (text: string) => {
     clipboard.writeText(text)
-  })
-  handle('clipboard:read', () => clipboard.readText())
-  handle('system:hasCommand', (cmd: string) => terminal.hasCommand(cmd))
-
-  handle('repo:list', () => git.listRepos())
-  handle('repo:remote', () => git.remoteOwnerRepo())
-  handle('repo:setActive', (path: string) => {
+  },
+  'clipboard:read': () => clipboard.readText(),
+  'system:hasCommand': (cmd: string) => terminal.hasCommand(cmd),
+  'repo:list': () => git.listRepos(),
+  'repo:remote': () => git.remoteOwnerRepo(),
+  'repo:setActive': (path: string) => {
     const info = git.setActiveRepo(path)
     return info
-  })
-  handle('repo:close', (path: string) => {
+  },
+  'repo:close': (path: string) => {
     git.closeRepo(path)
     watchWorkspace()
-  })
-  handle('repo:cloneDialog', async (url: string) => {
+  },
+  'repo:cloneDialog': async (url: string) => {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win!, {
       defaultPath: dialogStartDir(),
@@ -121,75 +124,253 @@ export function registerIpc(): void {
     const path = await git.cloneRepo(url, res.filePaths[0])
     watchWorkspace()
     return path
-  })
+  },
 
   // --- Git ---
-  handle('git:status', (root?: string) => git.status(root))
-  handle('git:branches', (root?: string) => git.branches(root))
-  handle('git:checkout', (name: string, root?: string) => git.checkout(name, root))
-  handle('git:createBranch', (name: string, root?: string) => git.createBranch(name, root))
-  handle('git:deleteBranch', (name: string, force: boolean) => git.deleteBranch(name, force))
-  handle('git:deleteRemoteBranch', (name: string, root?: string) =>
-    git.deleteRemoteBranch(github.getToken(), name, root)
-  )
-  handle('git:diff', (file: string, staged: boolean) => git.diff(file, staged))
-  handle('git:stage', (file: string, root?: string) => git.stage(file, root))
-  handle('git:unstage', (file: string, root?: string) => git.unstage(file, root))
-  handle('git:stageAll', (root?: string) => git.stageAll(root))
-  handle('git:discard', (file: string, root?: string) => git.discard(file, root))
-  handle('git:commit', (message: string, amend?: boolean, root?: string) =>
-    git.commit(message, amend, root)
-  )
-  handle('git:lastCommitMessage', (root?: string) => git.lastCommitMessage(root))
-  handle('git:stageHunk', (file: string, index: number) => git.stageHunk(file, index))
-  handle('git:unstageHunk', (file: string, index: number) => git.unstageHunk(file, index))
-  handle('git:discardHunk', (file: string, index: number) => git.discardHunk(file, index))
-  handle('git:push', (root?: string) => git.push(github.getToken(), root))
-  handle('git:pull', (root?: string) => git.pull(github.getToken(), root))
-  handle('git:fetch', (root?: string) => git.fetchAll(github.getToken(), root))
-  handle('git:log', (limit?: number) => git.log(limit))
-  handle('git:fileLog', (file: string) => git.fileLog(file))
-  handle('git:fileContent', (file: string) => git.fileContent(file))
-  handle('git:headContent', (file: string) => git.headContent(file))
-  handle('git:commitFiles', (hash: string) => git.commitFiles(hash))
-  handle('git:showFile', (rev: string, file: string) => git.showFile(rev, file))
-  handle('git:search', (query: string) => git.searchRepo(query))
-  handle('git:replace', (query: string, replacement: string) =>
-    git.replaceInRepo(query, replacement)
-  )
-  handle('git:lineChanges', (file: string) => git.lineChanges(file))
-  handle('git:saveFile', (file: string, content: string) => git.saveFile(file, content))
-  handle('git:blame', (file: string) => git.blame(file))
-  handle('git:listFiles', (root?: string) => git.listFiles(root))
-  handle('git:resolveSide', (file: string, side: 'ours' | 'theirs', root?: string) =>
-    git.resolveSide(file, side, root)
-  )
-  handle('git:stashSave', (message?: string, root?: string) => git.stashSave(message, root))
-  handle('git:stashList', (root?: string) => git.stashList(root))
-  handle('git:stashApply', (index: number, pop: boolean, root?: string) =>
-    git.stashApply(index, pop, root)
-  )
-  handle('git:stashDrop', (index: number, root?: string) => git.stashDrop(index, root))
+  'git:status': (root?: string) => git.status(root),
+  'git:branches': (root?: string) => git.branches(root),
+  'git:checkout': (name: string, root?: string) => git.checkout(name, root),
+  'git:createBranch': (name: string, root?: string) => git.createBranch(name, root),
+  'git:deleteBranch': (name: string, force: boolean) => git.deleteBranch(name, force),
+  'git:deleteRemoteBranch': (name: string, root?: string) =>
+    git.deleteRemoteBranch(github.getToken(), name, root),
+  'git:diff': (file: string, staged: boolean) => git.diff(file, staged),
+  'git:stage': (file: string, root?: string) => git.stage(file, root),
+  'git:unstage': (file: string, root?: string) => git.unstage(file, root),
+  'git:stageAll': (root?: string) => git.stageAll(root),
+  'git:discard': (file: string, root?: string) => git.discard(file, root),
+  'git:commit': (message: string, amend?: boolean, root?: string) =>
+    git.commit(message, amend, root),
+  'git:lastCommitMessage': (root?: string) => git.lastCommitMessage(root),
+  'git:stageHunk': (file: string, index: number) => git.stageHunk(file, index),
+  'git:unstageHunk': (file: string, index: number) => git.unstageHunk(file, index),
+  'git:discardHunk': (file: string, index: number) => git.discardHunk(file, index),
+  'git:push': (root?: string) => git.push(github.getToken(), root),
+  'git:pull': (root?: string) => git.pull(github.getToken(), root),
+  'git:fetch': (root?: string) => git.fetchAll(github.getToken(), root),
+  'git:log': (limit?: number) => git.log(limit),
+  'git:fileLog': (file: string) => git.fileLog(file),
+  'git:fileContent': (file: string) => git.fileContent(file),
+  'git:headContent': (file: string) => git.headContent(file),
+  'git:commitFiles': (hash: string) => git.commitFiles(hash),
+  'git:showFile': (rev: string, file: string) => git.showFile(rev, file),
+  'git:search': (query: string) => git.searchRepo(query),
+  'git:replace': (query: string, replacement: string) =>
+    git.replaceInRepo(query, replacement),
+  'git:lineChanges': (file: string) => git.lineChanges(file),
+  'git:saveFile': (file: string, content: string) => git.saveFile(file, content),
+  'git:blame': (file: string) => git.blame(file),
+  'git:listFiles': (root?: string) => git.listFiles(root),
+  'git:resolveSide': (file: string, side: 'ours' | 'theirs', root?: string) =>
+    git.resolveSide(file, side, root),
+  'git:stashSave': (message?: string, root?: string) => git.stashSave(message, root),
+  'git:stashList': (root?: string) => git.stashList(root),
+  'git:stashApply': (index: number, pop: boolean, root?: string) =>
+    git.stashApply(index, pop, root),
+  'git:stashDrop': (index: number, root?: string) => git.stashDrop(index, root),
 
   // --- Filoperationer ---
-  handle('fs:createFile', (rel: string, root?: string) => files.createFile(rel, root))
-  handle('fs:createFolder', (rel: string, root?: string) => files.createFolder(rel, root))
-  handle('fs:rename', (oldRel: string, newRel: string, root?: string) =>
-    files.renamePath(oldRel, newRel, root)
-  )
-  handle('fs:delete', (rel: string, root?: string) => files.deletePath(rel, root))
-  handle('fs:copy', (srcRel: string, destRel: string, root?: string) =>
-    files.copyPath(srcRel, destRel, root)
-  )
+  'fs:createFile': (rel: string, root?: string) => files.createFile(rel, root),
+  'fs:createFolder': (rel: string, root?: string) => files.createFolder(rel, root),
+  'fs:rename': (oldRel: string, newRel: string, root?: string) =>
+    files.renamePath(oldRel, newRel, root),
+  'fs:delete': (rel: string, root?: string) => files.deletePath(rel, root),
+  'fs:copy': (srcRel: string, destRel: string, root?: string) =>
+    files.copyPath(srcRel, destRel, root),
 
   // --- Config (settings.json/keybindings.json/snippets) ---
-  handle('config:read', (name: string) => config.readConfig(name))
-  handle('config:write', (name: string, content: string) => config.writeConfig(name, content))
-  handle('config:dir', () => config.configDir())
+  'config:read': (name: string) => config.readConfig(name),
+  'config:write': (name: string, content: string) => config.writeConfig(name, content),
+  'config:dir': () => config.configDir(),
 
   // --- Språkintelligens ---
-  handle('lang:tsProject', () => lang.tsProject())
+  'lang:tsProject': () => lang.tsProject(),
 
+  // --- Installation av språkservrar ---
+  'langserver:list': () => langservers.list(),
+
+  // --- GitHub ---
+  'github:hasToken': () => github.hasToken(),
+  'github:setToken': (token: string) => github.setToken(token),
+  'github:signOut': () => github.signOut(),
+  'github:getClientId': () => github.getClientId(),
+  'github:setClientId': (id: string) => github.setClientId(id),
+  'github:deviceStart': () => github.deviceStart(),
+  'github:devicePoll': (deviceCode: string, interval: number) =>
+    github.devicePoll(deviceCode, interval),
+  'github:user': () => github.getUser(),
+  'github:repos': () => github.listRepos(),
+  'github:pulls': async (state?: 'open' | 'closed' | 'all') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listPullRequests(or.owner, or.repo, state)
+  },
+  'github:pr': async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getPullRequest(or.owner, or.repo, number)
+  },
+  'github:prFiles': async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getPullRequestFiles(or.owner, or.repo, number)
+  },
+  'github:checks': async (ref: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getChecks(or.owner, or.repo, ref)
+  },
+  'github:createPr': async (title: string, body: string, base?: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    const status = await git.status()
+    const head = status.current
+    if (!head || head === '(detached)') throw new Error('Ingen aktuell branch att skapa PR från')
+    const baseBranch = base || (await github.getRepoDefaultBranch(or.owner, or.repo))
+    if (head === baseBranch) throw new Error(`Head och bas är samma branch (${head})`)
+    return github.createPullRequest(or.owner, or.repo, { title, body, head, base: baseBranch })
+  },
+  'github:defaultBranch': async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getRepoDefaultBranch(or.owner, or.repo)
+  },
+  'github:issues': async (state?: 'open' | 'closed' | 'all') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listIssues(or.owner, or.repo, state)
+  },
+  'github:issue': async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getIssue(or.owner, or.repo, number)
+  },
+  'github:createIssue': async (title: string, body: string, labels?: string[], assignees?: string[]) => {
+      const or = await git.remoteOwnerRepo()
+      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+      return github.createIssue(or.owner, or.repo, title, body, labels, assignees)
+    },
+  'github:labels': async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listLabels(or.owner, or.repo)
+  },
+  'github:review': async (number: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body: string) => {
+      const or = await git.remoteOwnerRepo()
+      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+      return github.createReview(or.owner, or.repo, number, event, body)
+    },
+  'github:mergePr': async (number: number, method: 'merge' | 'squash' | 'rebase') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.mergePullRequest(or.owner, or.repo, number, method)
+  },
+  'github:issueComment': async (number: number, body: string) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.addIssueComment(or.owner, or.repo, number, body)
+  },
+  'github:setIssueState': async (number: number, state: 'open' | 'closed') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.setIssueState(or.owner, or.repo, number, state)
+  },
+  'github:setPrState': async (number: number, state: 'open' | 'closed') => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.setPullState(or.owner, or.repo, number, state)
+  },
+  'github:issueComments': async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listIssueComments(or.owner, or.repo, number)
+  },
+  'github:prReviews': async (number: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listPrReviews(or.owner, or.repo, number)
+  },
+  'github:assignees': async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listAssignees(or.owner, or.repo)
+  },
+  'git:checkoutPr': (number: number, branch: string) =>
+    git.checkoutPullRequest(number, branch),
+  'github:notifications': () => github.listNotifications(),
+  'github:notificationCount': () => github.notificationCount(),
+  'github:markNotifRead': (id: string) => github.markNotificationRead(id),
+  'github:searchRepos': (q: string) => github.searchRepositories(q),
+  'github:searchIssues': (q: string) => github.searchIssuesPrs(q),
+  'github:releases': async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listReleases(or.owner, or.repo)
+  },
+  'github:createRelease': async (rel: import('../shared/types').NewRelease) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.createRelease(or.owner, or.repo, rel)
+  },
+  'github:updateRelease': async (id: number, patch: import('../shared/types').EditRelease) => {
+      const or = await git.remoteOwnerRepo()
+      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+      return github.updateRelease(or.owner, or.repo, id, patch)
+    },
+  'github:deleteRelease': async (id: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.deleteRelease(or.owner, or.repo, id)
+  },
+  'github:runs': async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listWorkflowRuns(or.owner, or.repo)
+  },
+  'github:runJobs': async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.listWorkflowJobs(or.owner, or.repo, runId)
+  },
+  'github:rerun': async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.rerunWorkflow(or.owner, or.repo, runId)
+  },
+  'github:rerunFailed': async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.rerunFailedJobs(or.owner, or.repo, runId)
+  },
+  'github:cancelRun': async (runId: number) => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.cancelWorkflowRun(or.owner, or.repo, runId)
+  },
+  'github:rateLimit': () => github.getRateLimit(),
+  'github:gists': () => github.listGists(),
+  'github:createGist': (description: string, filename: string, content: string, isPublic: boolean) =>
+    github.createGist(description, filename, content, isPublic),
+  'github:insights': async () => {
+    const or = await git.remoteOwnerRepo()
+    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
+    return github.getRepoInsights(or.owner, or.repo)
+  },
+  'github:publish': async (name: string, description: string, isPrivate: boolean) => {
+    const root = git.getRepoPath()
+    if (!root) throw new Error('Inget repo är aktivt att publicera')
+    if (!github.hasToken()) throw new Error('Anslut till GitHub först')
+    const created = await github.createRepo(name.trim(), description, isPrivate)
+    await git.publishToGitHub(github.getToken(), created.cloneUrl, root)
+    watchWorkspace()
+    return created
+  },
+} satisfies IpcHandlerMap
+
+export function registerIpc(): void {
+  for (const [channel, fn] of Object.entries(handlers)) handle<unknown>(channel, fn)
+
+  // Kanaler som behöver avsändaren (e.sender) registreras direkt.
   // --- LSP (språkservrar) ---
   ipcMain.handle('lsp:ensure', (e, langId: string) => lsp.ensure(langId, e.sender))
   ipcMain.handle('lsp:request', (_e, langId: string, method: string, params: unknown) =>
@@ -202,9 +383,6 @@ export function registerIpc(): void {
     lsp.didChange(langId, uri, text, version)
   )
   ipcMain.on('lsp:didClose', (_e, langId: string, uri: string) => lsp.didClose(langId, uri))
-
-  // --- Installation av språkservrar ---
-  handle('langserver:list', () => langservers.list())
   ipcMain.handle('langserver:install', (e, id: string) => langservers.install(id, e.sender))
 
   // --- Terminal (strömmande, ej Result-kuvert) ---
@@ -215,195 +393,4 @@ export function registerIpc(): void {
     terminal.resizeTerminal(id, cols, rows)
   )
   ipcMain.on('terminal:kill', (_e, id: string) => terminal.killTerminal(id))
-
-  // --- GitHub ---
-  handle('github:hasToken', () => github.hasToken())
-  handle('github:setToken', (token: string) => github.setToken(token))
-  handle('github:signOut', () => github.signOut())
-  handle('github:getClientId', () => github.getClientId())
-  handle('github:setClientId', (id: string) => github.setClientId(id))
-  handle('github:deviceStart', () => github.deviceStart())
-  handle('github:devicePoll', (deviceCode: string, interval: number) =>
-    github.devicePoll(deviceCode, interval)
-  )
-  handle('github:user', () => github.getUser())
-  handle('github:repos', () => github.listRepos())
-  handle('github:pulls', async (state?: 'open' | 'closed' | 'all') => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listPullRequests(or.owner, or.repo, state)
-  })
-  handle('github:pr', async (number: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.getPullRequest(or.owner, or.repo, number)
-  })
-  handle('github:prFiles', async (number: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.getPullRequestFiles(or.owner, or.repo, number)
-  })
-  handle('github:checks', async (ref: string) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.getChecks(or.owner, or.repo, ref)
-  })
-  handle('github:createPr', async (title: string, body: string, base?: string) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    const status = await git.status()
-    const head = status.current
-    if (!head || head === '(detached)') throw new Error('Ingen aktuell branch att skapa PR från')
-    const baseBranch = base || (await github.getRepoDefaultBranch(or.owner, or.repo))
-    if (head === baseBranch) throw new Error(`Head och bas är samma branch (${head})`)
-    return github.createPullRequest(or.owner, or.repo, { title, body, head, base: baseBranch })
-  })
-  handle('github:defaultBranch', async () => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.getRepoDefaultBranch(or.owner, or.repo)
-  })
-  handle('github:issues', async (state?: 'open' | 'closed' | 'all') => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listIssues(or.owner, or.repo, state)
-  })
-  handle('github:issue', async (number: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.getIssue(or.owner, or.repo, number)
-  })
-  handle(
-    'github:createIssue',
-    async (title: string, body: string, labels?: string[], assignees?: string[]) => {
-      const or = await git.remoteOwnerRepo()
-      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-      return github.createIssue(or.owner, or.repo, title, body, labels, assignees)
-    }
-  )
-  handle('github:labels', async () => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listLabels(or.owner, or.repo)
-  })
-  handle(
-    'github:review',
-    async (number: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body: string) => {
-      const or = await git.remoteOwnerRepo()
-      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-      return github.createReview(or.owner, or.repo, number, event, body)
-    }
-  )
-  handle('github:mergePr', async (number: number, method: 'merge' | 'squash' | 'rebase') => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.mergePullRequest(or.owner, or.repo, number, method)
-  })
-  handle('github:issueComment', async (number: number, body: string) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.addIssueComment(or.owner, or.repo, number, body)
-  })
-  handle('github:setIssueState', async (number: number, state: 'open' | 'closed') => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.setIssueState(or.owner, or.repo, number, state)
-  })
-  handle('github:setPrState', async (number: number, state: 'open' | 'closed') => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.setPullState(or.owner, or.repo, number, state)
-  })
-  handle('github:issueComments', async (number: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listIssueComments(or.owner, or.repo, number)
-  })
-  handle('github:prReviews', async (number: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listPrReviews(or.owner, or.repo, number)
-  })
-  handle('github:assignees', async () => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listAssignees(or.owner, or.repo)
-  })
-  handle('git:checkoutPr', (number: number, branch: string) =>
-    git.checkoutPullRequest(number, branch)
-  )
-  handle('github:notifications', () => github.listNotifications())
-  handle('github:notificationCount', () => github.notificationCount())
-  handle('github:markNotifRead', (id: string) => github.markNotificationRead(id))
-  handle('github:searchRepos', (q: string) => github.searchRepositories(q))
-  handle('github:searchIssues', (q: string) => github.searchIssuesPrs(q))
-  handle('github:releases', async () => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listReleases(or.owner, or.repo)
-  })
-  handle('github:createRelease', async (rel: import('../shared/types').NewRelease) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.createRelease(or.owner, or.repo, rel)
-  })
-  handle(
-    'github:updateRelease',
-    async (id: number, patch: import('../shared/types').EditRelease) => {
-      const or = await git.remoteOwnerRepo()
-      if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-      return github.updateRelease(or.owner, or.repo, id, patch)
-    }
-  )
-  handle('github:deleteRelease', async (id: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.deleteRelease(or.owner, or.repo, id)
-  })
-  handle('github:runs', async () => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listWorkflowRuns(or.owner, or.repo)
-  })
-  handle('github:runJobs', async (runId: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.listWorkflowJobs(or.owner, or.repo, runId)
-  })
-  handle('github:rerun', async (runId: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.rerunWorkflow(or.owner, or.repo, runId)
-  })
-  handle('github:rerunFailed', async (runId: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.rerunFailedJobs(or.owner, or.repo, runId)
-  })
-  handle('github:cancelRun', async (runId: number) => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.cancelWorkflowRun(or.owner, or.repo, runId)
-  })
-  handle('github:rateLimit', () => github.getRateLimit())
-  handle('github:gists', () => github.listGists())
-  handle(
-    'github:createGist',
-    (description: string, filename: string, content: string, isPublic: boolean) =>
-      github.createGist(description, filename, content, isPublic)
-  )
-  handle('github:insights', async () => {
-    const or = await git.remoteOwnerRepo()
-    if (!or) throw new Error('Ingen GitHub-remote hittades för detta repo')
-    return github.getRepoInsights(or.owner, or.repo)
-  })
-  handle('github:publish', async (name: string, description: string, isPrivate: boolean) => {
-    const root = git.getRepoPath()
-    if (!root) throw new Error('Inget repo är aktivt att publicera')
-    if (!github.hasToken()) throw new Error('Anslut till GitHub först')
-    const created = await github.createRepo(name.trim(), description, isPrivate)
-    await git.publishToGitHub(github.getToken(), created.cloneUrl, root)
-    watchWorkspace()
-    return created
-  })
 }
