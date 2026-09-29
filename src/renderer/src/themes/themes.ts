@@ -181,8 +181,9 @@ export const themes: Theme[] = [
       border: '#073642',
       text: '#93a1a1',
       textMuted: '#839496',
-      accent: '#268bd2',
-      accentText: '#fdf6e3',
+      // Solarized-blått något mörkare + vit text: #268bd2 gav bara 3.4:1 för knapptext. Nu 4.7:1, och 3.2:1 mot bakgrunden.
+      accent: '#2178b6',
+      accentText: '#ffffff',
       added: '#859900',
       removed: '#dc322f',
       synKeyword: '#859900',
@@ -204,7 +205,8 @@ export const themes: Theme[] = [
       border: '#ddd6c1',
       text: '#586e75',
       textMuted: '#657b83',
-      accent: '#268bd2',
+      // Solarized-blått något mörkare: #268bd2 gav bara 3.4:1 för knapptext. Nu 4.7:1, även mot bakgrunden.
+      accent: '#2074af',
       accentText: '#fdf6e3',
       added: '#859900',
       removed: '#dc322f',
