@@ -74,10 +74,6 @@ export function matches(e: KeyboardEvent, id: string): boolean {
   return !!binding && combo === canon(binding)
 }
 
-export function currentBindings(): Record<string, string> {
-  return { ...bindings }
-}
-
 export function bindingFor(id: string): string {
   return bindings[id] ?? ''
 }

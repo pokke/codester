@@ -135,67 +135,6 @@
   font-size: var(--fs-sm);
 }
 
-/* Simultana per-repo källkontroll-sektioner (multi-root) */
-.multi-repo-changes {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.repo-section {
-  border-bottom: 1px solid var(--border);
-}
-.repo-section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  text-transform: none;
-  letter-spacing: 0;
-}
-.repo-section-header:hover {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-}
-.repo-section-header .repo-sec-name {
-  font-weight: 600;
-  font-size: var(--fs-sm);
-  color: var(--text);
-}
-.repo-section-header .repo-sec-count {
-  margin-left: auto;
-  font-size: var(--fs-xxs);
-  color: var(--text-muted);
-}
-.repo-section-header .ws-active-badge {
-  margin-left: 6px;
-}
-.repo-section-body {
-  padding-bottom: var(--space);
-}
-.repo-branch-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px var(--space);
-}
-.repo-branch-row .branch-select {
-  flex: 1;
-  min-width: 0;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2px 6px;
-  font-size: var(--fs-sm);
-}
-.commit-box.compact {
-  border-top: none;
-  padding: var(--space) calc(var(--space) * 1.5);
-  gap: 6px;
-}
-.commit-box.compact textarea {
-  min-height: 48px;
-}
-
 /* Redigerbar JSON-config i inställningar */
 .json-editor {
   width: 100%;

@@ -48,13 +48,3 @@ export function watchAll(paths: string[], sender: WebContents): void {
     watchers.set(p, w)
   }
 }
-
-export function stopWatch(): void {
-  for (const w of watchers.values()) w.close()
-  watchers.clear()
-  if (debounce) {
-    clearTimeout(debounce)
-    debounce = null
-  }
-  currentSender = null
-}
