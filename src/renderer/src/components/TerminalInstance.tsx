@@ -7,6 +7,7 @@ import '@xterm/xterm/css/xterm.css'
 import { useSettings } from '../settings/SettingsContext'
 import { useRepo } from '../state/RepoContext'
 import { useConfirm } from '../ui/Confirm'
+import { findTermLinks } from '../ui/terminalLinks'
 import { getTheme, type Theme } from '../themes/themes'
 
 function xtermTheme(t: Theme): Record<string, string> {
@@ -145,41 +146,27 @@ export function TerminalInstance({
     // (Bra för agentverktyg som Claude Code som skriver fil-referenser i utdata.)
     const linkProvider = term.registerLinkProvider({
       provideLinks(y, callback) {
-        const bufLine = term.buffer.active.getLine(y - 1)
-        if (!bufLine) {
+        const buf = term.buffer.active
+        if (!buf.getLine(y - 1)) {
           callback(undefined)
           return
         }
-        const text = bufLine.translateToString(false)
-        const links: ILink[] = []
-        const push = (index: number, len: number, activate: () => void): void => {
-          links.push({
-            range: { start: { x: index + 1, y }, end: { x: index + len, y } },
-            text: text.slice(index, index + len),
-            activate
-          })
-        }
-        let m: RegExpExecArray | null
-        // URL:er
-        const urlSpans: [number, number][] = []
-        const urlRe = /https?:\/\/[^\s<>"'`)\]}]+/g
-        while ((m = urlRe.exec(text))) {
-          const url = m[0]
-          urlSpans.push([m.index, m.index + url.length])
-          push(m.index, url.length, () => window.open(url))
-        }
-        // fil[:rad[:kol]] – kräver filändelse för att undvika brus, och hoppar
-        // träffar som ligger inuti en URL (t.ex. ".git" i en clone-url).
-        // Ändelsen måste börja med bokstav → undviker att versionsnummer som
-        // 3.14 eller v0.1.84 felaktigt blir "fil-länkar".
-        const fileRe = /(?<![\w/\\.:-])((?:[A-Za-z]:[\\/])?[\w.\-/\\]+\.[A-Za-z][A-Za-z0-9]*)(?::(\d+))?(?::(\d+))?/g
-        while ((m = fileRe.exec(text))) {
-          const start = m.index
-          if (urlSpans.some(([a, b]) => start >= a && start < b)) continue
-          const path = m[1]
-          const line = m[2] ? Number(m[2]) : undefined
-          push(start, m[0].length, () => openLinkRef.current(path, line))
-        }
+        // Den logiska raden: buffertrader som terminalen radbrutit är märkta
+        // isWrapped (= fortsättning på raden ovanför). Begränsat åt båda hållen.
+        let first = y - 1
+        while (first > 0 && buf.getLine(first)?.isWrapped && y - 1 - first < 50) first--
+        let last = y - 1
+        while (buf.getLine(last + 1)?.isWrapped && last - (y - 1) < 50) last++
+        const rows: string[] = []
+        for (let r = first; r <= last; r++) rows.push(buf.getLine(r)?.translateToString(false) ?? '')
+        const links: ILink[] = findTermLinks(rows, first + 1)
+          .filter((l) => l.start.y <= y && l.end.y >= y)
+          .map((l) => ({
+            range: { start: l.start, end: l.end },
+            text: l.text,
+            activate: () =>
+              l.kind === 'url' ? window.open(l.target) : openLinkRef.current(l.target, l.line)
+          }))
         callback(links.length ? links : undefined)
       }
     })
